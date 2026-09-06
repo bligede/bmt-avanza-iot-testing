@@ -156,19 +156,51 @@ void execute(char* line) {
                           "sog=%.1f km/h\r\n",
                           f.lat, f.lon, (unsigned)f.satellites,
                           (double)f.hdop, (double)f.speed_kmh);
-        } else if (GpsManager::isSilent()) {
-            Serial.println("fix=NO — and NO SENTENCES AT ALL from the module.");
-            Serial.println("  That is wiring or power, not sky view. Check");
-            Serial.println("  GPS TX -> GPIO18 and that the module has 3V3.");
         } else {
-            Serial.printf("fix=NO (searching) sats=%u quality=%u\r\n",
+            Serial.printf("fix=NO sats=%u quality=%u\r\n",
                           (unsigned)f.satellites, (unsigned)f.fix_quality);
         }
-        Serial.printf("sentences=%lu badcrc=%lu utc_valid=%s epoch=%llu\r\n",
+        Serial.printf("bytes=%lu lines=%lu gga_rmc=%lu badcrc=%lu "
+                      "utc_valid=%s epoch=%llu\r\n",
+                      (unsigned long)g.bytes_received,
+                      (unsigned long)g.lines_seen,
                       (unsigned long)g.sentences_ok,
                       (unsigned long)g.sentences_bad_checksum,
                       f.time_valid ? "yes" : "no",
                       (unsigned long long)f.epoch);
+
+        // Say what the numbers mean, in the order that narrows fastest.
+        // Judge by RATE. A NEO-6M at 9600 emits hundreds of bytes a second; a
+        // floating input picks up the odd spurious edge. Calling one stray byte
+        // "the module is talking" sends you to check a baud rate that is fine.
+        const uint32_t up_s = millis() / 1000U;
+        const uint32_t bps  = (up_s > 5) ? (g.bytes_received / up_s) : 0;
+
+        if (bps < 5) {
+            if (g.bytes_received == 0) {
+                Serial.println("-> NO BYTES at all on the wire.");
+            } else {
+                Serial.printf("-> Only %lu byte(s) in %lu s — that is line "
+                              "noise, not a module.\r\n",
+                              (unsigned long)g.bytes_received,
+                              (unsigned long)up_s);
+            }
+            Serial.println("   Wiring or power. GPS TX must reach GPIO18");
+            Serial.println("   (module TX -> ESP32 RX, not RX -> RX), and the");
+            Serial.println("   module needs 3V3 and GND. Baud is irrelevant");
+            Serial.println("   until a steady byte stream appears.");
+        } else if (g.lines_seen == 0) {
+            Serial.println("-> Steady byte stream, no complete lines.");
+            Serial.println("   Wrong baud: the module talks, we listen at 9600.");
+        } else if (g.sentences_ok == 0 && g.sentences_bad_checksum > 0) {
+            Serial.println("-> Lines arrive, every checksum fails. Baud close");
+            Serial.println("   but wrong, or a noisy line.");
+        } else if (g.sentences_ok == 0) {
+            Serial.println("-> Lines parse but none are GGA/RMC. The module");
+            Serial.println("   emits other sentence types only.");
+        } else if (!GpsManager::hasFreshFix()) {
+            Serial.println("-> Module healthy. No fix yet — needs sky view.");
+        }
 
     } else if (matches(line, "env")) {
         const EnvReading e = EnvironmentManager::reading();

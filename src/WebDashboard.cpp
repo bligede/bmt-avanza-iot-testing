@@ -149,7 +149,9 @@ This page is read-only. Avanza CAN IDs prove the <b>reading path</b> — they ar
     <div class="kv"><span>HDOP</span><span id="ghdop">–</span></div>
     <div class="kv"><span>ground speed</span><span id="gsog">–</span></div>
     <div class="kv"><span>UTC</span><span id="gutc">–</span></div>
-    <div class="kv"><span>sentences / bad CRC</span><span id="gsent">–</span></div>
+    <div class="kv"><span>bytes / lines</span><span id="gbytes">–</span></div>
+    <div class="kv"><span>GGA+RMC / bad CRC</span><span id="gsent">–</span></div>
+    <div class="sub" id="gdiag" style="margin-top:6px"></div>
     <div class="sub" style="margin-top:8px">
       Ground speed is the independent reference for any CAN speed candidate
       (Blueprint §9.1). Compare it against a field that tracks the dashboard.
@@ -243,7 +245,33 @@ function paint(d){
   $('gsog').textContent = g.fix ? g.sog.toFixed(1)+' km/h' : '—';
   $('gutc').textContent = g.time_valid && g.epoch
     ? new Date(g.epoch*1000).toISOString().replace('.000Z','Z') : '—';
+  $('gbytes').textContent = g.bytes.toLocaleString()+' / '+g.lines.toLocaleString();
   $('gsent').textContent = g.sentences.toLocaleString()+' / '+g.badcrc;
+  // The counters only matter as the conclusion they point to.
+  // Judge by RATE, not by "any byte at all". A NEO-6M at 9600 emits several
+  // hundred bytes a second; a floating input picks up the odd spurious edge.
+  // Treating one stray byte in two minutes as "the module is talking" sends a
+  // technician off to check baud rates that were never wrong.
+  const bps = d.uptime_s > 5 ? g.bytes / d.uptime_s : 0;
+  let gd='';
+  if(bps < 5)
+    gd=(g.bytes===0 ? 'NO BYTES at all' : 'ONLY '+g.bytes+' byte(s) in '+
+        d.uptime_s+'s — that is line noise, not a module') +
+       '. Wiring or power: GPS TX must reach GPIO18 (TX->RX, not RX->RX), '+
+       'and the module needs 3V3 and GND. Baud is irrelevant until a steady '+
+       'byte stream appears.';
+  else if(g.lines===0)
+    gd='Steady byte stream but no complete lines — wrong baud rate. The module '+
+       'is talking, we are listening at 9600.';
+  else if(g.sentences===0 && g.badcrc>0)
+    gd='Lines arrive but every checksum fails. Baud is close but wrong, or the '+
+       'signal is noisy.';
+  else if(g.sentences===0)
+    gd='Lines arrive and parse, but none are GGA or RMC. The module is emitting '+
+       'other sentence types only.';
+  else if(!g.fix)
+    gd='Module is healthy and talking. It just has no fix yet — needs sky view.';
+  $('gdiag').textContent=gd;
 
   const e=d.env, f=d.fan;
   $('et').innerHTML = !e.enabled ? '<span class="dim">disabled</span>'
@@ -386,7 +414,8 @@ void appendGps(Appender& j) {
     // Gulf of Guinea, not a way of saying "unknown".
     j.add("\"gps\":{\"fix\":%s,\"lat\":%.6f,\"lon\":%.6f,\"sats\":%u,"
           "\"hdop\":%.1f,\"sog\":%.1f,\"time_valid\":%s,\"epoch\":%llu,"
-          "\"sentences\":%lu,\"badcrc\":%lu,\"silent\":%s},",
+          "\"sentences\":%lu,\"badcrc\":%lu,\"silent\":%s,"
+          "\"bytes\":%lu,\"lines\":%lu},",
           fresh ? "true" : "false",
           fresh ? f.lat : 0.0, fresh ? f.lon : 0.0,
           (unsigned)f.satellites, (double)f.hdop, (double)f.speed_kmh,
@@ -394,7 +423,9 @@ void appendGps(Appender& j) {
           (unsigned long long)f.epoch,
           (unsigned long)g.sentences_ok,
           (unsigned long)g.sentences_bad_checksum,
-          GpsManager::isSilent() ? "true" : "false");
+          GpsManager::isSilent() ? "true" : "false",
+          (unsigned long)g.bytes_received,
+          (unsigned long)g.lines_seen);
 }
 
 void appendThermal(Appender& j) {

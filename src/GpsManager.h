@@ -26,6 +26,19 @@
 #include "NmeaParser.h"
 
 struct GpsStats {
+    // DIVERGENCE FROM THE FLEET FIRMWARE — worth porting back.
+    //
+    // Upstream counts only GGA/RMC (sentences_ok) and bad checksums. Anything
+    // else — a module at the wrong baud producing garbage, or one configured
+    // to emit only GSV/GSA/VTG — lands in the parser's "Ignored" bucket and is
+    // counted nowhere. The result reads as sentences_ok=0, bad_checksum=0:
+    // byte-for-byte identical to a module that is not wired at all.
+    //
+    // These two make that distinguishable, which is the difference between
+    // "check your wiring" and "check your baud rate".
+    uint32_t bytes_received;    // raw bytes off the UART, whatever they are
+    uint32_t lines_seen;        // complete lines, including ones we ignore
+
     uint32_t sentences_ok;
     uint32_t sentences_bad_checksum;
     uint32_t fixes;

@@ -43,6 +43,7 @@ bool poll() {
     int budget = 512;
     while (s_uart.available() > 0 && budget-- > 0) {
         const char c = static_cast<char>(s_uart.read());
+        ++s_stats.bytes_received;   // counted before any interpretation
 
         if (c == '\n' || c == '\r') {
             if (s_len == 0) continue;
@@ -59,6 +60,7 @@ bool poll() {
             const NmeaResult res = NmeaParser::apply(s_line, s_fix);
             s_len = 0;
             consumed = true;
+            ++s_stats.lines_seen;   // every complete line, including ignored ones
 
             switch (res) {
                 case NmeaResult::BadChecksum:
@@ -118,11 +120,17 @@ bool hasFreshFix() {
     return (millis() - s_stats.last_fix_ms) < GPS_STALE_FIX_MS;
 }
 
+// "Silent" means NO BYTES on the wire — a wiring or power fault.
+//
+// It deliberately does not mean "no GGA/RMC". A module at the wrong baud, or
+// one configured to emit only GSV/GSA/VTG, is talking perfectly well and needs
+// an entirely different fix. Conflating the two sends a technician to check
+// wiring that is already correct.
 bool isSilent() {
-    if (s_stats.sentences_ok == 0) {
+    if (s_stats.bytes_received == 0) {
         return millis() > GPS_FIX_TIMEOUT_MS;
     }
-    return (millis() - s_stats.last_sentence_ms) > GPS_FIX_TIMEOUT_MS;
+    return false;
 }
 
 GpsStats stats() { return s_stats; }
