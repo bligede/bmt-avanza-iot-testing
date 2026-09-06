@@ -44,265 +44,376 @@ inline void unlockRing() {
 // -----------------------------------------------------------------------------
 const char INDEX_HTML[] PROGMEM = R"HTMLPAGE(<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Avanza CAN Bring-Up</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2A2829">
+<title>BMT · CAN Bring-Up</title>
 <style>
-:root{--bg:#0e1116;--card:#171b22;--line:#252b36;--fg:#e6e9ef;--dim:#8b95a7;
---ok:#2ecc71;--warn:#f0b429;--err:#e74c3c;--acc:#4aa3ff}
+/* Bali Micro Technology — palette taken from balimicrotechnology.com.
+   Light surface on purpose: this is read on a phone inside a car, often in
+   direct sun, where a dark UI loses to glare.
+   #00E640 on bone is ~1.8:1, so green is never text here. It is a fill that
+   carries charcoal text (~8:1), a rule, or the mark. */
+:root{
+  --g:#00E640; --g-dk:#00B832;
+  --ink:#2A2829; --ink-2:#55524F; --ink-3:#8B8781;
+  --bone:#F5F5F0; --card:#FFFFFF; --line:#E2E1DA;
+  --warn:#8A5A00; --warn-bg:#FDF3DC;
+  --bad:#A32015;  --bad-bg:#FCE9E7;
+  --r:10px;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
-font:14px/1.45 ui-monospace,Menlo,Consolas,monospace}
-header{padding:12px 14px;border-bottom:1px solid var(--line);
-display:flex;flex-wrap:wrap;gap:10px;align-items:baseline}
-h1{font-size:15px;margin:0;font-weight:600}
-.sub{color:var(--dim);font-size:12px}
-.wrap{padding:12px;display:grid;gap:12px;
-grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
-.card{background:var(--card);border:1px solid var(--line);border-radius:8px;
-padding:12px;min-width:0}
-.card h2{font-size:11px;letter-spacing:.09em;text-transform:uppercase;
-color:var(--dim);margin:0 0 10px;font-weight:600}
-.kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;
-border-bottom:1px solid rgba(255,255,255,.04)}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bone);color:var(--ink);font:15px/1.5 var(--sans);
+  font-variant-numeric:tabular-nums;padding-bottom:env(safe-area-inset-bottom)}
+::selection{background:var(--g);color:var(--ink)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+
+/* ---- header ---- */
+header{background:var(--ink);color:var(--bone);padding:14px 18px;
+  display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.mk{width:34px;height:auto;flex:none}
+.wm{font-weight:700;letter-spacing:-.02em;line-height:1.15;font-size:13px}
+.wm b{color:var(--g);font-weight:700}
+.hs{margin-left:auto;display:flex;align-items:center;gap:7px;
+  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.hs .pip{width:7px;height:7px;border-radius:50%;background:var(--g);flex:none}
+.sub{width:100%;font-family:var(--mono);font-size:11.5px;color:#A5A29C;
+  letter-spacing:.01em}
+.sub a{color:#A5A29C}
+
+/* ---- verdict ---- */
+.verdict{padding:20px 18px 18px;border-bottom:1px solid var(--line)}
+.vh{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 10px}
+.vl{font-size:21px;font-weight:650;letter-spacing:-.025em;margin:0 0 4px;
+  line-height:1.25}
+.vl.bad{color:var(--bad)}
+.vl.warn{color:var(--warn)}
+.vw{font-size:13.5px;color:var(--ink-2);margin:0;max-width:62ch}
+.metrics{display:flex;flex-wrap:wrap;gap:0 26px;margin-top:16px;
+  font-family:var(--mono);font-size:12.5px}
+.metrics div{padding:2px 0}
+.metrics span{color:var(--ink-3)}
+.metrics b{font-weight:600}
+.metrics b.hot{color:var(--bad)}
+
+/* ---- panels ---- */
+main{padding:18px;display:grid;gap:18px;align-items:start;
+  grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+section{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  overflow:hidden;min-width:0}
+.sh{display:flex;align-items:baseline;gap:9px;padding:11px 14px;
+  border-bottom:1px solid var(--line)}
+.sh h2{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  margin:0}
+.sh .n{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-left:auto}
+.body{padding:12px 14px}
+.scroll{max-height:290px;overflow:auto;overscroll-behavior:contain}
+.scroll::-webkit-scrollbar{width:9px;height:9px}
+.scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+.scroll::-webkit-scrollbar-track{background:transparent}
+.scroll{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+
+/* ---- rows ---- */
+.kv{display:flex;justify-content:space-between;gap:14px;padding:6px 0;
+  border-bottom:1px solid #F0EFE9;font-size:13.5px}
 .kv:last-child{border-bottom:0}
-.kv span:first-child{color:var(--dim)}
-.kv span:last-child{text-align:right;word-break:break-all}
-.big{font-size:30px;font-weight:600;letter-spacing:-.5px}
-.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;
-font-weight:600;letter-spacing:.04em}
-.t-ok{background:rgba(46,204,113,.15);color:var(--ok)}
-.t-warn{background:rgba(240,180,41,.15);color:var(--warn)}
-.t-err{background:rgba(231,76,60,.15);color:var(--err)}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{text-align:left;color:var(--dim);font-weight:600;padding:4px 6px;
-border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card)}
-td{padding:3px 6px;border-bottom:1px solid rgba(255,255,255,.04);
-white-space:nowrap}
-.scroll{max-height:340px;overflow:auto}
-.idcol{color:var(--acc)}
-.dim{color:var(--dim)}
-.note{margin:12px 12px 0;padding:9px 12px;border-radius:8px;font-size:12px;
-background:rgba(74,163,255,.08);border:1px solid rgba(74,163,255,.25);
-color:#9dc7ff}
-footer{padding:10px 14px;color:var(--dim);font-size:11px;
-border-top:1px solid var(--line)}
+.kv>span:first-child{color:var(--ink-2);flex:none}
+.kv>span:last-child{font-family:var(--mono);font-size:12.5px;text-align:right;
+  word-break:break-word}
+
+/* ---- tables ---- */
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+th{position:sticky;top:0;background:var(--card);text-align:left;padding:7px 14px;
+  font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid var(--line)}
+td{padding:5px 14px;border-bottom:1px solid #F4F3ED;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.id{font-weight:600}
+td.num{text-align:right}
+.bar{display:block;height:3px;background:var(--g);border-radius:2px;min-width:2px}
+
+/* ---- badges / notes ---- */
+.tag{display:inline-block;padding:2px 8px;border-radius:5px;font-family:var(--sans);
+  font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.t-ok{background:var(--g);color:var(--ink)}
+.t-warn{background:var(--warn-bg);color:var(--warn)}
+.t-bad{background:var(--bad-bg);color:var(--bad)}
+.t-idle{background:#EDECE5;color:var(--ink-2)}
+.note{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:#FAFAF6;
+  border:1px solid var(--line);font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+.note.warn{background:var(--warn-bg);border-color:#F0DFB4;color:var(--warn)}
+.note.bad{background:var(--bad-bg);border-color:#F3CFC9;color:var(--bad)}
+.note b{color:inherit}
+.empty{padding:22px 14px;text-align:center;color:var(--ink-3);font-size:13px}
+.empty b{display:block;color:var(--ink-2);font-weight:600;margin-bottom:3px}
+
+footer{padding:14px 18px 22px;color:var(--ink-3);font-size:11.5px;
+  border-top:1px solid var(--line);display:flex;gap:14px;flex-wrap:wrap}
+footer .rule{flex:none;width:22px;height:3px;background:var(--g);border-radius:2px;
+  align-self:center}
+footer #ft{margin-left:auto}
+@media(max-width:520px){
+  main{padding:14px;gap:14px}
+  .verdict{padding:16px 14px 14px}
+  .vl{font-size:19px}
+  header{padding:12px 14px}
+}
 </style></head><body>
-<header><h1>Avanza CAN Bring-Up</h1><span class="sub" id="hdr">connecting…</span></header>
 
-<div class="note">
-Diagnostic tool. Device is <b>listen-only</b> and never transmits to the bus.
-This page is read-only. Avanza CAN IDs prove the <b>reading path</b> — they are
-<b>not</b> a signal map for the fleet vehicle.
-</div>
+<header>
+  <!-- BMT mark. Three parallel bars form the M; the slits between them are the
+       header ground showing through, which is how the real logo is built. A
+       one-colour mark stays legible at 34px, where the previous dark inner
+       stroke disappeared. -->
+  <svg class="mk" viewBox="0 0 123 90" aria-hidden="true">
+    <g fill="none" stroke="#00E640" stroke-width="27" stroke-linecap="round">
+      <path d="M14 76 48 14"/>
+      <path d="M54 76 88 14"/>
+      <path d="M94 76 109 48"/>
+    </g>
+  </svg>
+  <div class="wm">BALI <b>MICRO</b><br>TECHNOLOGY</div>
+  <div class="hs"><span class="pip" id="pip"></span><span id="hstat">connecting</span></div>
+  <div class="sub" id="sub">CAN bring-up · waiting for device</div>
+</header>
 
-<div class="wrap">
-  <div class="card">
-    <h2>CAN bus</h2>
-    <div class="big" id="rx">–</div>
-    <div class="sub" style="margin-bottom:10px">frames received</div>
-    <div class="kv"><span>state</span><span id="st">–</span></div>
-    <div class="kv"><span>bitrate</span><span id="rate">–</span></div>
-    <div class="kv"><span>listen-only</span><span id="lock">–</span></div>
-    <div class="kv"><span>rate now</span><span id="fps">–</span></div>
-    <div class="kv"><span>silence</span><span id="sil">–</span></div>
-    <div class="kv"><span>dropped (decode q)</span><span id="drop">–</span></div>
-    <div class="kv"><span>rx missed (driver)</span><span id="miss">–</span></div>
-    <div class="kv"><span>bus errors</span><span id="err">–</span></div>
-    <div class="kv"><span>recoveries</span><span id="rec">–</span></div>
-  </div>
-
-  <div class="card">
-    <h2>Distinct CAN IDs <span id="idn" class="dim"></span></h2>
-    <div class="scroll">
-      <table><thead><tr><th>ID</th><th>frames</th><th>share</th></tr></thead>
-      <tbody id="idt"><tr><td colspan="3" class="dim">waiting…</td></tr></tbody></table>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>Live frames</h2>
-    <div class="scroll">
-      <table><thead><tr><th>ms</th><th>ID</th><th>DLC</th><th>data</th></tr></thead>
-      <tbody id="frt"><tr><td colspan="4" class="dim">waiting…</td></tr></tbody></table>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>Capture</h2>
-    <div class="kv"><span>sink</span><span id="csink">–</span></div>
-    <div class="kv"><span>frames written</span><span id="cfr">–</span></div>
-    <div class="kv"><span>bytes written</span><span id="cby">–</span></div>
-    <div class="kv"><span>file</span><span id="cpath">–</span></div>
-    <div class="sub" style="margin-top:8px">
-      Pull with <code>cat &lt;file&gt;</code> on the serial console.<br><br>
-      <b>frames written &lt; frames received</b> means the flash writer is behind
-      the bus, so the file is a sample. Bus reception itself is unaffected —
-      <i>rx</i> above still counts every frame.
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>GNSS</h2>
-    <div class="kv"><span>fix</span><span id="gfix">–</span></div>
-    <div class="kv"><span>position</span><span id="gpos">–</span></div>
-    <div class="kv"><span>satellites</span><span id="gsat">–</span></div>
-    <div class="kv"><span>HDOP</span><span id="ghdop">–</span></div>
-    <div class="kv"><span>ground speed</span><span id="gsog">–</span></div>
-    <div class="kv"><span>UTC</span><span id="gutc">–</span></div>
-    <div class="kv"><span>bytes / lines</span><span id="gbytes">–</span></div>
-    <div class="kv"><span>GGA+RMC / bad CRC</span><span id="gsent">–</span></div>
-    <div class="sub" id="gdiag" style="margin-top:6px"></div>
-    <div class="sub" style="margin-top:8px">
-      Ground speed is the independent reference for any CAN speed candidate
-      (Blueprint §9.1). Compare it against a field that tracks the dashboard.
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>Thermal — for the fleet fan threshold</h2>
-    <div class="kv"><span>enclosure (DHT22)</span><span id="et">–</span></div>
-    <div class="kv"><span>humidity</span><span id="eh">–</span></div>
-    <div class="kv"><span>DHT reads ok / no-reply / CRC</span><span id="edx">–</span></div>
-    <div class="sub" id="ediag" style="margin-top:6px"></div>
-    <div class="kv"><span>fan sensor reading</span><span id="ft">–</span></div>
-    <div class="kv"><span>fan mode</span><span id="fm">–</span></div>
-    <div class="kv"><span>fan state</span><span id="fon">–</span></div>
-    <div class="kv"><span>run time</span><span id="frun">–</span></div>
-    <div class="kv"><span>on/off transitions</span><span id="ftr">–</span></div>
-    <div class="sub" style="margin-top:8px">
-      FAN_ON_TEMP / FAN_OFF_TEMP are still <b>placeholders</b>. Log the peak
-      enclosure temperature reached in a parked car — that is the measurement
-      the fleet threshold decision is waiting on.
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>System</h2>
-    <div class="kv"><span>unit</span><span id="unit">–</span></div>
-    <div class="kv"><span>firmware</span><span id="fw">–</span></div>
-    <div class="kv"><span>uptime</span><span id="up">–</span></div>
-    <div class="kv"><span>free heap</span><span id="heap">–</span></div>
-    <div class="kv"><span>WiFi</span><span id="wifi">–</span></div>
-    <div class="kv"><span>RSSI</span><span id="rssi">–</span></div>
+<div class="verdict">
+  <p class="vh">Bus status</p>
+  <p class="vl" id="vl">Contacting device…</p>
+  <p class="vw" id="vw"></p>
+  <div class="metrics">
+    <div><span>received </span><b id="m-rx">–</b></div>
+    <div><span>identifiers </span><b id="m-id">–</b></div>
+    <div><span>dropped </span><b id="m-drop">–</b></div>
+    <div><span>missed </span><b id="m-miss">–</b></div>
+    <div><span>bus errors </span><b id="m-err">–</b></div>
+    <div><span>bitrate </span><b id="m-rate">–</b></div>
   </div>
 </div>
 
-<footer id="foot">polling every 500 ms</footer>
+<main>
+  <section>
+    <div class="sh"><h2>Identifiers</h2><span class="n" id="idn"></span></div>
+    <div class="scroll" id="idwrap"></div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Live frames</h2><span class="n" id="frn"></span></div>
+    <div class="scroll" id="frwrap"></div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>GNSS</h2><span class="n" id="gn"></span></div>
+    <div class="body">
+      <div class="kv"><span>Position</span><span id="g-pos">–</span></div>
+      <div class="kv"><span>Ground speed</span><span id="g-sog">–</span></div>
+      <div class="kv"><span>Satellites / HDOP</span><span id="g-sat">–</span></div>
+      <div class="kv"><span>UTC</span><span id="g-utc">–</span></div>
+      <div class="kv"><span>Bytes / lines</span><span id="g-byt">–</span></div>
+      <div class="kv"><span>GGA+RMC / bad CRC</span><span id="g-sen">–</span></div>
+      <div id="g-note"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Thermal</h2><span class="n" id="tn"></span></div>
+    <div class="body">
+      <div class="kv"><span>Enclosure (DHT22)</span><span id="e-t">–</span></div>
+      <div class="kv"><span>Humidity</span><span id="e-h">–</span></div>
+      <div class="kv"><span>Fan sensor</span><span id="f-t">–</span></div>
+      <div class="kv"><span>Fan</span><span id="f-s">–</span></div>
+      <div class="kv"><span>Reads ok / no-reply / CRC</span><span id="e-c">–</span></div>
+      <div id="e-note"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Capture</h2><span class="n" id="cn"></span></div>
+    <div class="body">
+      <div class="kv"><span>Frames written</span><span id="c-f">–</span></div>
+      <div class="kv"><span>Size</span><span id="c-b">–</span></div>
+      <div class="kv"><span>File</span><span id="c-p">–</span></div>
+      <div id="c-note"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Device</h2></div>
+    <div class="body">
+      <div class="kv"><span>Unit</span><span id="s-u">–</span></div>
+      <div class="kv"><span>Firmware</span><span id="s-fw">–</span></div>
+      <div class="kv"><span>Uptime</span><span id="s-up">–</span></div>
+      <div class="kv"><span>Free heap</span><span id="s-hp">–</span></div>
+      <div class="kv"><span>WiFi</span><span id="s-wf">–</span></div>
+      <div class="kv"><span>Requests served</span><span id="s-rq">–</span></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span class="rule"></span>
+  <span>Listen-only diagnostic tool. Never transmits to the vehicle bus.</span>
+  <span id="ft"></span>
+</footer>
 
 <script>
 const $=i=>document.getElementById(i);
 const hex=(n,w)=>'0x'+n.toString(16).toUpperCase().padStart(w,'0');
 const tag=(t,c)=>'<span class="tag '+c+'">'+t+'</span>';
-let fails=0, prevRx=null, prevT=null;
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const note=(t,c)=>t?'<p class="note'+(c?' '+c:'')+'">'+t+'</p>':'';
+const empty=(h,b)=>'<div class="empty"><b>'+h+'</b>'+b+'</div>';
+let fails=0,prevRx=null,prevT=null;
 
 function paint(d){
-  const now=Date.now();
-  $('hdr').textContent=d.unit+' · '+d.ip+' · up '+d.uptime_s+'s';
-  $('rx').textContent=d.can.rx.toLocaleString();
-  $('st').innerHTML=d.can.running?tag('RUNNING','t-ok'):tag(d.can.state,'t-err');
-  $('rate').textContent=(d.can.bitrate/1000)+' kbps';
-  $('lock').innerHTML=d.can.listen_only?tag('LOCKED','t-ok'):tag('NOT LOCKED','t-err');
+  const c=d.can,g=d.gps,e=d.env,f=d.fan,cap=d.cap,now=Date.now();
 
-  if(prevRx!==null && now>prevT){
-    const fps=Math.round((d.can.rx-prevRx)*1000/(now-prevT));
-    $('fps').textContent=fps+' frames/s';
+  $('sub').textContent=d.unit+' · '+d.ip+' · '+d.fw;
+  $('hstat').textContent=c.listen_only?'listen-only':'UNLOCKED';
+  $('pip').style.background=c.listen_only?'var(--g)':'var(--bad)';
+
+  /* ---- verdict: a sentence, because the number alone answers nothing ---- */
+  let fps=null;
+  if(prevRx!==null&&now>prevT) fps=Math.round((c.rx-prevRx)*1000/(now-prevT));
+  prevRx=c.rx; prevT=now;
+
+  let vl,vw,cls='';
+  if(!c.running){
+    vl='CAN driver is down';
+    vw='The TWAI driver failed to start. Check the serial log — this is a '+
+       'firmware or wiring fault, not a quiet bus.'; cls='bad';
+  }else if(c.rx===0){
+    vl='No frames yet';
+    vw='The driver is running at '+(c.bitrate/1000)+' kbps in listen-only mode '+
+       'and has seen nothing. On a bench that is expected until a bus is '+
+       'attached. On a vehicle, check the 60 Ω across CANH–CANL first — and '+
+       'remember many cars keep the OBD-II channel silent until a scan tool asks.';
+  }else if(c.silence_ms>2000){
+    vl='Bus went quiet';
+    vw=c.rx.toLocaleString()+' frames arrived, then nothing for '+
+       Math.round(c.silence_ms/1000)+' s. The wiring was good, so this is the '+
+       'bus stopping rather than a fault — ignition off, or a connector moved.';
+    cls='warn';
+  }else{
+    /* Only state a rate once one has been measured. Two consecutive polls with
+       the same counter mean this sample caught no frame, not a dead bus —
+       silence_ms above is what decides that. */
+    vl='Reading the bus'+(fps?' · '+fps.toLocaleString()+' frames/s':'');
+    vw=c.rx.toLocaleString()+' frames from '+d.ids.length+
+       ' identifier'+(d.ids.length===1?'':'s')+'.'+
+       ((c.missed||c.drop)?' Some frames were lost — see the counters below.':'');
   }
-  prevRx=d.can.rx; prevT=now;
+  $('vl').className='vl '+cls;
+  $('vl').textContent=vl;
+  $('vw').textContent=vw;
 
-  $('sil').innerHTML = d.can.rx===0 ? tag('NO FRAMES YET','t-warn')
-    : (d.can.silence_ms>5000?tag(d.can.silence_ms+' ms','t-warn'):d.can.silence_ms+' ms');
-  $('drop').innerHTML=d.can.drop?tag(d.can.drop,'t-warn'):'0';
-  $('miss').innerHTML=d.can.missed?tag(d.can.missed,'t-warn'):'0';
-  $('err').innerHTML=d.can.err?tag(d.can.err,'t-err'):'0';
-  $('rec').textContent=d.can.rec;
+  $('m-rx').textContent=c.rx.toLocaleString();
+  $('m-id').textContent=d.ids.length;
+  $('m-drop').textContent=c.drop; $('m-drop').className=c.drop?'hot':'';
+  $('m-miss').textContent=c.missed; $('m-miss').className=c.missed?'hot':'';
+  $('m-err').textContent=c.err; $('m-err').className=c.err?'hot':'';
+  $('m-rate').textContent=(c.bitrate/1000)+' kbps';
 
-  $('idn').textContent='— '+d.ids.length;
-  const tot=d.ids.reduce((a,b)=>a+b.n,0)||1;
-  $('idt').innerHTML = d.ids.length
-    ? d.ids.slice().sort((a,b)=>b.n-a.n).map(x=>'<tr><td class="idcol">'+
-        hex(x.id,x.ext?8:3)+(x.ext?' <span class="dim">EXT</span>':'')+
-        '</td><td>'+x.n.toLocaleString()+'</td><td class="dim">'+
-        (100*x.n/tot).toFixed(1)+'%</td></tr>').join('')
-    : '<tr><td colspan="3" class="dim">none — bus silent, or not connected</td></tr>';
+  /* ---- identifiers ---- */
+  $('idn').textContent=d.ids.length?d.ids.length+' seen':'';
+  if(d.ids.length){
+    const tot=d.ids.reduce((a,b)=>a+b.n,0)||1;
+    const rows=d.ids.slice().sort((a,b)=>b.n-a.n).map(x=>{
+      const pct=100*x.n/tot;
+      return '<tr><td class="id">'+hex(x.id,x.ext?8:3)+'</td>'+
+        '<td class="num">'+x.n.toLocaleString()+'</td>'+
+        '<td class="num">'+pct.toFixed(1)+'%</td>'+
+        '<td style="width:34%"><i class="bar" style="width:'+
+        Math.max(2,pct).toFixed(1)+'%"></i></td></tr>';}).join('');
+    $('idwrap').innerHTML='<table><thead><tr><th>ID</th><th class="num">Frames</th>'+
+      '<th class="num">Share</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }else{
+    $('idwrap').innerHTML=empty('Nothing on the bus yet',
+      'Every ECU broadcasts its own identifier. A healthy vehicle bus shows tens of them.');
+  }
 
-  $('frt').innerHTML = d.frames.length
-    ? d.frames.map(f=>'<tr><td class="dim">'+f.t+'</td><td class="idcol">'+
-        hex(f.id,f.ext?8:3)+'</td><td>'+f.dlc+'</td><td>'+f.d+'</td></tr>').join('')
-    : '<tr><td colspan="4" class="dim">none yet</td></tr>';
+  /* ---- live frames ---- */
+  $('frn').textContent=d.frames.length?'last '+d.frames.length:'';
+  if(d.frames.length){
+    $('frwrap').innerHTML='<table><thead><tr><th>ms</th><th>ID</th><th>DLC</th>'+
+      '<th>Data</th></tr></thead><tbody>'+d.frames.map(fr=>
+      '<tr><td style="color:var(--ink-3)">'+fr.t+'</td><td class="id">'+
+      hex(fr.id,fr.ext?8:3)+'</td><td class="num">'+fr.dlc+'</td><td>'+
+      esc(fr.d)+'</td></tr>').join('')+'</tbody></table>';
+  }else{
+    $('frwrap').innerHTML=empty('No traffic',
+      'Frames appear here newest first. Watch the data bytes change as the vehicle moves — that is how you tell real signals from a stuck frame.');
+  }
 
-  const sinks=['off','serial','file','serial+file'];
-  $('csink').textContent=sinks[d.cap.sink]||d.cap.sink;
-  $('cfr').textContent=d.cap.frames.toLocaleString();
-  $('cby').textContent=(d.cap.bytes/1024).toFixed(1)+' KB';
-  $('cpath').textContent=d.cap.path||'–';
+  /* ---- GNSS ---- */
+  $('gn').innerHTML=g.fix?tag('fix','t-ok')
+    :(g.silent?tag('no data','t-bad'):tag('searching','t-warn'));
+  $('g-pos').textContent=g.fix?g.lat.toFixed(6)+', '+g.lon.toFixed(6):'—';
+  $('g-sog').textContent=g.fix?g.sog.toFixed(1)+' km/h':'—';
+  $('g-sat').textContent=g.sats+(g.hdop?' / '+g.hdop.toFixed(1):' / —');
+  $('g-utc').textContent=g.time_valid&&g.epoch
+    ? new Date(g.epoch*1000).toISOString().replace('.000Z','Z'):'—';
+  $('g-byt').textContent=g.bytes.toLocaleString()+' / '+g.lines.toLocaleString();
+  $('g-sen').textContent=g.sentences.toLocaleString()+' / '+g.badcrc;
+  let gt='',gc='';
+  if(g.silent){gc='bad';
+    gt=(g.bytes===0?'<b>No bytes at all</b> on the wire.':'<b>Only '+g.bytes+
+      ' byte(s) in '+d.uptime_s+' s</b> — line noise, not a module.')+
+      ' This is not searching. GPS TX must reach GPIO18 (module TX → ESP32 RX), '+
+      'and the module needs 3V3 and GND. Baud is irrelevant until a steady '+
+      'byte stream appears.';
+  }else if(g.lines===0){gc='warn';
+    gt='Steady byte stream but no complete lines — wrong baud rate. The module is talking; we listen at 9600.';
+  }else if(g.sentences===0&&g.badcrc>0){gc='warn';
+    gt='Lines arrive and every checksum fails. Baud close but wrong, or a noisy line.';
+  }else if(g.sentences===0){gc='warn';
+    gt='Lines parse but none are GGA or RMC. The module emits other sentence types only.';
+  }else if(!g.fix){
+    gt='Module is healthy and talking. No fix yet — it needs sky view.';
+  }
+  $('g-note').innerHTML=note(gt,gc);
 
-  const g=d.gps;
-  $('gfix').innerHTML = g.fix ? tag('FIX','t-ok')
-    : (g.silent ? tag('NO DATA FROM MODULE','t-err') : tag('SEARCHING','t-warn'));
-  $('gpos').textContent = g.fix ? (g.lat.toFixed(6)+', '+g.lon.toFixed(6)) : '—';
-  $('gsat').textContent = g.sats;
-  $('ghdop').textContent = g.hdop ? g.hdop.toFixed(1) : '—';
-  $('gsog').textContent = g.fix ? g.sog.toFixed(1)+' km/h' : '—';
-  $('gutc').textContent = g.time_valid && g.epoch
-    ? new Date(g.epoch*1000).toISOString().replace('.000Z','Z') : '—';
-  $('gbytes').textContent = g.bytes.toLocaleString()+' / '+g.lines.toLocaleString();
-  $('gsent').textContent = g.sentences.toLocaleString()+' / '+g.badcrc;
-  // The counters only matter as the conclusion they point to.
-  // g.silent is the firmware's rate-based verdict and is the SINGLE source of
-  // truth here. An earlier version computed a second opinion in this script,
-  // and the badge and the text below it could then disagree on the same panel.
-  let gd='';
-  if(g.silent)
-    gd=(g.bytes===0 ? 'NO BYTES at all' : 'ONLY '+g.bytes+' byte(s) in '+
-        d.uptime_s+'s — that is line noise, not a module') +
-       '. This is NOT searching. Wiring or power: GPS TX must reach GPIO18 '+
-       '(module TX -> ESP32 RX, not RX -> RX), and the module needs 3V3 and '+
-       'GND. Baud is irrelevant until a steady byte stream appears.';
-  else if(g.lines===0)
-    gd='Steady byte stream but no complete lines — wrong baud rate. The module '+
-       'is talking, we are listening at 9600.';
-  else if(g.sentences===0 && g.badcrc>0)
-    gd='Lines arrive but every checksum fails. Baud is close but wrong, or the '+
-       'signal is noisy.';
-  else if(g.sentences===0)
-    gd='Lines arrive and parse, but none are GGA or RMC. The module is emitting '+
-       'other sentence types only.';
-  else if(!g.fix)
-    gd='Module is healthy and talking. It just has no fix yet — needs sky view.';
-  $('gdiag').textContent=gd;
+  /* ---- thermal ---- */
+  $('tn').innerHTML=!e.enabled?tag('off','t-idle')
+    :(e.valid?tag('reading','t-ok'):tag('no reply','t-bad'));
+  $('e-t').textContent=e.enabled?(e.valid?e.t.toFixed(1)+' °C':'—'):'disabled';
+  $('e-h').textContent=(e.enabled&&e.valid)?e.h.toFixed(1)+' %RH':'—';
+  $('f-t').textContent=f.tvalid?f.t.toFixed(1)+' °C':'—';
+  $('f-s').innerHTML=f.mode+' · '+(f.on?tag('running','t-ok'):'off')+
+    ' · '+f.run_s+' s total';
+  $('e-c').textContent=e.ok+' / '+e.read_err+' / '+e.crc_err;
+  let et='',ec='';
+  if(!e.enabled) et='DHT22 is disabled in Config.h.';
+  else if(e.ok>0&&e.valid)
+    et='Enclosure air versus the SoC die is the measurement the fleet fan threshold is waiting on. Log the peak reached in a parked car.';
+  else if(e.read_err>0&&e.crc_err===0){ec='bad';
+    et='<b>Sensor never answers.</b> Zero checksum errors means this is not signal quality — it is power, pin, or module orientation. Measure 3V3 at the sensor pins and confirm DATA is on GPIO15.';
+  }else if(e.crc_err>0){ec='warn';
+    et='Sensor answers but the frame is corrupt — signal integrity: pull-up strength, wire length, or interference.';
+  }else et='No read attempted yet. The first sample lands about 10 s after boot.';
+  $('e-note').innerHTML=note(et,ec);
 
-  const e=d.env, f=d.fan;
-  $('et').innerHTML = !e.enabled ? '<span class="dim">disabled</span>'
-    : (e.valid ? e.t.toFixed(1)+' °C' : tag('NO READING','t-warn'));
-  $('eh').textContent = (e.enabled && e.valid) ? e.h.toFixed(1)+' %RH' : '—';
-  $('edx').textContent = e.ok+' / '+e.read_err+' / '+e.crc_err;
-  // Turn the counters into the conclusion they imply, so nobody has to
-  // remember which one means what at the side of a road.
-  let diag='';
-  if(!e.enabled) diag='DHT22 disabled in Config.h';
-  else if(e.ok>0 && e.valid) diag='';
-  else if(e.read_err>0 && e.crc_err===0)
-    diag='Sensor never answers. That is power, pin, or module orientation — '+
-         'not signal quality. Measure 3V3 at the sensor pins and confirm DATA is on GPIO15.';
-  else if(e.crc_err>0)
-    diag='Sensor answers but the frame is corrupt. That is signal integrity — '+
-         'pull-up strength, wire length, or interference.';
-  else if(e.ok===0 && e.read_err===0)
-    diag='No read attempted yet — first sample lands ~10 s after boot.';
-  $('ediag').textContent=diag;
-  $('ft').textContent = f.tvalid ? f.t.toFixed(1)+' °C' : '—';
-  $('fm').textContent = f.mode;
-  $('fon').innerHTML = f.on ? tag('RUNNING','t-ok') : '<span class="dim">off</span>';
-  $('frun').textContent = f.run_s+' s';
-  $('ftr').textContent = f.trans;
+  /* ---- capture ---- */
+  const sinks=['off','serial','file','serial + file'];
+  $('cn').innerHTML=cap.sink?tag(sinks[cap.sink]||cap.sink,'t-ok'):tag('off','t-idle');
+  $('c-f').textContent=cap.frames.toLocaleString();
+  $('c-b').textContent=(cap.bytes/1024).toFixed(1)+' KB';
+  $('c-p').textContent=cap.path||'—';
+  $('c-note').innerHTML=note(cap.frames<c.rx&&c.rx>0
+    ? '<b>Written is behind received.</b> The flash writer cannot keep up, so the file is a sample. Bus reception is unaffected — <i>received</i> above still counts every frame.'
+    : 'The page holds the last frames only. This file holds all of them, for analysis with can_find_value.py. Pull it with <b>cat</b> on the serial console.');
 
-  $('unit').textContent=d.unit;
-  $('fw').textContent=d.fw;
-  $('up').textContent=d.uptime_s+' s';
-  $('heap').textContent=(d.heap/1024).toFixed(1)+' KB';
-  $('wifi').textContent=d.wifi;
-  $('rssi').textContent=d.rssi?d.rssi+' dBm':'–';
-  $('foot').textContent='polling every 500 ms · '+d.reqs+' requests served';
+  /* ---- device ---- */
+  $('s-u').textContent=d.unit; $('s-fw').textContent=d.fw;
+  $('s-up').textContent=d.uptime_s<3600?d.uptime_s+' s'
+    :(d.uptime_s/3600).toFixed(1)+' h';
+  $('s-hp').textContent=(d.heap/1024).toFixed(1)+' KB';
+  $('s-wf').textContent=d.wifi+(d.rssi?' · '+d.rssi+' dBm':'');
+  $('s-rq').textContent=d.reqs.toLocaleString();
+  $('ft').textContent='refreshed every 500 ms';
 }
 
 async function tick(){
@@ -310,7 +421,14 @@ async function tick(){
     const r=await fetch('/api/state',{cache:'no-store'});
     if(!r.ok) throw new Error(r.status);
     paint(await r.json()); fails=0;
-  }catch(e){ if(++fails>2) $('hdr').textContent='connection lost — retrying…'; }
+  }catch(e){
+    if(++fails>2){
+      $('hstat').textContent='offline';
+      $('pip').style.background='var(--bad)';
+      $('vl').textContent='Lost contact with the device';
+      $('vw').textContent='The page is still retrying. Check that the phone is on the same network and the board still has power.';
+    }
+  }
 }
 tick(); setInterval(tick,500);
 </script></body></html>)HTMLPAGE";

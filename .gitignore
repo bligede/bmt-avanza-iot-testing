@@ -21,3 +21,6 @@ docs/evidence/**/*.tmp
 # ---- Editor / OS ------------------------------------------------------------
 .DS_Store
 *~
+
+# ---- Local design preview harness: not part of the firmware ----------------
+brand/
