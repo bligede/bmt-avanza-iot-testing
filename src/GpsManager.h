@@ -38,6 +38,7 @@ struct GpsStats {
     // "check your wiring" and "check your baud rate".
     uint32_t bytes_received;    // raw bytes off the UART, whatever they are
     uint32_t lines_seen;        // complete lines, including ones we ignore
+    uint32_t last_byte_ms;      // so a module that dies mid-session is caught
 
     uint32_t sentences_ok;
     uint32_t sentences_bad_checksum;

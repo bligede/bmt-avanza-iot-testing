@@ -170,13 +170,12 @@ void execute(char* line) {
                       (unsigned long long)f.epoch);
 
         // Say what the numbers mean, in the order that narrows fastest.
-        // Judge by RATE. A NEO-6M at 9600 emits hundreds of bytes a second; a
-        // floating input picks up the odd spurious edge. Calling one stray byte
-        // "the module is talking" sends you to check a baud rate that is fine.
+        // GpsManager::isSilent() is the single source of truth for "is there a
+        // module at all". Recomputing that judgement here would let the console
+        // and the dashboard disagree about the same board.
         const uint32_t up_s = millis() / 1000U;
-        const uint32_t bps  = (up_s > 5) ? (g.bytes_received / up_s) : 0;
 
-        if (bps < 5) {
+        if (GpsManager::isSilent()) {
             if (g.bytes_received == 0) {
                 Serial.println("-> NO BYTES at all on the wire.");
             } else {

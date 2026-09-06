@@ -248,18 +248,16 @@ function paint(d){
   $('gbytes').textContent = g.bytes.toLocaleString()+' / '+g.lines.toLocaleString();
   $('gsent').textContent = g.sentences.toLocaleString()+' / '+g.badcrc;
   // The counters only matter as the conclusion they point to.
-  // Judge by RATE, not by "any byte at all". A NEO-6M at 9600 emits several
-  // hundred bytes a second; a floating input picks up the odd spurious edge.
-  // Treating one stray byte in two minutes as "the module is talking" sends a
-  // technician off to check baud rates that were never wrong.
-  const bps = d.uptime_s > 5 ? g.bytes / d.uptime_s : 0;
+  // g.silent is the firmware's rate-based verdict and is the SINGLE source of
+  // truth here. An earlier version computed a second opinion in this script,
+  // and the badge and the text below it could then disagree on the same panel.
   let gd='';
-  if(bps < 5)
+  if(g.silent)
     gd=(g.bytes===0 ? 'NO BYTES at all' : 'ONLY '+g.bytes+' byte(s) in '+
         d.uptime_s+'s — that is line noise, not a module') +
-       '. Wiring or power: GPS TX must reach GPIO18 (TX->RX, not RX->RX), '+
-       'and the module needs 3V3 and GND. Baud is irrelevant until a steady '+
-       'byte stream appears.';
+       '. This is NOT searching. Wiring or power: GPS TX must reach GPIO18 '+
+       '(module TX -> ESP32 RX, not RX -> RX), and the module needs 3V3 and '+
+       'GND. Baud is irrelevant until a steady byte stream appears.';
   else if(g.lines===0)
     gd='Steady byte stream but no complete lines — wrong baud rate. The module '+
        'is talking, we are listening at 9600.';

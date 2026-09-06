@@ -44,6 +44,7 @@ bool poll() {
     while (s_uart.available() > 0 && budget-- > 0) {
         const char c = static_cast<char>(s_uart.read());
         ++s_stats.bytes_received;   // counted before any interpretation
+        s_stats.last_byte_ms = millis();
 
         if (c == '\n' || c == '\r') {
             if (s_len == 0) continue;
@@ -127,10 +128,22 @@ bool hasFreshFix() {
 // an entirely different fix. Conflating the two sends a technician to check
 // wiring that is already correct.
 bool isSilent() {
-    if (s_stats.bytes_received == 0) {
-        return millis() > GPS_FIX_TIMEOUT_MS;
-    }
-    return false;
+    const uint32_t up_s = millis() / 1000U;
+    if (up_s < 5) return false;              // too early to judge anything
+
+    // Judge by RATE, not by "any byte at all".
+    //
+    // A previous version returned false as soon as ONE byte had ever arrived.
+    // A floating RX pin picks up the odd spurious edge, so a single noise byte
+    // flipped the module from "not connected" to "searching" permanently — and
+    // the panel then contradicted its own diagnostic line underneath. A NEO-6M
+    // at 9600 emits several hundred bytes a second; anything under a few per
+    // second is noise, not a receiver.
+    if ((s_stats.bytes_received / up_s) < 5) return true;
+
+    // It was talking and then stopped — a module that lost power or a wire
+    // that came loose mid-session.
+    return (millis() - s_stats.last_byte_ms) > GPS_FIX_TIMEOUT_MS;
 }
 
 GpsStats stats() { return s_stats; }
