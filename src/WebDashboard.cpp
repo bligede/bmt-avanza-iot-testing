@@ -45,43 +45,49 @@ inline void unlockRing() {
 const char INDEX_HTML[] PROGMEM = R"HTMLPAGE(<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#2A2829">
+<meta name="theme-color" content="#0B0A0B">
 <title>BMT · CAN Bring-Up</title>
 <style>
-/* Bali Micro Technology — palette taken from balimicrotechnology.com.
-   Light surface on purpose: this is read on a phone inside a car, often in
-   direct sun, where a dark UI loses to glare.
-   #00E640 on bone is ~1.8:1, so green is never text here. It is a fill that
-   carries charcoal text (~8:1), a rule, or the mark. */
+/* Bali Micro Technology. Both colours are sampled from the logo file itself,
+   not from the website CSS: green #04FB2D and dark #373435.
+
+   Dark surface. The greys are warm — they carry the hue of the logo dark
+   rather than a neutral grey, so the mark sits in the page instead of on it.
+   On this ground #04FB2D reaches about 12:1, so unlike the light build green
+   is legible as text here. It is still spent sparingly: the mark, the bars,
+   one rule, and badges that need to be found at a glance. Everything a
+   technician reads line by line stays near-white, because a page of green on
+   black is a novelty, not an instrument. */
 :root{
-  --g:#00E640; --g-dk:#00B832;
-  --ink:#2A2829; --ink-2:#55524F; --ink-3:#8B8781;
-  --bone:#F5F5F0; --card:#FFFFFF; --line:#E2E1DA;
-  --warn:#8A5A00; --warn-bg:#FDF3DC;
-  --bad:#A32015;  --bad-bg:#FCE9E7;
+  --g:#04FB2D; --g-dk:#02C224;
+  --ink:#EDEAE5; --ink-2:#A9A39C; --ink-3:#8F8880;
+  --bg:#141314; --card:#1D1B1C; --hdr:#0B0A0B;
+  --line:#302C2E; --line-2:#262324;
+  --warn:#F2B233; --warn-bg:#2A1F0C; --warn-line:#4A3714;
+  --bad:#FF7566;  --bad-bg:#2C1614; --bad-line:#4E2320;
   --r:10px;
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bone);color:var(--ink);font:15px/1.5 var(--sans);
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);
   font-variant-numeric:tabular-nums;padding-bottom:env(safe-area-inset-bottom)}
-::selection{background:var(--g);color:var(--ink)}
+::selection{background:var(--g);color:var(--hdr)}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
 
 /* ---- header ---- */
-header{background:var(--ink);color:var(--bone);padding:14px 18px;
+header{background:var(--hdr);color:var(--ink);padding:14px 18px;
   display:flex;align-items:center;gap:13px;flex-wrap:wrap}
-.mk{width:34px;height:auto;flex:none}
+.mk{width:40px;height:auto;flex:none}
 .wm{font-weight:700;letter-spacing:-.02em;line-height:1.15;font-size:13px}
 .wm b{color:var(--g);font-weight:700}
 .hs{margin-left:auto;display:flex;align-items:center;gap:7px;
   font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
 .hs .pip{width:7px;height:7px;border-radius:50%;background:var(--g);flex:none}
-.sub{width:100%;font-family:var(--mono);font-size:11.5px;color:#A5A29C;
+.sub{width:100%;font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
   letter-spacing:.01em}
-.sub a{color:#A5A29C}
+.sub a{color:var(--ink-3)}
 
 /* ---- verdict ---- */
 .verdict{padding:20px 18px 18px;border-bottom:1px solid var(--line)}
@@ -118,7 +124,7 @@ section{background:var(--card);border:1px solid var(--line);border-radius:var(--
 
 /* ---- rows ---- */
 .kv{display:flex;justify-content:space-between;gap:14px;padding:6px 0;
-  border-bottom:1px solid #F0EFE9;font-size:13.5px}
+  border-bottom:1px solid var(--line-2);font-size:13.5px}
 .kv:last-child{border-bottom:0}
 .kv>span:first-child{color:var(--ink-2);flex:none}
 .kv>span:last-child{font-family:var(--mono);font-size:12.5px;text-align:right;
@@ -129,7 +135,7 @@ table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px
 th{position:sticky;top:0;background:var(--card);text-align:left;padding:7px 14px;
   font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.07em;
   text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid var(--line)}
-td{padding:5px 14px;border-bottom:1px solid #F4F3ED;white-space:nowrap}
+td{padding:5px 14px;border-bottom:1px solid var(--line-2);white-space:nowrap}
 tr:last-child td{border-bottom:0}
 td.id{font-weight:600}
 td.num{text-align:right}
@@ -138,14 +144,14 @@ td.num{text-align:right}
 /* ---- badges / notes ---- */
 .tag{display:inline-block;padding:2px 8px;border-radius:5px;font-family:var(--sans);
   font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
-.t-ok{background:var(--g);color:var(--ink)}
+.t-ok{background:var(--g);color:var(--hdr)}
 .t-warn{background:var(--warn-bg);color:var(--warn)}
 .t-bad{background:var(--bad-bg);color:var(--bad)}
-.t-idle{background:#EDECE5;color:var(--ink-2)}
-.note{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:#FAFAF6;
+.t-idle{background:#2A2628;color:var(--ink-2)}
+.note{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:#232021;
   border:1px solid var(--line);font-size:12.5px;line-height:1.5;color:var(--ink-2)}
-.note.warn{background:var(--warn-bg);border-color:#F0DFB4;color:var(--warn)}
-.note.bad{background:var(--bad-bg);border-color:#F3CFC9;color:var(--bad)}
+.note.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
+.note.bad{background:var(--bad-bg);border-color:var(--bad-line);color:var(--bad)}
 .note b{color:inherit}
 .empty{padding:22px 14px;text-align:center;color:var(--ink-3);font-size:13px}
 .empty b{display:block;color:var(--ink-2);font-weight:600;margin-bottom:3px}
@@ -164,15 +170,22 @@ footer #ft{margin-left:auto}
 </style></head><body>
 
 <header>
-  <!-- BMT mark. Three parallel bars form the M; the slits between them are the
-       header ground showing through, which is how the real logo is built. A
-       one-colour mark stays legible at 34px, where the previous dark inner
-       stroke disappeared. -->
-  <svg class="mk" viewBox="0 0 123 90" aria-hidden="true">
-    <g fill="none" stroke="#00E640" stroke-width="27" stroke-linecap="round">
-      <path d="M14 76 48 14"/>
-      <path d="M54 76 88 14"/>
-      <path d="M94 76 109 48"/>
+  <!-- BMT mark, traced from BMT.png rather than drawn by eye. The three
+       strokes are 45-degree capsules of equal width; the third is cut by the
+       artboard edge, which is why its right side is flat.
+
+       The source art also carries a dark parallelogram in the gap between the
+       first and second stroke. It is not reproduced: on a dark ground it would
+       be the ground, which is exactly what BMT do in their own dark-background
+       icon. On a light surface this mark would need that shape back.
+
+       stroke-linejoin rounds the traced corners back into the caps the logo
+       has, at a width small enough not to thicken the strokes. -->
+  <svg class="mk" viewBox="-1 -1 138 85" aria-hidden="true">
+    <g fill="var(--g)" stroke="var(--g)" stroke-width="1.4" stroke-linejoin="round">
+      <path d="M65 0 60 2 2 60 0 71 5 79 10 81 21 79 79 21 81 16 79 6 73 1Z"/>
+      <path d="M118 1 56 61 54 70 60 80 67 82 75 80 133 22 135 18 133 6 126 1Z"/>
+      <path d="M134 26 102 59 102 71 112 81 124 81 134 72Z"/>
     </g>
   </svg>
   <div class="wm">BALI <b>MICRO</b><br>TECHNOLOGY</div>
