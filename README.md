@@ -118,7 +118,7 @@ Must print `LISTEN-ONLY GATE: PASS`. Do not flash a build that fails it.
 | CAN TX | GPIO5 | SN65HVD230 `D` — never driven in listen-only |
 | CAN RX | GPIO4 | SN65HVD230 `R` |
 | GPS RX | GPIO18 | ← GY-GPS6MV2 TX |
-| GPS TX | GPIO19 | → GY-GPS6MV2 RX (optional) |
+| GPS TX | — | **not connected** — GPIO19 is USB_D− on the ESP32-S3. Firmware only listens to NMEA |
 | DHT22 | GPIO15 | DATA |
 | Fan | GPIO13 | → 330 Ω → IRLZ44N gate |
 | LED red | GPIO21 | via resistor |
@@ -205,7 +205,28 @@ Power up, open the serial monitor at 115200. Once WiFi connects:
 
 Open that URL on the phone.
 
+### LED indicators
+
+800 ms cycle. Highest-priority state wins.
+
+**Red means something is broken. Red does NOT mean "waiting".**
+
+| Pattern | Meaning | What to do |
+|---|---|---|
+| 🔴🟢 alternating | booting | wait ~0.5 s |
+| 🔴 **solid** | filesystem dead | LittleFS would not mount |
+| 🔴 **fast blink** | **CAN driver failed** | wiring, or `twai_driver_install` failed — check the log |
+| 🟢 **heartbeat** (2 short flashes) | **CAN frames arriving** — the goal | nothing, this is success |
+| 🟢 steady with a **brief red wink** | GPS is talking but has no fix yet | wait, or get sky view |
+| 🟢 **fast blink** | WiFi connecting | wait, or check SSID/2.4 GHz |
+| 🟢 **slow blink** | WiFi up, **no CAN frames yet** | normal on a bench with no bus attached |
+
+A bench board with WiFi up and nothing on CANH/CANL shows the **slow green
+blink**. That is the correct idle state, not a fault.
+
 ### Dashboard
+
+
 
 | Panel | What matters |
 |---|---|

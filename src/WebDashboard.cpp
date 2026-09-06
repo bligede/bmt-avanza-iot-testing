@@ -160,6 +160,8 @@ This page is read-only. Avanza CAN IDs prove the <b>reading path</b> — they ar
     <h2>Thermal — for the fleet fan threshold</h2>
     <div class="kv"><span>enclosure (DHT22)</span><span id="et">–</span></div>
     <div class="kv"><span>humidity</span><span id="eh">–</span></div>
+    <div class="kv"><span>DHT reads ok / no-reply / CRC</span><span id="edx">–</span></div>
+    <div class="sub" id="ediag" style="margin-top:6px"></div>
     <div class="kv"><span>fan sensor reading</span><span id="ft">–</span></div>
     <div class="kv"><span>fan mode</span><span id="fm">–</span></div>
     <div class="kv"><span>fan state</span><span id="fon">–</span></div>
@@ -247,6 +249,21 @@ function paint(d){
   $('et').innerHTML = !e.enabled ? '<span class="dim">disabled</span>'
     : (e.valid ? e.t.toFixed(1)+' °C' : tag('NO READING','t-warn'));
   $('eh').textContent = (e.enabled && e.valid) ? e.h.toFixed(1)+' %RH' : '—';
+  $('edx').textContent = e.ok+' / '+e.read_err+' / '+e.crc_err;
+  // Turn the counters into the conclusion they imply, so nobody has to
+  // remember which one means what at the side of a road.
+  let diag='';
+  if(!e.enabled) diag='DHT22 disabled in Config.h';
+  else if(e.ok>0 && e.valid) diag='';
+  else if(e.read_err>0 && e.crc_err===0)
+    diag='Sensor never answers. That is power, pin, or module orientation — '+
+         'not signal quality. Measure 3V3 at the sensor pins and confirm DATA is on GPIO15.';
+  else if(e.crc_err>0)
+    diag='Sensor answers but the frame is corrupt. That is signal integrity — '+
+         'pull-up strength, wire length, or interference.';
+  else if(e.ok===0 && e.read_err===0)
+    diag='No read attempted yet — first sample lands ~10 s after boot.';
+  $('ediag').textContent=diag;
   $('ft').textContent = f.tvalid ? f.t.toFixed(1)+' °C' : '—';
   $('fm').textContent = f.mode;
   $('fon').innerHTML = f.on ? tag('RUNNING','t-ok') : '<span class="dim">off</span>';
@@ -386,10 +403,19 @@ void appendThermal(Appender& j) {
 
     // Both temperatures, deliberately. The gap between enclosure air and the
     // SoC die is the number the fleet's unresolved fan-threshold TODO needs.
-    j.add("\"env\":{\"enabled\":%s,\"valid\":%s,\"t\":%.1f,\"h\":%.1f},",
+    // The counters, not just the value. read_errors and checksum_errors are what
+    // separate "the sensor never answered" (power, pin, seating) from "it
+    // answered and the frame was corrupt" (pull-up, cable, timing). Without
+    // them a device mounted in an enclosure cannot be diagnosed at all.
+    const EnvStats es = EnvironmentManager::stats();
+    j.add("\"env\":{\"enabled\":%s,\"valid\":%s,\"t\":%.1f,\"h\":%.1f,"
+          "\"ok\":%lu,\"read_err\":%lu,\"crc_err\":%lu},",
           EnvironmentManager::isEnabled() ? "true" : "false",
           e.valid ? "true" : "false",
-          (double)e.temperature_c, (double)e.humidity_pct);
+          (double)e.temperature_c, (double)e.humidity_pct,
+          (unsigned long)es.reads_ok,
+          (unsigned long)es.read_errors,
+          (unsigned long)es.checksum_errors);
     j.add("\"fan\":{\"mode\":\"%s\",\"on\":%s,\"t\":%.1f,\"tvalid\":%s,"
           "\"run_s\":%lu,\"trans\":%lu},",
           FanManager::modeName(f.mode), f.running ? "true" : "false",

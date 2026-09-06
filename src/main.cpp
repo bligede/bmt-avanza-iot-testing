@@ -156,11 +156,42 @@ static void taskHousekeeping(void*) {
             FanManager::poll();
         }
 
-        const bool can_up = CanManager::state() == CanState::Running;
-        const bool alive  = CanManager::isAlive();
-        StatusLed::set(LedStatus::Boot, false);
-        StatusLed::set(LedStatus::CanOk, can_up && alive);
-        StatusLed::set(LedStatus::CanError, !can_up || !alive);
+        // ---- LED mapping for this diagnostic build --------------------------
+        // StatusLed is copied verbatim from the fleet firmware, so the state
+        // NAMES below are the fleet's. What each one MEANS here is defined by
+        // this mapping and by the table in README.md.
+        //
+        // The rule: RED means something is broken. It does NOT mean "waiting".
+        // An earlier version lit CanError whenever no frames were arriving,
+        // which on a bench with no bus attached is always — so the LED sat
+        // solid red and told you nothing about WiFi or GPS. Now "no frames
+        // yet" falls through to the WiFi/GPS states, and red is reserved for a
+        // CAN driver that actually failed.
+        //
+        // Highest priority wins:
+        //   SystemError     filesystem dead        solid red
+        //   CanError        CAN driver down        fast red blink
+        //   CanOk           CAN frames arriving    green heartbeat
+        //   GpsNoFix        GPS talking, no fix    green + red wink
+        //   ModemConnecting WiFi connecting        fast green blink
+        //   NetworkOk       WiFi up, no CAN yet    slow green blink
+        const bool can_up   = CanManager::state() == CanState::Running;
+        const bool can_live = can_up && CanManager::isAlive();
+        const WifiState ws  = WifiManager::state();
+        const bool wifi_try = (ws == WifiState::Connecting ||
+                               ws == WifiState::Reconnecting);
+        // "GPS talking" = sentences have been seen. A module that is not wired
+        // at all should not claim a GPS fault; it simply never appears.
+        const bool gps_talking = ENABLE_GPS && !GpsManager::isSilent() &&
+                                 GpsManager::stats().sentences_ok > 0;
+
+        StatusLed::set(LedStatus::Boot,            false);
+        StatusLed::set(LedStatus::CanError,        !can_up);
+        StatusLed::set(LedStatus::CanOk,           can_live);
+        StatusLed::set(LedStatus::GpsNoFix,        gps_talking &&
+                                                   !GpsManager::hasFreshFix());
+        StatusLed::set(LedStatus::ModemConnecting, wifi_try);
+        StatusLed::set(LedStatus::NetworkOk,       WifiManager::isConnected());
 
         const uint32_t now = millis();
         if (now - last_report >= 30000) {
