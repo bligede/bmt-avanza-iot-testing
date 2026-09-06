@@ -1,0 +1,22 @@
+# =============================================================================
+#  avanza_test.csv — partition table for the Avanza bring-up build (8 MB flash)
+#
+#  There is no OTA in this firmware, so the second app slot is dropped and the
+#  space goes to LittleFS. Captures are the point of this device; give them
+#  room.
+#
+#      nvs        20 KB
+#      otadata     8 KB   (kept so the bootloader layout stays conventional)
+#      app0     2048 KB   the firmware
+#      spiffs   5992 KB   LittleFS — raw CAN captures
+#
+#  Rough capacity: a capture line is ~45 bytes. 5.9 MB holds roughly 130,000
+#  frames. A busy bus at 1,000 frame/s fills that in about two minutes, so for
+#  a long session either raise RAWLOG_MAX_BYTES awareness or pull and clear
+#  captures between runs. The console reports bytes written as you go.
+# =============================================================================
+# Name,   Type, SubType,  Offset,   Size,     Flags
+nvs,      data, nvs,      0x9000,   0x5000,
+otadata,  data, ota,      0xe000,   0x2000,
+app0,     app,  factory,  0x10000,  0x200000,
+spiffs,   data, spiffs,   0x210000, 0x5DA000,

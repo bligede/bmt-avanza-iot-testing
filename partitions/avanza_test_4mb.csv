@@ -1,0 +1,19 @@
+# =============================================================================
+#  avanza_test_4mb.csv — for a 4 MB ESP32-S3 board.
+#
+#  Use this ONLY if your board has 4 MB. Set both of these in platformio.ini:
+#      board_build.partitions  = partitions/avanza_test_4mb.csv
+#      board_upload.flash_size = 4MB
+#
+#      nvs        20 KB
+#      otadata     8 KB
+#      app0     1856 KB   the firmware
+#      spiffs   2176 KB   LittleFS — raw CAN captures
+#
+#  Roughly 50,000 capture lines. Pull and clear between runs.
+# =============================================================================
+# Name,   Type, SubType,  Offset,   Size,     Flags
+nvs,      data, nvs,      0x9000,   0x5000,
+otadata,  data, ota,      0xe000,   0x2000,
+app0,     app,  factory,  0x10000,  0x1D0000,
+spiffs,   data, spiffs,   0x1E0000, 0x220000,
