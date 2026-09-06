@@ -1,0 +1,87 @@
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+ESP-ROM:esp32s3-20210327
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+     188 ms [INFO ] [BOOT] Avanza CAN Bring-Up 0.1.0
+     188 ms [INFO ] [BOOT] Chip ESP32-S3 rev 0, 240 MHz, 16384 KB flash
+     188 ms [INFO ] [BOOT] Heap 324484 B
+     198 ms [INFO ] [BOOT] ----------------------------------------------------
+     208 ms [INFO ] [BOOT] CAN MODE: LISTEN ONLY (permanent, enforced at build time)
+     209 ms [INFO ] [BOOT] This device never transmits to the vehicle bus.
+     219 ms [INFO ] [BOOT] ----------------------------------------------------
+     229 ms [WARN ] [BOOT] DIAGNOSTIC FIRMWARE — bring-up only.
+     229 ms [WARN ] [BOOT] Not the fleet firmware. No modem, no MQTT, no decoding.
+     239 ms [WARN ] [BOOT] ----------------------------------------------------
+     250 ms [INFO ] [LED] Ready (RED=GPIO21 GREEN=GPIO47)
+     250 ms [INFO ] [CONSOLE] Console ready — type 'help'
+     260 ms [INFO ] [BUTTON] GPIO0 ready (RESERVED — status display only)
+     260 ms [INFO ] [BOOT] Mounting LittleFS...
+     281 ms [INFO ] [BOOT] LittleFS 14272 KB total, 16 KB used
+     281 ms [INFO ] [CAN] Initializing...
+     282 ms [INFO ] [CAN] Driver initialized
+     292 ms [INFO ] [CAN] Bitrate: 500000
+     292 ms [INFO ] [CAN] Mode: LISTEN_ONLY
+     292 ms [INFO ] [CAN] TX: DISABLED (listen-only)
+     302 ms [INFO ] [CAN] Pins: TX=GPIO5 RX=GPIO4, listen-only locked: YES
+     325 ms [INFO ] [RAWLOG] Capturing to /capture/can-000.log
+     325 ms [INFO ] [BOOT] CAN acquisition is running. Everything below is optional to it.
+     335 ms [INFO ] [GPS] Initializing...
+     335 ms [INFO ] [CAN] Reader task running on core 0
+     346 ms [INFO ] [GPS] UART2 @ 9600 baud, RX=GPIO18, TX not connected (receive only)
+     346 ms [INFO ] [GPS] No fix yet — lat/lon report invalid until one is acquired
+     356 ms [INFO ] [ENV] DHT22 on GPIO15, sampling every 10000 ms
+     367 ms [INFO ] [ENV] Not in the production payload (Blueprint §7.1 does not list it)
+     367 ms [INFO ] [FAN] Ready on GPIO13, mode AUTO
+     377 ms [WARN ] [FAN] Thresholds are PLACEHOLDERS: on 60.0 C / off 52.0 C — TODO: VALIDASI TERMAL
+     388 ms [WARN ] [WIFI] DIAGNOSTIC WiFi enabled. This is NOT the production uplink.
+     388 ms [INFO ] [WIFI] Connecting to SSID 'avanza-test'
+     398 ms [INFO ] [WIFI] DISABLED -> IDLE
+     451 ms [INFO ] [WIFI] IDLE -> CONNECTING
+     451 ms [INFO ] [WEB] Dashboard on port 80 — read-only
+     452 ms [INFO ] [GPS] Task running on core 1
+     462 ms [INFO ] [RAWLOG] Storage task running on core 1
+     462 ms [INFO ] [SYSTEM] Housekeeping task running on core 1
+     472 ms [INFO ] [WEB] Dashboard task running on core 1
+     473 ms [INFO ] [WDT] Armed at 10000 ms, panic on timeout: yes
+     483 ms [INFO ] [WDT] Previous reset: power on
+     483 ms [INFO ] [SYSTEM] READY
+     483 ms [INFO ] [SYSTEM] CAN=OK fs=OK capture=ON
+     493 ms [INFO ] [SYSTEM] Type 'help' on this console. Dashboard URL appears once WiFi connects.
+   20474 ms [WARN ] [WIFI] Connect timed out (failure 1) — retrying in 5000 ms
+   20475 ms [INFO ] [WIFI] CONNECTING -> IDLE
+   25482 ms [INFO ] [WIFI] IDLE -> CONNECTING
+   30032 ms [INFO ] [STATUS] ------------ Avanza CAN Bring-Up 0.1.0 ------------
+   30033 ms [INFO ] [STATUS] unit=AVANZA-TEST-01 uptime=30 s heap=227312 B reset=power on
+   30043 ms [INFO ] [STATUS] CAN   RUNNING @ 500 kbps LISTEN-ONLY=LOCKED
+   30043 ms [INFO ] [STATUS]       rx=0 drop=0 missed=0 err=0 rec=0 ids=0 silence=no frames yet
+   30053 ms [INFO ] [STATUS] CAP   sink=2 frames=0 bytes=0 path=/capture/can-000.log
+   30064 ms [INFO ] [STATUS] GPS   fix=NO sats=0 sog=0.0 km/h sentences=0 badcrc=0
+   30074 ms [INFO ] [STATUS] TEMP  enclosure=-- fan_sensor=44.0 C fan=AUTO/OFF run=0 s
+   30074 ms [INFO ] [STATUS] WIFI  CONNECTING ip=0.0.0.0 rssi=0 dBm  web_requests=0
+   30085 ms [INFO ] [STATUS] ----------------------------------------------------

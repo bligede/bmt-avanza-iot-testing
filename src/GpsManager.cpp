@@ -26,8 +26,13 @@ void begin() {
     s_len = 0;
 
     s_uart.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+#if GPS_TX_PIN >= 0
     LOG_I(TAG, "UART%d @ %d baud, RX=GPIO%d TX=GPIO%d",
           GPS_UART_NUM, GPS_BAUD, GPS_RX_PIN, GPS_TX_PIN);
+#else
+    LOG_I(TAG, "UART%d @ %d baud, RX=GPIO%d, TX not connected (receive only)",
+          GPS_UART_NUM, GPS_BAUD, GPS_RX_PIN);
+#endif
     LOG_I(TAG, "No fix yet — lat/lon report invalid until one is acquired");
 }
 

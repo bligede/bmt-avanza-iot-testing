@@ -1,0 +1,25 @@
+# =============================================================================
+#  avanza_test_16mb.csv — partition table for a 16 MB ESP32-S3 (N16R8 and kin)
+#
+#  This is the DEFAULT. The board in use reports:
+#      Detected flash size: 16MB
+#      Embedded PSRAM 8MB
+#
+#  There is no OTA in this firmware, so the second app slot is dropped and
+#  everything spare goes to LittleFS. Captures are the point of this device.
+#
+#      nvs         20 KB
+#      otadata      8 KB   (kept so the bootloader layout stays conventional)
+#      app0      2048 KB   the firmware (currently uses ~800 KB)
+#      spiffs   14272 KB   LittleFS — raw CAN captures
+#
+#  Capacity: a capture line is ~45 bytes, so ~13.9 MB holds roughly 320,000
+#  frames. A busy bus at 1,000 frame/s fills that in about five minutes; a
+#  quiet one runs for hours. The console reports bytes written as you go, and
+#  RAWLOG_MAX_BYTES stops the writer before the filesystem is full.
+# =============================================================================
+# Name,   Type, SubType,  Offset,   Size,     Flags
+nvs,      data, nvs,      0x9000,   0x5000,
+otadata,  data, ota,      0xe000,   0x2000,
+app0,     app,  factory,  0x10000,  0x200000,
+spiffs,   data, spiffs,   0x210000, 0xDF0000,

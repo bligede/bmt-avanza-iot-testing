@@ -266,14 +266,21 @@ void printStatus() {
           CanManager::state() == CanState::Running ? "RUNNING" : "DOWN",
           (unsigned long)(CanManager::bitrate() / 1000),
           CanManager::isListenOnlyLocked() ? "LOCKED" : "NO");
-    LOG_I("STATUS", "      rx=%lu drop=%lu missed=%lu err=%lu rec=%lu ids=%u silence=%lu ms",
+    // silenceMs() returns UINT32_MAX when no frame has EVER arrived. Printing
+    // the raw number reads like a bug in a phase report; say what it means.
+    const uint32_t sil = CanManager::silenceMs();
+    char silBuf[24];
+    if (sil == UINT32_MAX) snprintf(silBuf, sizeof(silBuf), "no frames yet");
+    else                   snprintf(silBuf, sizeof(silBuf), "%lu ms", (unsigned long)sil);
+
+    LOG_I("STATUS", "      rx=%lu drop=%lu missed=%lu err=%lu rec=%lu ids=%u silence=%s",
           (unsigned long)c.frames_received,
           (unsigned long)c.frames_dropped_queue,
           (unsigned long)c.rx_missed,
           (unsigned long)c.bus_errors,
           (unsigned long)c.recoveries,
           (unsigned)CanManager::seenIdCount(),
-          (unsigned long)CanManager::silenceMs());
+          silBuf);
     LOG_I("STATUS", "CAP   sink=%u frames=%lu bytes=%lu path=%s",
           (unsigned)RawCanLogger::sink(),
           (unsigned long)RawCanLogger::framesWritten(),

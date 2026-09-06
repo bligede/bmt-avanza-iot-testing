@@ -6,9 +6,14 @@
 //      Can an ESP32-S3 + SN65HVD230 passively read a real vehicle CAN bus?
 //
 //  It is not the fleet firmware. There is no modem, no MQTT, no TLS, no offline
-//  buffer, no GNSS, no signal decoding. Those live in
-//  bligede/bmt-can-bus-telemetry and are deliberately absent here: every
-//  subsystem left out is one fewer variable when the answer turns out to be no.
+//  buffer and no signal decoding — those live in bligede/bmt-can-bus-telemetry
+//  and are deliberately absent, because every subsystem left out is one fewer
+//  variable when the answer turns out to be "no frames".
+//
+//  GNSS, DHT22 and the fan ARE here. They are passive, sit on core 1 at low
+//  priority, and touch the CAN path not at all — so the "fewer variables"
+//  argument does not apply to them, while each retires an item from the fleet
+//  project's NOT TESTED list.
 //
 //  Credentials live in Secrets.h, which is git-ignored.
 // =============================================================================
@@ -30,8 +35,21 @@
 #define CAN_RX_PIN      4      // SN65HVD230 pin R
 
 // GNSS — GY-GPS6MV2 (u-blox NEO-6M), NMEA 0183
-#define GPS_RX_PIN      18     // ESP32 RX  <- GPS TX
-#define GPS_TX_PIN      19     // ESP32 TX  -> GPS RX (optional)
+#define GPS_RX_PIN      18     // ESP32 RX  <- GPS TX   (the only one needed)
+
+// ESP32 TX -> GPS RX. -1 = NOT CONNECTED, and that is the right default.
+//
+// Two reasons. First, this firmware only listens to NMEA; it never configures
+// the receiver, so the pin does no work. Second, the blueprint pinout puts it
+// on GPIO19 — which on the ESP32-S3 is USB_D- of the native USB peripheral.
+// Assigning a UART to it while the native USB port is in use puts two
+// peripherals on one pin, and the symptom looks like a broken GPS module
+// rather than a pin conflict.
+//
+// Only set this to 19 if you are certain the native USB port is unused (i.e.
+// ARDUINO_USB_CDC_ON_BOOT=0 and you are on the COM port) AND you actually need
+// to send configuration to the receiver.
+#define GPS_TX_PIN      -1
 
 #define DHT_PIN         15     // DHT22 DATA
 #define FAN_PIN         13     // 330R -> IRLZ44N gate
@@ -75,7 +93,7 @@
 #define RAWLOG_DEFAULT_SINK     RAWLOG_SINK_FILE
 
 #define RAWLOG_DIR              "/capture"
-#define RAWLOG_MAX_BYTES        (5UL * 1024UL * 1024UL)   // ~5 MB of frames
+#define RAWLOG_MAX_BYTES        (12UL * 1024UL * 1024UL)  // ~12 MB, fits the 16 MB layout
 #define RAWLOG_SEGMENT_BYTES    (256UL * 1024UL)
 
 // -----------------------------------------------------------------------------
