@@ -33,8 +33,21 @@ Run the gate before any build that goes near a vehicle.
 | Can the device passively read a real vehicle CAN bus? | **this is the point** |
 | Does listen-only hold on a live vehicle? | yes |
 | Does WiFi hurt CAN acquisition? | measured — see below |
+| Does the GNSS module work, and NmeaParser with it? | yes — first run on hardware |
+| How hot does the enclosure actually get? | yes — the fleet's open thermal TODO |
 | Are the fleet's odometer / SoC / speed CAN IDs found? | **no.** Wrong vehicle |
 | Does the 4G + MQTT + TLS uplink work? | **no.** Not present at all |
+
+Three modules get their first hardware run here, all of them on the fleet
+project's *NOT TESTED* list: **`NmeaParser`** (21 unit tests, zero executions),
+the **bit-banged DHT22 driver** (written from the datasheet, never run), and the
+**fan hysteresis**. Retiring them costs nothing extra on this trip.
+
+The thermal panel exists for a specific open question: `FAN_ON_TEMP` and
+`FAN_OFF_TEMP` in the fleet firmware are placeholders marked *TODO — VALIDASI
+TERMAL*, because nobody has measured an enclosure in a parked car in Bali sun.
+The dashboard shows **both** the DHT22 enclosure reading and the SoC die
+temperature; the gap between them is the number that decision needs.
 
 > Avanza CAN IDs prove the **reading path**. They are **not** a signal map.
 > Nothing found here may be copied into the fleet's `signals.cfg` — Toyota and
@@ -100,12 +113,22 @@ Must print `LISTEN-ONLY GATE: PASS`. Do not flash a build that fails it.
 
 ## Wiring
 
-| ESP32-S3 | SN65HVD230 |
-|---|---|
-| GPIO5 | `D` (driver input — never driven in listen-only) |
-| GPIO4 | `R` (receiver output) |
-| 3V3 | 3V3 |
-| GND | GND |
+| Function | Pin | Device |
+|---|---|---|
+| CAN TX | GPIO5 | SN65HVD230 `D` — never driven in listen-only |
+| CAN RX | GPIO4 | SN65HVD230 `R` |
+| GPS RX | GPIO18 | ← GY-GPS6MV2 TX |
+| GPS TX | GPIO19 | → GY-GPS6MV2 RX (optional) |
+| DHT22 | GPIO15 | DATA |
+| Fan | GPIO13 | → 330 Ω → IRLZ44N gate |
+| LED red | GPIO21 | via resistor |
+| LED green | GPIO47 | via resistor |
+| Button | GPIO0 | momentary, active low — **RESERVED**, prints status |
+
+The SN65HVD230 also needs 3V3 and GND from the ESP32.
+
+Everything except CAN is optional. A missing GPS, an unwired DHT22 or no fan
+clears its own reading and touches nothing else — CAN acquisition is unaffected.
 
 | OBD-II | To |
 |---|---|
@@ -114,7 +137,7 @@ Must print `LISTEN-ONLY GATE: PASS`. Do not flash a build that fails it.
 | pin 5 | ESP32 GND |
 | **pin 16** | **nothing** — power the ESP32 from USB |
 
-Optional LEDs: GPIO21 red, GPIO47 green, common cathode to GND.
+LED common cathode to GND.
 
 ### The 120 Ω terminator — staged, not removed once
 
@@ -189,6 +212,8 @@ Open that URL on the phone.
 | **CAN bus** | `frames received` climbing, `LISTEN-ONLY LOCKED` green, live frames/s |
 | **Distinct CAN IDs** | the headline result — tens of IDs means the bus talks to us |
 | **Live frames** | bytes changing as you drive = real data, not one stuck frame |
+| **GNSS** | fix, position, satellites, **ground speed** — the speed reference |
+| **Thermal** | DHT22 enclosure temp *and* SoC die temp, fan state |
 | **Capture** | frames and bytes written to flash |
 | **System** | heap, WiFi, uptime |
 
@@ -201,6 +226,10 @@ risk* below.
 help              command list
 status            full report
 ids               distinct CAN IDs with counts
+gps               GNSS fix, ground speed, UTC
+env               DHT22 temperature and humidity
+fan               fan state and thresholds
+fan auto|on|off   fan mode
 wifi              WiFi state and dashboard URL
 capture file      raw frames to flash (default, on from boot)
 capture off
@@ -268,6 +297,10 @@ src/
   Secrets.h.example       copy to Secrets.h
   CanBusSafety.h          the compile-time transmit ban
   CanManager.*            TWAI receive, listen-only locked
+  GpsManager.* NmeaParser.*   GNSS fix, ground speed, UTC
+  EnvironmentManager.*    DHT22 temperature and humidity
+  FanManager.*            fan with hysteresis and dwell
+  ButtonManager.*         GPIO0, reserved
   RawCanLogger.*          capture to serial and/or LittleFS
   WifiManager.*           non-blocking WiFi state machine
   WebDashboard.*          read-only HTTP dashboard

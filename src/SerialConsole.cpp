@@ -8,6 +8,9 @@
 #include "WifiManager.h"
 #include "WebDashboard.h"
 #include "WatchdogManager.h"
+#include "GpsManager.h"
+#include "EnvironmentManager.h"
+#include "FanManager.h"
 
 namespace {
 
@@ -145,6 +148,64 @@ void execute(char* line) {
             Serial.println("hotspot is not 5 GHz, and that SSID/PASS match.");
         }
 
+    } else if (matches(line, "gps")) {
+        const GnssFix  f = GpsManager::fix();
+        const GpsStats g = GpsManager::stats();
+        if (GpsManager::hasFreshFix()) {
+            Serial.printf("fix=YES lat=%.6f lon=%.6f sats=%u hdop=%.1f "
+                          "sog=%.1f km/h\r\n",
+                          f.lat, f.lon, (unsigned)f.satellites,
+                          (double)f.hdop, (double)f.speed_kmh);
+        } else if (GpsManager::isSilent()) {
+            Serial.println("fix=NO — and NO SENTENCES AT ALL from the module.");
+            Serial.println("  That is wiring or power, not sky view. Check");
+            Serial.println("  GPS TX -> GPIO18 and that the module has 3V3.");
+        } else {
+            Serial.printf("fix=NO (searching) sats=%u quality=%u\r\n",
+                          (unsigned)f.satellites, (unsigned)f.fix_quality);
+        }
+        Serial.printf("sentences=%lu badcrc=%lu utc_valid=%s epoch=%llu\r\n",
+                      (unsigned long)g.sentences_ok,
+                      (unsigned long)g.sentences_bad_checksum,
+                      f.time_valid ? "yes" : "no",
+                      (unsigned long long)f.epoch);
+
+    } else if (matches(line, "env")) {
+        const EnvReading e = EnvironmentManager::reading();
+        const EnvStats   s = EnvironmentManager::stats();
+        if (!EnvironmentManager::isEnabled()) {
+            Serial.println("DHT22 disabled (ENABLE_DHT22 = 0)");
+        } else if (e.valid) {
+            Serial.printf("temp=%.1f C humidity=%.1f %%RH (age %lu ms)\r\n",
+                          (double)e.temperature_c, (double)e.humidity_pct,
+                          (unsigned long)(millis() - e.at_ms));
+        } else {
+            Serial.println("No valid reading. Check DATA -> GPIO15 and the");
+            Serial.println("pull-up; some modules need an external 10k.");
+        }
+        Serial.printf("reads_ok=%lu read_errors=%lu checksum_errors=%lu\r\n",
+                      (unsigned long)s.reads_ok, (unsigned long)s.read_errors,
+                      (unsigned long)s.checksum_errors);
+
+    } else if (matches(line, "fan auto")) {
+        FanManager::setMode(FanMode::Auto);
+    } else if (matches(line, "fan on")) {
+        FanManager::setMode(FanMode::ForcedOn);
+    } else if (matches(line, "fan off")) {
+        FanManager::setMode(FanMode::Off);
+    } else if (matches(line, "fan")) {
+        const FanStats f = FanManager::stats();
+        Serial.printf("mode=%s running=%s temp=%.1f C (valid=%s) "
+                      "run=%lu s transitions=%lu\r\n",
+                      FanManager::modeName(f.mode), f.running ? "yes" : "no",
+                      (double)f.last_temperature_c,
+                      f.temperature_valid ? "yes" : "no",
+                      (unsigned long)f.run_seconds,
+                      (unsigned long)f.transitions);
+        Serial.printf("thresholds: on %.1f C / off %.1f C  "
+                      "*** STILL PLACEHOLDERS ***\r\n",
+                      (double)FAN_ON_TEMP, (double)FAN_OFF_TEMP);
+
     } else if (matches(line, "restart")) {
         Serial.println("Restarting...");
         Serial.flush();
@@ -170,6 +231,10 @@ void printHelp() {
     Serial.println("=== Avanza CAN bring-up console ==========================");
     Serial.println(" status            full status report");
     Serial.println(" ids               distinct CAN IDs seen, with counts");
+    Serial.println(" gps               GNSS fix, ground speed, UTC");
+    Serial.println(" env               DHT22 temperature and humidity");
+    Serial.println(" fan               fan state and thresholds");
+    Serial.println(" fan auto|on|off   fan mode");
     Serial.println(" wifi              WiFi state and dashboard URL");
     Serial.println("");
     Serial.println(" capture file      raw frames to LittleFS (default)");
@@ -214,6 +279,22 @@ void printStatus() {
           (unsigned long)RawCanLogger::framesWritten(),
           (unsigned long)RawCanLogger::bytesWritten(),
           RawCanLogger::currentPath());
+    const GnssFix    gf = GpsManager::fix();
+    const EnvReading er = EnvironmentManager::reading();
+    const FanStats   fs = FanManager::stats();
+    LOG_I("STATUS", "GPS   fix=%s sats=%u sog=%.1f km/h sentences=%lu badcrc=%lu",
+          GpsManager::hasFreshFix() ? "YES" : "NO",
+          (unsigned)gf.satellites, (double)gf.speed_kmh,
+          (unsigned long)GpsManager::stats().sentences_ok,
+          (unsigned long)GpsManager::stats().sentences_bad_checksum);
+    char encBuf[16];
+    if (er.valid) snprintf(encBuf, sizeof(encBuf), "%.1f C", (double)er.temperature_c);
+    else          snprintf(encBuf, sizeof(encBuf), "--");
+    LOG_I("STATUS", "TEMP  enclosure=%s fan_sensor=%.1f C fan=%s/%s run=%lu s",
+          encBuf,
+          (double)fs.last_temperature_c,
+          FanManager::modeName(fs.mode), fs.running ? "ON" : "OFF",
+          (unsigned long)fs.run_seconds);
     LOG_I("STATUS", "WIFI  %s ip=%s rssi=%ld dBm  web_requests=%lu",
           WifiManager::stateName(WifiManager::state()), w.ip, (long)w.rssi,
           (unsigned long)WebDashboard::requestsServed());

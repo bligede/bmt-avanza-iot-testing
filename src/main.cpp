@@ -44,6 +44,10 @@
 #include "SerialConsole.h"
 #include "StatusLed.h"
 #include "WatchdogManager.h"
+#include "GpsManager.h"
+#include "EnvironmentManager.h"
+#include "FanManager.h"
+#include "ButtonManager.h"
 
 static QueueHandle_t q_rawlog = nullptr;
 
@@ -103,13 +107,34 @@ static void taskStorage(void*) {
 }
 
 // =============================================================================
-//  CORE 1 — housekeeping: console, LED, WiFi state machine, periodic report.
+//  CORE 1 — GNSS.
+//
+//  Above storage in priority: a dropped NMEA byte is unrecoverable, because the
+//  UART buffer overruns and the sentence is lost. A delayed capture write is
+//  not — the queue absorbs it.
+// =============================================================================
+#if ENABLE_GPS
+static void taskGps(void*) {
+    WatchdogManager::subscribeCurrentTask("gps");
+    LOG_I("GPS", "Task running on core %d", xPortGetCoreID());
+
+    for (;;) {
+        WatchdogManager::feed();
+        GpsManager::poll();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+#endif
+
+// =============================================================================
+//  CORE 1 — housekeeping: console, LED, WiFi, environment, fan, button.
 // =============================================================================
 static void taskHousekeeping(void*) {
     WatchdogManager::subscribeCurrentTask("housekeeping");
     LOG_I("SYSTEM", "Housekeeping task running on core %d", xPortGetCoreID());
 
     uint32_t last_report = 0;
+    uint32_t last_slow   = 0;
 
     for (;;) {
         WatchdogManager::feed();
@@ -118,6 +143,18 @@ static void taskHousekeeping(void*) {
         StatusLed::tick();
         SerialConsole::poll();
         WifiManager::poll();
+
+        // GPIO0 is RESERVED: it reports, it never reconfigures anything.
+        if (ButtonManager::poll() == ButtonEvent::ShortPress) {
+            SerialConsole::printStatus();
+        }
+
+        const uint32_t nowMs = millis();
+        if (nowMs - last_slow >= 1000) {
+            last_slow = nowMs;
+            EnvironmentManager::poll();   // rate-limited internally
+            FanManager::poll();
+        }
 
         const bool can_up = CanManager::state() == CanState::Running;
         const bool alive  = CanManager::isAlive();
@@ -171,6 +208,7 @@ void setup() {
 
     StatusLed::begin();
     SerialConsole::begin();
+    ButtonManager::begin();
 
     // --- Filesystem ---------------------------------------------------------
     // Mounted before CAN so the capture can start with the very first frame.
@@ -209,6 +247,13 @@ void setup() {
                             nullptr, TASK_CAN_READER_PRIO, nullptr, CORE_REALTIME);
     LOG_I("BOOT", "CAN acquisition is running. Everything below is optional to it.");
 
+    // --- Auxiliary sensors --------------------------------------------------
+    // All optional to CAN. A dead GPS or an unplugged DHT22 clears its own
+    // reading and touches nothing else.
+    GpsManager::begin();
+    EnvironmentManager::begin();
+    FanManager::begin();
+
     // --- WiFi + dashboard ---------------------------------------------------
     // Started after CAN so the radio never competes with driver installation,
     // and so a WiFi failure can never delay acquisition.
@@ -218,6 +263,10 @@ void setup() {
 #endif
 
     // --- Core 1 tasks -------------------------------------------------------
+#if ENABLE_GPS
+    xTaskCreatePinnedToCore(taskGps, "gps", TASK_GPS_STACK,
+                            nullptr, TASK_GPS_PRIO, nullptr, CORE_COMMS);
+#endif
     xTaskCreatePinnedToCore(taskStorage, "storage", TASK_STORAGE_STACK,
                             nullptr, TASK_STORAGE_PRIO, nullptr, CORE_COMMS);
     xTaskCreatePinnedToCore(taskHousekeeping, "housekeeping",

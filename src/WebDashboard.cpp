@@ -11,6 +11,9 @@
 
 #include "WifiManager.h"
 #include "RawCanLogger.h"
+#include "GpsManager.h"
+#include "EnvironmentManager.h"
+#include "FanManager.h"
 
 namespace {
 
@@ -139,6 +142,37 @@ This page is read-only. Avanza CAN IDs prove the <b>reading path</b> — they ar
   </div>
 
   <div class="card">
+    <h2>GNSS</h2>
+    <div class="kv"><span>fix</span><span id="gfix">–</span></div>
+    <div class="kv"><span>position</span><span id="gpos">–</span></div>
+    <div class="kv"><span>satellites</span><span id="gsat">–</span></div>
+    <div class="kv"><span>HDOP</span><span id="ghdop">–</span></div>
+    <div class="kv"><span>ground speed</span><span id="gsog">–</span></div>
+    <div class="kv"><span>UTC</span><span id="gutc">–</span></div>
+    <div class="kv"><span>sentences / bad CRC</span><span id="gsent">–</span></div>
+    <div class="sub" style="margin-top:8px">
+      Ground speed is the independent reference for any CAN speed candidate
+      (Blueprint §9.1). Compare it against a field that tracks the dashboard.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Thermal — for the fleet fan threshold</h2>
+    <div class="kv"><span>enclosure (DHT22)</span><span id="et">–</span></div>
+    <div class="kv"><span>humidity</span><span id="eh">–</span></div>
+    <div class="kv"><span>fan sensor reading</span><span id="ft">–</span></div>
+    <div class="kv"><span>fan mode</span><span id="fm">–</span></div>
+    <div class="kv"><span>fan state</span><span id="fon">–</span></div>
+    <div class="kv"><span>run time</span><span id="frun">–</span></div>
+    <div class="kv"><span>on/off transitions</span><span id="ftr">–</span></div>
+    <div class="sub" style="margin-top:8px">
+      FAN_ON_TEMP / FAN_OFF_TEMP are still <b>placeholders</b>. Log the peak
+      enclosure temperature reached in a parked car — that is the measurement
+      the fleet threshold decision is waiting on.
+    </div>
+  </div>
+
+  <div class="card">
     <h2>System</h2>
     <div class="kv"><span>unit</span><span id="unit">–</span></div>
     <div class="kv"><span>firmware</span><span id="fw">–</span></div>
@@ -197,6 +231,27 @@ function paint(d){
   $('cfr').textContent=d.cap.frames.toLocaleString();
   $('cby').textContent=(d.cap.bytes/1024).toFixed(1)+' KB';
   $('cpath').textContent=d.cap.path||'–';
+
+  const g=d.gps;
+  $('gfix').innerHTML = g.fix ? tag('FIX','t-ok')
+    : (g.silent ? tag('NO DATA FROM MODULE','t-err') : tag('SEARCHING','t-warn'));
+  $('gpos').textContent = g.fix ? (g.lat.toFixed(6)+', '+g.lon.toFixed(6)) : '—';
+  $('gsat').textContent = g.sats;
+  $('ghdop').textContent = g.hdop ? g.hdop.toFixed(1) : '—';
+  $('gsog').textContent = g.fix ? g.sog.toFixed(1)+' km/h' : '—';
+  $('gutc').textContent = g.time_valid && g.epoch
+    ? new Date(g.epoch*1000).toISOString().replace('.000Z','Z') : '—';
+  $('gsent').textContent = g.sentences.toLocaleString()+' / '+g.badcrc;
+
+  const e=d.env, f=d.fan;
+  $('et').innerHTML = !e.enabled ? '<span class="dim">disabled</span>'
+    : (e.valid ? e.t.toFixed(1)+' °C' : tag('NO READING','t-warn'));
+  $('eh').textContent = (e.enabled && e.valid) ? e.h.toFixed(1)+' %RH' : '—';
+  $('ft').textContent = f.tvalid ? f.t.toFixed(1)+' °C' : '—';
+  $('fm').textContent = f.mode;
+  $('fon').innerHTML = f.on ? tag('RUNNING','t-ok') : '<span class="dim">off</span>';
+  $('frun').textContent = f.run_s+' s';
+  $('ftr').textContent = f.trans;
 
   $('unit').textContent=d.unit;
   $('fw').textContent=d.fw;
@@ -305,6 +360,43 @@ void appendFrames(Appender& j) {
     j.add("],");
 }
 
+void appendGps(Appender& j) {
+    const GnssFix  f     = GpsManager::fix();
+    const bool     fresh = GpsManager::hasFreshFix();
+    const GpsStats g     = GpsManager::stats();
+
+    // lat/lon are emitted only when there is a real fix. 0,0 is a place in the
+    // Gulf of Guinea, not a way of saying "unknown".
+    j.add("\"gps\":{\"fix\":%s,\"lat\":%.6f,\"lon\":%.6f,\"sats\":%u,"
+          "\"hdop\":%.1f,\"sog\":%.1f,\"time_valid\":%s,\"epoch\":%llu,"
+          "\"sentences\":%lu,\"badcrc\":%lu,\"silent\":%s},",
+          fresh ? "true" : "false",
+          fresh ? f.lat : 0.0, fresh ? f.lon : 0.0,
+          (unsigned)f.satellites, (double)f.hdop, (double)f.speed_kmh,
+          f.time_valid ? "true" : "false",
+          (unsigned long long)f.epoch,
+          (unsigned long)g.sentences_ok,
+          (unsigned long)g.sentences_bad_checksum,
+          GpsManager::isSilent() ? "true" : "false");
+}
+
+void appendThermal(Appender& j) {
+    const EnvReading e = EnvironmentManager::reading();
+    const FanStats   f = FanManager::stats();
+
+    // Both temperatures, deliberately. The gap between enclosure air and the
+    // SoC die is the number the fleet's unresolved fan-threshold TODO needs.
+    j.add("\"env\":{\"enabled\":%s,\"valid\":%s,\"t\":%.1f,\"h\":%.1f},",
+          EnvironmentManager::isEnabled() ? "true" : "false",
+          e.valid ? "true" : "false",
+          (double)e.temperature_c, (double)e.humidity_pct);
+    j.add("\"fan\":{\"mode\":\"%s\",\"on\":%s,\"t\":%.1f,\"tvalid\":%s,"
+          "\"run_s\":%lu,\"trans\":%lu},",
+          FanManager::modeName(f.mode), f.running ? "true" : "false",
+          (double)f.last_temperature_c, f.temperature_valid ? "true" : "false",
+          (unsigned long)f.run_seconds, (unsigned long)f.transitions);
+}
+
 void appendSystem(Appender& j) {
     const WifiStats w = WifiManager::stats();
     j.add("\"cap\":{\"sink\":%u,\"frames\":%lu,\"bytes\":%lu,\"path\":\"%s\"},",
@@ -334,6 +426,8 @@ void handleState() {
     appendCan(j);
     appendIds(j);
     appendFrames(j);
+    appendGps(j);
+    appendThermal(j);
     appendSystem(j);
     j.add("}");
 

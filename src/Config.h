@@ -29,6 +29,13 @@
 #define CAN_TX_PIN      5      // SN65HVD230 pin D  (never driven: listen-only)
 #define CAN_RX_PIN      4      // SN65HVD230 pin R
 
+// GNSS — GY-GPS6MV2 (u-blox NEO-6M), NMEA 0183
+#define GPS_RX_PIN      18     // ESP32 RX  <- GPS TX
+#define GPS_TX_PIN      19     // ESP32 TX  -> GPS RX (optional)
+
+#define DHT_PIN         15     // DHT22 DATA
+#define FAN_PIN         13     // 330R -> IRLZ44N gate
+
 #define LED_RED_PIN     21
 #define LED_GREEN_PIN   47
 #define BUTTON_PIN      0      // RESERVED — status display only
@@ -93,6 +100,47 @@
 #define WEB_POLL_TICK_MS        10
 
 // -----------------------------------------------------------------------------
+// 5b. GNSS — GY-GPS6MV2
+//
+//  Present for one specific reason: Blueprint §9.1 requires a CAN speed
+//  candidate to be validated against GNSS ground speed. When a speed field
+//  turns up in the Avanza capture, this is the reference that confirms it.
+//  It also gives NmeaParser its first run on real silicon.
+// -----------------------------------------------------------------------------
+#define ENABLE_GPS              1
+#define GPS_BAUD                9600
+#define GPS_UART_NUM            2
+#define GPS_FIX_TIMEOUT_MS      120000UL
+#define GPS_STALE_FIX_MS        30000UL
+#define GPS_INVALID_AS_NULL     1     // never publish 0,0 as a position
+
+// -----------------------------------------------------------------------------
+// 5c. DHT22 + FAN — thermal validation
+//
+//  The fleet project carries an open TODO: FAN_ON_TEMP and FAN_OFF_TEMP are
+//  placeholders because nobody has measured the enclosure in a parked car in
+//  Bali sun. This test is the cheapest chance to collect that data, so the
+//  DHT22 is on and the fan reads it rather than the SoC die sensor.
+//
+//  The dashboard shows BOTH temperatures — enclosure and die — because the
+//  difference between them is the number the fleet threshold decision needs.
+// -----------------------------------------------------------------------------
+#define ENABLE_DHT22            1
+#define DHT_SAMPLE_INTERVAL_MS  10000UL   // DHT22 minimum period is 2 s
+
+#define ENABLE_FAN              1
+#define FAN_MODE_DEFAULT        1         // 0=OFF, 1=AUTO, 2=FORCED_ON
+// TODO — VALIDASI TERMAL. Still placeholders. The point of this test is to
+// replace them with measured numbers, not to trust them.
+#define FAN_ON_TEMP             60.0f
+#define FAN_OFF_TEMP            52.0f     // must stay below FAN_ON_TEMP
+#define FAN_MIN_STATE_MS        10000UL   // anti-chatter dwell
+// 0 = prefer the DHT22 (enclosure air), 1 = SoC die sensor.
+// Enclosure air is what the fleet threshold is actually about. Falls back to
+// the die sensor automatically if the DHT22 does not answer.
+#define FAN_SENSOR_INTERNAL     0
+
+// -----------------------------------------------------------------------------
 // 6. TASKS
 //    Core 0 does nothing but read CAN. Everything else is on core 1.
 // -----------------------------------------------------------------------------
@@ -101,6 +149,11 @@
 
 #define TASK_CAN_READER_PRIO    20
 #define TASK_CAN_READER_STACK   4096
+
+// GNSS above storage: a dropped NMEA byte is unrecoverable — the UART buffer
+// overruns and the sentence is lost — whereas a delayed capture write is not.
+#define TASK_GPS_PRIO           8
+#define TASK_GPS_STACK          4096
 #define TASK_STORAGE_PRIO       5
 #define TASK_STORAGE_STACK      6144
 #define TASK_HOUSEKEEPING_PRIO  4
