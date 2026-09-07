@@ -62,6 +62,9 @@ GnssFix makeEmptyFix() {
     f.fix_quality = 0;
     f.time_valid  = false;
     f.epoch       = 0;
+    f.sats_in_view = 0;
+    f.sats_tracked = 0;
+    f.best_cnr     = 0;
     return f;
 }
 
@@ -140,14 +143,51 @@ uint64_t toEpoch(int year, int month, int day, int hour, int minute, int second)
     return static_cast<uint64_t>(secs);
 }
 
+// Accumulators for the multi-sentence GSV set — the only state in an otherwise
+// stateless parser. Sentence 1 of each set clears them, so a dropped sentence
+// costs one cycle and nothing carries over.
+static uint8_t s_gsv_tracked = 0;
+static uint8_t s_gsv_best    = 0;
+
 NmeaResult apply(const char* sentence, GnssFix& fix) {
     if (sentence == nullptr || sentence[0] == '\0') return NmeaResult::Malformed;
-    if (!isSentence(sentence, "GGA") && !isSentence(sentence, "RMC")) {
+    if (!isSentence(sentence, "GGA") && !isSentence(sentence, "RMC") &&
+        !isSentence(sentence, "GSV")) {
         return NmeaResult::Ignored;
     }
     if (!checksumOk(sentence)) return NmeaResult::BadChecksum;
 
     char buf[24], hemi[8];
+
+    // $xxGSV,totalSentences,thisSentence,satsInView,
+    //        prn,elev,azim,cnr, prn,elev,azim,cnr, ... (up to four per sentence)
+    if (isSentence(sentence, "GSV")) {
+        if (!field(sentence, 1, buf, sizeof(buf))) return NmeaResult::Malformed;
+        const int total = atoi(buf);
+        if (!field(sentence, 2, buf, sizeof(buf))) return NmeaResult::Malformed;
+        const int num = atoi(buf);
+        if (!field(sentence, 3, buf, sizeof(buf))) return NmeaResult::Malformed;
+        const int in_view = atoi(buf);
+
+        if (num <= 1) { s_gsv_tracked = 0; s_gsv_best = 0; }
+
+        for (int i = 0; i < 4; ++i) {
+            const uint8_t cnr_field = static_cast<uint8_t>(7 + i * 4);
+            if (!field(sentence, cnr_field, buf, sizeof(buf))) break;
+            if (buf[0] == '\0') continue;          // blank: known of, not heard
+            const int cnr = atoi(buf);
+            if (cnr <= 0) continue;
+            ++s_gsv_tracked;
+            if (cnr > s_gsv_best) s_gsv_best = static_cast<uint8_t>(cnr);
+        }
+
+        if (total > 0 && num >= total) {
+            fix.sats_in_view = static_cast<uint8_t>(in_view < 0 ? 0 : in_view);
+            fix.sats_tracked = s_gsv_tracked;
+            fix.best_cnr     = s_gsv_best;
+        }
+        return NmeaResult::Gsv;
+    }
 
     if (isSentence(sentence, "GGA")) {
         // $xxGGA,time,lat,N,lon,E,quality,sats,hdop,alt,M,...

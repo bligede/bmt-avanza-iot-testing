@@ -26,12 +26,22 @@ struct GnssFix {
 
     bool     time_valid;     // a complete, plausible UTC date+time
     uint64_t epoch;          // UTC seconds
+
+    // Sky view, from GSV. What the receiver can HEAR is a different question
+    // from whether it can fix, and it is the only one that separates "no sky"
+    // from "no antenna". Without it, a module streaming perfect NMEA with no
+    // fix looks identical to one with its antenna disconnected: both report
+    // zero satellites used and no position.
+    uint8_t  sats_in_view;   // GSV field 3
+    uint8_t  sats_tracked;   // of those, how many report a signal at all
+    uint8_t  best_cnr;       // strongest carrier-to-noise, dB-Hz; 0 = hears nothing
 };
 
 enum class NmeaResult : uint8_t {
     Ignored = 0,     // not a sentence we use
     Gga,
     Rmc,
+    Gsv,
     BadChecksum,
     Malformed,
 };

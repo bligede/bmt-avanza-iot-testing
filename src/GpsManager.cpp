@@ -63,6 +63,11 @@ bool poll() {
             consumed = true;
             ++s_stats.lines_seen;   // every complete line, including ignored ones
 
+            if (res == NmeaResult::Gsv) {
+                strncpy(s_stats.last_gsv, s_line, sizeof(s_stats.last_gsv) - 1);
+                s_stats.last_gsv[sizeof(s_stats.last_gsv) - 1] = 0;
+            }
+
             switch (res) {
                 case NmeaResult::BadChecksum:
                     ++s_stats.sentences_bad_checksum;

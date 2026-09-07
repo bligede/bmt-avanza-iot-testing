@@ -154,6 +154,17 @@ td.num{text-align:right}
 .note.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
 .note.bad{background:var(--bad-bg);border-color:var(--bad-line);color:var(--bad)}
 .note b{color:inherit}
+.ledtab{margin-top:11px;border-top:1px solid var(--line);padding-top:10px}
+.ledtab h3{font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 8px}
+.ledtab>div{display:flex;gap:9px;align-items:center;padding:3px 0;
+  font-size:12px;color:var(--ink-3)}
+.ledtab>div.on{color:var(--ink)}
+.ledtab i{flex:none;width:6px;height:6px;border-radius:50%;background:#3A3537}
+.ledtab>div.on i{background:var(--g)}
+.ledtab b{flex:none;width:125px;font-weight:500;color:inherit}
+.ledtab>div.on b{font-weight:700}
+.lednb{margin:9px 0 0;font-size:11.5px;line-height:1.45;color:var(--ink-3)}
 .empty{padding:22px 14px;text-align:center;color:var(--ink-3);font-size:13px}
 .empty b{display:block;color:var(--ink-2);font-weight:600;margin-bottom:3px}
 
@@ -228,6 +239,8 @@ footer #ft{margin-left:auto}
       <div class="kv"><span>UTC</span><span id="g-utc">–</span></div>
       <div class="kv"><span>Bytes / lines</span><span id="g-byt">–</span></div>
       <div class="kv"><span>GGA+RMC / bad CRC</span><span id="g-sen">–</span></div>
+      <div class="kv"><span>Sky: in view / heard</span><span id="g-sky">–</span></div>
+      <div class="kv"><span>Strongest signal</span><span id="g-cnr">–</span></div>
       <div id="g-note"></div>
     </div>
   </section>
@@ -266,6 +279,7 @@ footer #ft{margin-left:auto}
       <div class="kv"><span>Requests served</span><span id="s-rq">–</span></div>
       <div class="kv"><span>Status light</span><span id="s-led">–</span></div>
       <div id="s-lednote"></div>
+      <div class="ledtab" id="s-ledtab"></div>
     </div>
   </section>
 </main>
@@ -287,16 +301,20 @@ const empty=(h,b)=>'<div class="empty"><b>'+h+'</b>'+b+'</div>';
    second is what it means, third the tone. Red is not automatically a fault:
    GPS_NO_FIX winks red while the receiver is perfectly healthy. */
 const LED={
-  BOOT:            ['red / green alternating','Nothing has reported in yet. Past the first second of boot this means the housekeeping task has stopped updating.','warn'],
-  MODEM_CONNECTING:['fast green blink','Joining WiFi.'],
-  NETWORK_OK:      ['slow green blink','WiFi is up and the CAN driver is running. No frames yet — expected until a bus is attached.'],
-  GPS_NO_FIX:      ['green, red wink','The GNSS module is streaming but has not locked a fix yet. The red wink is not a fault; it clears on first fix. Indoors it may never clear.'],
-  CAN_OK:          ['green heartbeat','CAN frames are arriving.'],
-  BUFFERING:       ['green, red pulse','Writing captured frames to flash.'],
-  MQTT_OK:         ['solid green','Everything nominal.'],
-  CAN_ERROR:       ['fast red blink','The CAN driver is not running. Check the serial log.','bad'],
-  SYSTEM_ERROR:    ['solid red','The filesystem is down. Captures are not being written.','bad']
+  BOOT:            ['red / green alternating','Nothing has reported in yet. Past the first second of boot this means the housekeeping task has stopped updating.','warn','nothing reporting in'],
+  MODEM_CONNECTING:['fast green blink','Joining WiFi.','','joining WiFi'],
+  NETWORK_OK:      ['slow green blink','WiFi is up and the CAN driver is running. No frames yet — expected until a bus is attached.','','WiFi up, no CAN frames'],
+  GPS_NO_FIX:      ['green, red wink','The GNSS module is streaming but has not locked a fix yet. The red wink is not a fault; it clears on first fix. Indoors it may never clear.','','GNSS streaming, no fix'],
+  CAN_OK:          ['green heartbeat','CAN frames are arriving.','','CAN frames arriving'],
+  CAN_ERROR:       ['fast red blink','The CAN driver is not running. Check the serial log.','bad','CAN driver down'],
+  SYSTEM_ERROR:    ['solid red','The filesystem is down. Captures are not being written.','bad','filesystem down']
 };
+/* Most severe first — StatusLed shows the highest active condition, so reading
+   the legend top-down is reading it in the order the light prefers. MqttOk and
+   Buffering exist in StatusLed but this build never sets them, so listing them
+   would invite someone to wait for a light that cannot come. */
+const LED_ORDER=['SYSTEM_ERROR','CAN_ERROR','CAN_OK','GPS_NO_FIX',
+                 'MODEM_CONNECTING','NETWORK_OK','BOOT'];
 let fails=0,prevRx=null,prevT=null;
 
 function paint(d){
@@ -389,6 +407,8 @@ function paint(d){
     ? new Date(g.epoch*1000).toISOString().replace('.000Z','Z'):'—';
   $('g-byt').textContent=g.bytes.toLocaleString()+' / '+g.lines.toLocaleString();
   $('g-sen').textContent=g.sentences.toLocaleString()+' / '+g.badcrc;
+  $('g-sky').textContent=g.view===undefined?'–':g.view+' / '+g.trk;
+  $('g-cnr').textContent=g.cnr?g.cnr+' dB-Hz':(g.view===undefined?'–':'nothing heard');
   let gt='',gc='';
   if(g.silent){gc='bad';
     gt=(g.bytes===0?'<b>No bytes at all</b> on the wire.':'<b>Only '+g.bytes+
@@ -402,8 +422,26 @@ function paint(d){
     gt='Lines arrive and every checksum fails. Baud close but wrong, or a noisy line.';
   }else if(g.sentences===0){gc='warn';
     gt='Lines parse but none are GGA or RMC. The module emits other sentence types only.';
+  }else if(!g.fix&&g.view===0&&g.cnr===0){gc='bad';
+    gt='<b>The receiver hears nothing at all.</b> It is streaming valid NMEA, so '+
+       'the module, the wiring and the supply are fine — but GSV reports no '+
+       'satellites in view and no signal on any channel. That is the antenna: '+
+       'not connected, facing away from the sky, or dead. More waiting will not '+
+       'change it.';
+  }else if(!g.fix&&g.cnr===0){gc='bad';
+    gt='<b>It knows where '+g.view+' satellites should be, and hears none of '+
+       'them.</b> Those positions come from the stored almanac, not from '+
+       'reception. Zero carrier-to-noise on every channel points at the antenna '+
+       'rather than the sky.';
+  }else if(!g.fix&&g.cnr<25){gc='warn';
+    gt='<b>Hearing satellites, too weakly to lock.</b> Strongest is '+g.cnr+
+       ' dB-Hz; a fix needs roughly 30 and four satellites at once. The antenna '+
+       'works — this is sky view. Outdoors, ceramic patch facing up.';
   }else if(!g.fix){
-    gt='Module is healthy and talking. No fix yet — it needs sky view.';
+    gt='<b>Signal is strong enough.</b> Strongest '+g.cnr+' dB-Hz across '+
+       g.trk+' of '+g.view+' satellites. It needs four at once plus the '+
+       'ephemeris, which takes up to 12.5 minutes to download on a cold start. '+
+       'Keep it still and in the open.';
   }
   $('g-note').innerHTML=note(gt,gc);
 
@@ -474,6 +512,11 @@ function paint(d){
   const L=LED[d.led]||[d.led,'Unrecognised status.'];
   $('s-led').textContent=L[0];
   $('s-lednote').innerHTML=note(L[1],L[2]||'');
+  $('s-ledtab').innerHTML='<h3>Every pattern this build can show</h3>'+
+    LED_ORDER.map(k=>'<div class="'+(k===d.led?'on':'')+'"><i></i><b>'+
+      LED[k][0]+'</b><span>'+LED[k][3]+'</span></div>').join('')+
+    '<p class="lednb">Most severe first. The light always shows the highest '+
+    'condition that is true, so a fault hides everything below it.</p>';
   $('ft').textContent='refreshed every 500 ms';
 }
 
@@ -592,7 +635,8 @@ void appendGps(Appender& j) {
     j.add("\"gps\":{\"fix\":%s,\"lat\":%.6f,\"lon\":%.6f,\"sats\":%u,"
           "\"hdop\":%.1f,\"sog\":%.1f,\"time_valid\":%s,\"epoch\":%llu,"
           "\"sentences\":%lu,\"badcrc\":%lu,\"silent\":%s,"
-          "\"bytes\":%lu,\"lines\":%lu},",
+          "\"bytes\":%lu,\"lines\":%lu,"
+          "\"view\":%u,\"trk\":%u,\"cnr\":%u,\"gsv\":\"%s\"},",
           fresh ? "true" : "false",
           fresh ? f.lat : 0.0, fresh ? f.lon : 0.0,
           (unsigned)f.satellites, (double)f.hdop, (double)f.speed_kmh,
@@ -602,7 +646,9 @@ void appendGps(Appender& j) {
           (unsigned long)g.sentences_bad_checksum,
           GpsManager::isSilent() ? "true" : "false",
           (unsigned long)g.bytes_received,
-          (unsigned long)g.lines_seen);
+          (unsigned long)g.lines_seen,
+          (unsigned)f.sats_in_view, (unsigned)f.sats_tracked,
+          (unsigned)f.best_cnr, g.last_gsv);
 }
 
 void appendThermal(Appender& j) {
