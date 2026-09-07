@@ -240,6 +240,7 @@ footer #ft{margin-left:auto}
       <div class="kv"><span>Fan sensor</span><span id="f-t">–</span></div>
       <div class="kv"><span>Fan</span><span id="f-s">–</span></div>
       <div class="kv"><span>Reads ok / no-reply / CRC</span><span id="e-c">–</span></div>
+      <div class="kv"><span>DATA line idle</span><span id="e-l">–</span></div>
       <div id="e-note"></div>
     </div>
   </section>
@@ -415,15 +416,38 @@ function paint(d){
   $('f-s').innerHTML=f.mode+' · '+(f.on?tag('running','t-ok'):'off')+
     ' · '+f.run_s+' s total';
   $('e-c').textContent=e.ok+' / '+e.read_err+' / '+e.crc_err;
+  $('e-l').innerHTML=e.idle===undefined?'–'
+    :(e.idle?tag('high','t-ok'):tag('low','t-bad'))
+     +(e.bits?' · '+e.bits+'/40 bits':'');
+
+  /* Each branch names one fault and one thing to do about it. The old version
+     said "sensor never answers" for every failure, which was a claim the
+     counters could not support: they did not record which stage died. */
   let et='',ec='';
   if(!e.enabled) et='DHT22 is disabled in Config.h.';
   else if(e.ok>0&&e.valid)
     et='Enclosure air versus the SoC die is the measurement the fleet fan threshold is waiting on. Log the peak reached in a parked car.';
-  else if(e.read_err>0&&e.crc_err===0){ec='bad';
-    et='<b>Sensor never answers.</b> Zero checksum errors means this is not signal quality — it is power, pin, or module orientation. Measure 3V3 at the sensor pins and confirm DATA is on GPIO15.';
+  else if(e.read_err===0&&e.crc_err===0)
+    et='No read attempted yet. The first sample lands about 10 s after boot.';
+  else if(e.idle===false){ec='bad';
+    et='<b>DATA sits low between reads.</b> With the internal pull-up on, an idle line must read high, so nothing here is a timing problem: either no pull-up reaches GPIO15, DATA is shorted to ground, or the part is holding the line down. On a 3-pin module a swapped VCC and GND does exactly this — and usually kills the sensor.';
+  }else if(e.nores>0){ec='bad';
+    et='<b>The line is healthy and nothing answers on it.</b> DATA idles high, so the pull-up and the wire are fine; the sensor simply never pulls it down. That is power or the part: measure 3V3 at the sensor pins themselves, and check the pin order — 3-pin DHT22 boards ship as VCC-DATA-GND and as DATA-VCC-GND, and the two are not interchangeable.';
+  }else if(e.hshake>0){ec='warn';
+    et='<b>It starts to answer, then stops.</b> The sensor pulls the line down but never completes the 80/80 handshake. Usually a pull-up too weak for the cable, or a supply that sags when the sensor wakes.';
+  }else if(e.trunc>0){ec='warn';
+    et='<b>The frame is cut short</b> after '+e.bits+' of 40 bits. The sensor is alive and the handshake is good, so this is edge timing: pull-up strength, wire length, or interference.';
   }else if(e.crc_err>0){ec='warn';
-    et='Sensor answers but the frame is corrupt — signal integrity: pull-up strength, wire length, or interference.';
-  }else et='No read attempted yet. The first sample lands about 10 s after boot.';
+    et='All 40 bits arrive but the checksum fails — signal integrity rather than wiring.';
+  }else if(e.rng>0){ec='warn';
+    et='<b>The checksum passes but the values are impossible.</b> Frame '+e.raw+
+       '. Do not trust the checksum here: a frame captured one bit out of step '+
+       'still passes it, because shifting doubles every byte and doubling is '+
+       'linear mod 256. That is a framing fault, not a wiring one — the sensor '+
+       'is answering correctly and the driver is misreading where the frame '+
+       'starts. A DHT11 fitted in place of a DHT22 also lands here, sending '+
+       'whole units in bytes 0 and 2 with zero decimals.';
+  }
   $('e-note').innerHTML=note(et,ec);
 
   /* ---- capture ---- */
@@ -587,19 +611,29 @@ void appendThermal(Appender& j) {
 
     // Both temperatures, deliberately. The gap between enclosure air and the
     // SoC die is the number the fleet's unresolved fan-threshold TODO needs.
-    // The counters, not just the value. read_errors and checksum_errors are what
-    // separate "the sensor never answered" (power, pin, seating) from "it
-    // answered and the frame was corrupt" (pull-up, cable, timing). Without
-    // them a device mounted in an enclosure cannot be diagnosed at all.
+    // The counters, not just the value, and the STAGE each failure reached.
+    // read_err on its own cannot tell a sensor that never answered from one
+    // that answered badly, and those need opposite fixes. "idle" is the most
+    // decisive of the lot: DATA must sit high between reads.
     const EnvStats es = EnvironmentManager::stats();
     j.add("\"env\":{\"enabled\":%s,\"valid\":%s,\"t\":%.1f,\"h\":%.1f,"
-          "\"ok\":%lu,\"read_err\":%lu,\"crc_err\":%lu},",
+          "\"ok\":%lu,\"read_err\":%lu,\"crc_err\":%lu,"
+          "\"idle\":%s,\"nores\":%lu,\"hshake\":%lu,\"trunc\":%lu,"
+          "\"rng\":%lu,\"bits\":%u,\"raw\":\"%02X %02X %02X %02X %02X\"},",
           EnvironmentManager::isEnabled() ? "true" : "false",
           e.valid ? "true" : "false",
           (double)e.temperature_c, (double)e.humidity_pct,
           (unsigned long)es.reads_ok,
           (unsigned long)es.read_errors,
-          (unsigned long)es.checksum_errors);
+          (unsigned long)es.checksum_errors,
+          es.line_idle_high ? "true" : "false",
+          (unsigned long)es.fail_no_response,
+          (unsigned long)es.fail_handshake,
+          (unsigned long)es.fail_truncated,
+          (unsigned long)es.fail_range,
+          (unsigned)es.last_bits,
+          es.last_frame[0], es.last_frame[1], es.last_frame[2],
+          es.last_frame[3], es.last_frame[4]);
     j.add("\"fan\":{\"mode\":\"%s\",\"on\":%s,\"t\":%.1f,\"tvalid\":%s,"
           "\"run_s\":%lu,\"trans\":%lu},",
           FanManager::modeName(f.mode), f.running ? "true" : "false",

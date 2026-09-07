@@ -29,8 +29,25 @@ struct EnvReading {
 
 struct EnvStats {
     uint32_t reads_ok;
-    uint32_t read_errors;
+    uint32_t read_errors;        // every failed transaction, all causes
     uint32_t checksum_errors;
+
+    // WHERE the transaction died. read_errors alone cannot tell a sensor that
+    // never answers (power, wiring, dead part) from one that answers badly
+    // (pull-up, timing, interference) — and those need opposite fixes. This is
+    // the same blind spot the GPS counters had; see GpsStats.
+    uint32_t fail_no_response;   // line stayed high: nothing pulled it down
+    uint32_t fail_handshake;     // came low, but the 80/80 response never finished
+    uint32_t fail_truncated;     // handshake fine, bit stream stopped partway
+    uint32_t fail_range;         // checksum passed, values outside the datasheet
+    uint8_t  last_bits;          // bits received in the most recent attempt
+    uint8_t  last_frame[5];      // the five raw bytes, whatever they decoded to
+
+    // DATA level with the internal pull-up on and the sensor idle. This must be
+    // HIGH. LOW means no pull-up is reaching the pin, DATA is shorted to
+    // ground, or the part is holding the line down — none of which any protocol
+    // timing can fix, so it is worth knowing before reading anything else.
+    bool     line_idle_high;
 };
 
 namespace EnvironmentManager {
