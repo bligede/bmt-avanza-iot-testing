@@ -14,6 +14,7 @@
 #include "GpsManager.h"
 #include "EnvironmentManager.h"
 #include "FanManager.h"
+#include "StatusLed.h"
 
 namespace {
 
@@ -262,6 +263,8 @@ footer #ft{margin-left:auto}
       <div class="kv"><span>Free heap</span><span id="s-hp">–</span></div>
       <div class="kv"><span>WiFi</span><span id="s-wf">–</span></div>
       <div class="kv"><span>Requests served</span><span id="s-rq">–</span></div>
+      <div class="kv"><span>Status light</span><span id="s-led">–</span></div>
+      <div id="s-lednote"></div>
     </div>
   </section>
 </main>
@@ -279,6 +282,20 @@ const tag=(t,c)=>'<span class="tag '+c+'">'+t+'</span>';
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const note=(t,c)=>t?'<p class="note'+(c?' '+c:'')+'">'+t+'</p>':'';
 const empty=(h,b)=>'<div class="empty"><b>'+h+'</b>'+b+'</div>';
+/* Keyed by StatusLed::statusName(). First field is what the light looks like,
+   second is what it means, third the tone. Red is not automatically a fault:
+   GPS_NO_FIX winks red while the receiver is perfectly healthy. */
+const LED={
+  BOOT:            ['red / green alternating','Nothing has reported in yet. Past the first second of boot this means the housekeeping task has stopped updating.','warn'],
+  MODEM_CONNECTING:['fast green blink','Joining WiFi.'],
+  NETWORK_OK:      ['slow green blink','WiFi is up and the CAN driver is running. No frames yet — expected until a bus is attached.'],
+  GPS_NO_FIX:      ['green, red wink','The GNSS module is streaming but has not locked a fix yet. The red wink is not a fault; it clears on first fix. Indoors it may never clear.'],
+  CAN_OK:          ['green heartbeat','CAN frames are arriving.'],
+  BUFFERING:       ['green, red pulse','Writing captured frames to flash.'],
+  MQTT_OK:         ['solid green','Everything nominal.'],
+  CAN_ERROR:       ['fast red blink','The CAN driver is not running. Check the serial log.','bad'],
+  SYSTEM_ERROR:    ['solid red','The filesystem is down. Captures are not being written.','bad']
+};
 let fails=0,prevRx=null,prevT=null;
 
 function paint(d){
@@ -426,6 +443,13 @@ function paint(d){
   $('s-hp').textContent=(d.heap/1024).toFixed(1)+' KB';
   $('s-wf').textContent=d.wifi+(d.rssi?' · '+d.rssi+' dBm':'');
   $('s-rq').textContent=d.reqs.toLocaleString();
+
+  /* The board has two outputs, the LED and this page, and until now the page
+     could not explain the LED. A technician watching the light should not have
+     to read the firmware to find out what it is saying. */
+  const L=LED[d.led]||[d.led,'Unrecognised status.'];
+  $('s-led').textContent=L[0];
+  $('s-lednote').innerHTML=note(L[1],L[2]||'');
   $('ft').textContent='refreshed every 500 ms';
 }
 
@@ -590,10 +614,12 @@ void appendSystem(Appender& j) {
           (unsigned long)RawCanLogger::framesWritten(),
           (unsigned long)RawCanLogger::bytesWritten(),
           RawCanLogger::currentPath());
-    j.add("\"heap\":%lu,\"rssi\":%ld,\"ip\":\"%s\",\"wifi\":\"%s\",\"reqs\":%lu",
+    j.add("\"heap\":%lu,\"rssi\":%ld,\"ip\":\"%s\",\"wifi\":\"%s\",\"reqs\":%lu,"
+          "\"led\":\"%s\"",
           (unsigned long)ESP.getFreeHeap(), (long)w.rssi, w.ip,
           WifiManager::stateName(WifiManager::state()),
-          (unsigned long)s_requests);
+          (unsigned long)s_requests,
+          StatusLed::statusName(StatusLed::current()));
 }
 
 // ---- routes -----------------------------------------------------------------
