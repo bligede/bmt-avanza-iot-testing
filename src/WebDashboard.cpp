@@ -154,6 +154,22 @@ td.num{text-align:right}
 .note.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
 .note.bad{background:var(--bad-bg);border-color:var(--bad-line);color:var(--bad)}
 .note b{color:inherit}
+/* ---- signal probe ---- */
+.pbf{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));
+  gap:9px 10px;margin-bottom:13px}
+.pbf label{display:flex;flex-direction:column;gap:4px;font-size:10px;font-weight:700;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.pbf select,.pbf input{background:#151314;color:var(--ink);border:1px solid var(--line);
+  border-radius:6px;padding:5px 7px;font:12px var(--mono);min-width:0}
+.pbf label.ck{flex-direction:row;align-items:center;gap:6px;text-transform:none;
+  letter-spacing:0;font-size:11.5px;font-weight:500;color:var(--ink-2);align-self:end;
+  padding-bottom:6px}
+.pbf label.ck input{width:auto;accent-color:var(--g)}
+.pbv{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.pbv b{font-size:27px;font-weight:650;letter-spacing:-.02em;font-family:var(--mono);
+  color:var(--g);line-height:1.1}
+.pbv span{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.spark{width:100%;height:48px;display:block;margin:9px 0 3px}
 .ledtab{margin-top:11px;border-top:1px solid var(--line);padding-top:10px}
 .ledtab h3{font-size:10px;font-weight:700;letter-spacing:.08em;
   text-transform:uppercase;color:var(--ink-3);margin:0 0 8px}
@@ -269,6 +285,30 @@ footer #ft{margin-left:auto}
   </section>
 
   <section>
+    <div class="sh"><h2>Signal probe</h2><span class="n" id="pb-n"></span></div>
+    <div class="body">
+      <div class="pbf">
+        <label>CAN ID<select id="pb-id"></select></label>
+        <label>Start byte<input id="pb-off" type="number" min="0" max="7" value="0"></label>
+        <label>Width<select id="pb-w">
+          <option value="8">8 bit</option><option value="16" selected>16 bit</option>
+          <option value="24">24 bit</option><option value="32">32 bit</option></select></label>
+        <label>Byte order<select id="pb-e">
+          <option value="be">big-endian</option>
+          <option value="le">little-endian</option></select></label>
+        <label>Scale<input id="pb-s" type="number" step="any" value="1"></label>
+        <label>Offset<input id="pb-o" type="number" step="any" value="0"></label>
+        <label class="ck"><input id="pb-sg" type="checkbox"> signed</label>
+      </div>
+      <div class="pbv"><b id="pb-val">–</b><span id="pb-raw"></span></div>
+      <svg class="spark" id="pb-spark" viewBox="0 0 300 48" preserveAspectRatio="none"
+           aria-hidden="true"></svg>
+      <div class="kv"><span>Range seen</span><span id="pb-mm">–</span></div>
+      <div id="pb-note"></div>
+    </div>
+  </section>
+
+  <section>
     <div class="sh"><h2>Device</h2></div>
     <div class="body">
       <div class="kv"><span>Unit</span><span id="s-u">–</span></div>
@@ -316,6 +356,130 @@ const LED={
 const LED_ORDER=['SYSTEM_ERROR','CAN_ERROR','CAN_OK','GPS_NO_FIX',
                  'MODEM_CONNECTING','NETWORK_OK','BOOT'];
 let fails=0,prevRx=null,prevT=null;
+
+/* ---------------- signal probe ----------------------------------------------
+   Blueprint 9.1 in the browser. The known-value method is normally run after the
+   drive, with can_find_value.py over a capture; this makes it live, so a
+   candidate can be confirmed against the speedometer while someone reads it out
+   rather than an hour later at a desk.
+
+   The decode runs HERE, not on the device. Nothing about the CAN path changes,
+   the settings retune without reflashing, and — the point — the firmware still
+   never claims to know what a byte means. It ships raw hex; this panel is
+   openly a guess the operator is making, and can watch being right or wrong.
+
+   It is a SAMPLE, not a capture. The page receives the most recent frames each
+   poll, so a signal at 10 Hz or faster appears every tick and a slow one may
+   skip some. For finding which bytes move that is plenty, and the file on flash
+   remains the record. */
+const PB_KEYS=['pb-id','pb-off','pb-w','pb-e','pb-s','pb-o','pb-sg'];
+let pbHist=[],pbSig='',pbIds='';
+
+function pbRead(){
+  return {id:+$('pb-id').value, off:+$('pb-off').value, w:+$('pb-w').value,
+          le:$('pb-e').value==='le', sc:+$('pb-s').value, of:+$('pb-o').value,
+          sg:$('pb-sg').checked};
+}
+function pbSave(){
+  try{const o={};PB_KEYS.forEach(k=>o[k]=$(k).type==='checkbox'?$(k).checked:$(k).value);
+    localStorage.setItem('bmt.probe',JSON.stringify(o));}catch(e){}
+}
+function pbLoad(){
+  try{const o=JSON.parse(localStorage.getItem('bmt.probe')||'{}');
+    PB_KEYS.forEach(k=>{if(o[k]===undefined||!$(k))return;
+      if($(k).type==='checkbox')$(k).checked=o[k];else $(k).value=o[k];});}catch(e){}
+}
+/* Multiplication, not shifts: JavaScript bitwise operators are 32-bit SIGNED,
+   so a 32-bit unsigned CAN value would come back negative. */
+function pbDecode(b,st,w,le,sg){
+  const n=w/8;
+  if(st<0||st+n>b.length) return null;
+  let v=0;
+  if(le){ for(let i=n-1;i>=0;i--) v=v*256+b[st+i]; }
+  else  { for(let i=0;i<n;i++)    v=v*256+b[st+i]; }
+  if(sg){ const half=Math.pow(2,w-1); if(v>=half) v-=Math.pow(2,w); }
+  return v;
+}
+function pbSpark(h){
+  const el=$('pb-spark');
+  if(h.length<2){el.innerHTML='';return;}
+  let lo=Math.min.apply(null,h),hi=Math.max.apply(null,h);
+  if(hi===lo){hi=lo+1;lo=lo-1;}
+  const n=h.length,W=300,H=48,p=4;
+  const pts=h.map((v,i)=>(i*(W/(n-1))).toFixed(1)+','+
+    (H-p-((v-lo)/(hi-lo))*(H-2*p)).toFixed(1)).join(' ');
+  el.innerHTML='<polyline fill="none" stroke="var(--g)" stroke-width="1.7" '+
+    'stroke-linejoin="round" stroke-linecap="round" points="'+pts+'"/>';
+}
+function pbFmt(v){
+  return (Number.isInteger(v)||Math.abs(v)>=1000)
+    ? v.toLocaleString(undefined,{maximumFractionDigits:3})
+    : String(Math.round(v*1000)/1000);
+}
+
+function probe(d){
+  /* Rebuild the identifier list only when the bus really shows a different set,
+     so a new ID appearing mid-drive does not discard the operator's selection. */
+  const sig=d.ids.map(x=>x.id).join(',');
+  if(sig!==pbIds){
+    pbIds=sig;
+    const keep=$('pb-id').value;
+    $('pb-id').innerHTML=d.ids.map(x=>'<option value="'+x.id+'">'+
+      hex(x.id,x.ext?8:3)+'</option>').join('');
+    if(keep&&d.ids.some(x=>String(x.id)===keep)) $('pb-id').value=keep;
+    else pbLoad();
+  }
+  if(!d.ids.length){
+    $('pb-val').textContent='-'; $('pb-raw').textContent='';
+    $('pb-mm').textContent='-'; $('pb-n').textContent=''; pbSpark([]);
+    $('pb-note').innerHTML=note('Nothing on the bus yet. Once frames arrive, pick '+
+      'an identifier and watch this number while someone reads the speedometer '+
+      'aloud. Speed follows the needle both ways, an odometer only climbs, a '+
+      'rolling counter wraps to zero.');
+    return;
+  }
+
+  const p=pbRead();
+  const guess=[p.id,p.off,p.w,p.le,p.sg].join('|');
+  if(guess!==pbSig){ pbSig=guess; pbHist=[]; }   /* new guess, new history */
+
+  const fr=d.frames.filter(f=>f.id===p.id);
+  if(fr.length){
+    const b=fr[0].d.trim().split(/\s+/).map(x=>parseInt(x,16));
+    const raw=pbDecode(b,p.off,p.w,p.le,p.sg);
+    if(raw===null){
+      $('pb-val').textContent='-'; $('pb-raw').textContent=''; pbSpark([]);
+      $('pb-note').innerHTML=note('Byte '+p.off+' plus '+(p.w/8)+' byte(s) runs past '+
+        'this frame, which carries '+b.length+'. Narrow the width or move the '+
+        'start byte left.','warn');
+      return;
+    }
+    pbHist.push(raw*p.sc+p.of); if(pbHist.length>90) pbHist.shift();
+    $('pb-val').textContent=pbFmt(pbHist[pbHist.length-1]);
+    $('pb-raw').textContent='raw '+raw+' · 0x'+(raw<0?'-':'')+
+      Math.abs(raw).toString(16).toUpperCase()+
+      ' · bytes '+p.off+'–'+(p.off+p.w/8-1);
+  }
+
+  $('pb-n').textContent=pbHist.length?pbHist.length+' samples':'waiting';
+  if(pbHist.length){
+    const lo=Math.min.apply(null,pbHist),hi=Math.max.apply(null,pbHist);
+    $('pb-mm').textContent=(lo===hi)?'flat at '+pbFmt(lo)
+      :pbFmt(lo)+' … '+pbFmt(hi);
+    pbSpark(pbHist);
+    $('pb-note').innerHTML=note(lo===hi
+      ? 'Not moving. Either these bytes are not the signal, or nothing has '+
+        'changed yet. Test it against something you can make change on demand.'
+      : 'Moving. Read the dashboard aloud and compare: speed follows the needle '+
+        'up AND down, an odometer only ever climbs, a rolling counter wraps to '+
+        'zero. Confirm a candidate against GNSS ground speed before trusting it, '+
+        'and never put an unvalidated identifier in the fleet signals.cfg.');
+  }else{
+    $('pb-mm').textContent='-';
+    $('pb-note').innerHTML=note('No frame with this identifier in the last sample. '+
+      'A slow signal can skip a tick; the capture on flash still holds every frame.');
+  }
+}
 
 function paint(d){
   const c=d.can,g=d.gps,e=d.env,f=d.fan,cap=d.cap,now=Date.now();
@@ -517,6 +681,7 @@ function paint(d){
       LED[k][0]+'</b><span>'+LED[k][3]+'</span></div>').join('')+
     '<p class="lednb">Most severe first. The light always shows the highest '+
     'condition that is true, so a fault hides everything below it.</p>';
+  probe(d);
   $('ft').textContent='refreshed every 500 ms';
 }
 
@@ -534,6 +699,10 @@ async function tick(){
     }
   }
 }
+pbLoad();
+PB_KEYS.forEach(k=>{const e=$(k); if(e) e.addEventListener('change',()=>{
+  pbSave(); pbHist=[]; pbSig='';
+});});
 tick(); setInterval(tick,500);
 </script></body></html>)HTMLPAGE";
 
