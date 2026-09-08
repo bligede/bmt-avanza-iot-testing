@@ -43,6 +43,20 @@ void stopFileCapture();
 
 uint32_t bytesWritten();
 uint32_t framesWritten();
+
+// Frames the CAN task could not hand over because the writer queue was full.
+// Missing from the FILE only — the bus counters still saw every one of them.
+// Counted here rather than in main.cpp so the dashboard can show it; a drop
+// counter nobody can read is not an instrument.
+void     noteQueueDrop();
+uint32_t queueDrops();
+
+// Writes a marked record into the capture at this instant. The event marker in
+// the dashboard uses it so a physical action in the car lands in the same file
+// as the frames, at the same clock, instead of on a paper run sheet that has to
+// be aligned afterwards by guessing an offset.
+void mark(const char* label);
+uint32_t markCount();
 const char* currentPath();
 
 // Deletes every capture file. Frees space for the telemetry buffer.

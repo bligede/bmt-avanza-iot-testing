@@ -170,6 +170,20 @@ td.num{text-align:right}
   color:var(--g);line-height:1.1}
 .pbv span{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
 .spark{width:100%;height:48px;display:block;margin:9px 0 3px}
+
+/* ---- event marker ----
+   Sized to be hit without looking. The operator is holding a camera on the
+   instrument cluster with the other hand. */
+.mkrow{display:flex;gap:9px;margin:12px 0 4px}
+.mkrow input{flex:1;min-width:0;background:#151314;color:var(--ink);
+  border:1px solid var(--line);border-radius:7px;padding:10px 11px;
+  font:13px var(--mono)}
+.mkrow button{flex:none;padding:10px 22px;border:0;border-radius:7px;
+  background:var(--g);color:var(--hdr);font:700 13px var(--sans);
+  letter-spacing:.07em;cursor:pointer;-webkit-appearance:none}
+.mkrow button:active{background:var(--g-dk)}
+.mkrow button.sent{background:var(--ink-3);color:var(--hdr)}
+.mkrow button.fail{background:var(--bad);color:var(--hdr)}
 .ledtab{margin-top:11px;border-top:1px solid var(--line);padding-top:10px}
 .ledtab h3{font-size:10px;font-weight:700;letter-spacing:.08em;
   text-transform:uppercase;color:var(--ink-3);margin:0 0 8px}
@@ -239,6 +253,7 @@ footer #ft{margin-left:auto}
   <section>
     <div class="sh"><h2>Identifiers</h2><span class="n" id="idn"></span></div>
     <div class="scroll" id="idwrap"></div>
+    <div id="id-note" class="body" style="padding-top:0"></div>
   </section>
 
   <section>
@@ -280,6 +295,13 @@ footer #ft{margin-left:auto}
       <div class="kv"><span>Frames written</span><span id="c-f">–</span></div>
       <div class="kv"><span>Size</span><span id="c-b">–</span></div>
       <div class="kv"><span>File</span><span id="c-p">–</span></div>
+      <div class="kv"><span>Dropped before writing</span><span id="c-qd">–</span></div>
+      <div class="kv"><span>Markers written</span><span id="c-mk">–</span></div>
+      <div class="mkrow">
+        <input id="mk-l" type="text" maxlength="48" placeholder="label, e.g. 40kmh"
+               autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button id="mk-b" type="button">MARK</button>
+      </div>
       <div id="c-note"></div>
     </div>
   </section>
@@ -317,6 +339,7 @@ footer #ft{margin-left:auto}
       <div class="kv"><span>Free heap</span><span id="s-hp">–</span></div>
       <div class="kv"><span>WiFi</span><span id="s-wf">–</span></div>
       <div class="kv"><span>Requests served</span><span id="s-rq">–</span></div>
+      <div class="kv"><span>Wall clock (UTC)</span><span id="s-clk">–</span></div>
       <div class="kv"><span>Status light</span><span id="s-led">–</span></div>
       <div id="s-lednote"></div>
       <div class="ledtab" id="s-ledtab"></div>
@@ -484,6 +507,12 @@ function probe(d){
 function paint(d){
   const c=d.can,g=d.gps,e=d.env,f=d.fan,cap=d.cap,now=Date.now();
 
+  /* The authoritative identifier count, and whether the array below it was
+     cut short by a full buffer. Declared here because the verdict sentence
+     reads it before the metrics row does. */
+  const uniq=(c.uniq===undefined)?d.ids.length:c.uniq;
+  const cut=d.ids.length<uniq;
+
   $('sub').textContent=d.unit+' · '+d.ip+' · '+d.fw;
   $('hstat').textContent=c.listen_only?'listen-only':'UNLOCKED';
   $('pip').style.background=c.listen_only?'var(--g)':'var(--bad)';
@@ -515,8 +544,8 @@ function paint(d){
        the same counter mean this sample caught no frame, not a dead bus —
        silence_ms above is what decides that. */
     vl='Reading the bus'+(fps?' · '+fps.toLocaleString()+' frames/s':'');
-    vw=c.rx.toLocaleString()+' frames from '+d.ids.length+
-       ' identifier'+(d.ids.length===1?'':'s')+'.'+
+    vw=c.rx.toLocaleString()+' frames from '+uniq+
+       ' identifier'+(uniq===1?'':'s')+'.'+
        ((c.missed||c.drop)?' Some frames were lost — see the counters below.':'');
   }
   $('vl').className='vl '+cls;
@@ -524,14 +553,14 @@ function paint(d){
   $('vw').textContent=vw;
 
   $('m-rx').textContent=c.rx.toLocaleString();
-  $('m-id').textContent=d.ids.length;
+  $('m-id').textContent=uniq;
   $('m-drop').textContent=c.drop; $('m-drop').className=c.drop?'hot':'';
   $('m-miss').textContent=c.missed; $('m-miss').className=c.missed?'hot':'';
   $('m-err').textContent=c.err; $('m-err').className=c.err?'hot':'';
   $('m-rate').textContent=(c.bitrate/1000)+' kbps';
 
   /* ---- identifiers ---- */
-  $('idn').textContent=d.ids.length?d.ids.length+' seen':'';
+  $('idn').textContent=uniq?(cut?d.ids.length+' of '+uniq:uniq+' seen'):'';
   if(d.ids.length){
     const tot=d.ids.reduce((a,b)=>a+b.n,0)||1;
     const rows=d.ids.slice().sort((a,b)=>b.n-a.n).map(x=>{
@@ -571,6 +600,27 @@ function paint(d){
     ? new Date(g.epoch*1000).toISOString().replace('.000Z','Z'):'—';
   $('g-byt').textContent=g.bytes.toLocaleString()+' / '+g.lines.toLocaleString();
   $('g-sen').textContent=g.sentences.toLocaleString()+' / '+g.badcrc;
+  /* An instrument has to be able to accuse itself. Three separate ways this
+     table can mislead, each named rather than hidden. */
+  let it='',ic='';
+  const shown=d.ids.reduce((a,x)=>a+x.n,0);
+  if(cut){ic='bad';
+    it='<b>Showing '+d.ids.length+' of '+uniq+' identifiers.</b> The state '+
+       'response filled up before the list ended, so the rows below are a '+
+       'prefix, not a ranking. Do not choose reverse-engineering targets from '+
+       'this table until it fits — raise WEB_JSON_BUF or send fewer frames.';
+  }else if(c.idfull){ic='warn';
+    it='<b>The identifier survey is full at '+uniq+'.</b> Identifiers first '+
+       'seen after that point are not counted anywhere. This is the ceiling in '+
+       'CanManager, not the bus.';
+  }else if(c.rx>2000&&shown<c.rx*0.9){ic='bad';
+    it='<b>These rows do not add up.</b> They total '+shown.toLocaleString()+
+       ' against '+c.rx.toLocaleString()+' received, and neither the buffer '+
+       'nor the survey ceiling explains the gap. Treat the table as unreliable '+
+       'and report it.';
+  }
+  $('id-note').innerHTML=note(it,ic);
+
   $('g-sky').textContent=g.view===undefined?'–':g.view+' / '+g.trk;
   $('g-cnr').textContent=g.cnr?g.cnr+' dB-Hz':(g.view===undefined?'–':'nothing heard');
   let gt='',gc='';
@@ -658,6 +708,15 @@ function paint(d){
   $('c-f').textContent=cap.frames.toLocaleString();
   $('c-b').textContent=(cap.bytes/1024).toFixed(1)+' KB';
   $('c-p').textContent=cap.path||'—';
+  $('c-qd').textContent=cap.qdrop===undefined?'–':cap.qdrop.toLocaleString();
+  $('c-qd').className=cap.qdrop?'hot':'';
+  $('c-mk').textContent=d.marks===undefined?'–':d.marks;
+
+  /* A capture header that says boot_epoch=0 has to be aligned to the run sheet
+     by hand afterwards, so say plainly which of the two we are in. */
+  $('s-clk').innerHTML=d.clock
+    ? new Date(d.clock*1000).toISOString().replace('.000Z','Z')
+    : tag('not set','t-warn');
   $('c-note').innerHTML=note(cap.frames<c.rx&&c.rx>0
     ? '<b>Written is behind received.</b> The flash writer cannot keep up, so the file is a sample. Bus reception is unaffected — <i>received</i> above still counts every frame.'
     : 'The page holds the last frames only. This file holds all of them, for analysis with can_find_value.py. Pull it with <b>cat</b> on the serial console.');
@@ -699,6 +758,23 @@ async function tick(){
     }
   }
 }
+/* The marker POST is the only request this page makes that changes anything
+   on the device, and it reaches the capture FILE only -- there is no path
+   from it to the CAN bus. Feedback is visual because the operator will not be
+   reading the screen when they press it. */
+try{const l=localStorage.getItem('bmt.mark'); if(l) $('mk-l').value=l;}catch(e){}
+$('mk-b').addEventListener('click',function(){
+  const b=$('mk-b'), l=($('mk-l').value||'MARK').trim();
+  try{localStorage.setItem('bmt.mark',l);}catch(e){}
+  b.className='sent'; b.textContent='…';
+  fetch('/api/mark?label='+encodeURIComponent(l),{method:'POST'})
+    .then(function(r){ if(!r||!r.ok) throw 0;
+      b.className='sent'; b.textContent='WRITTEN'; })
+    .catch(function(){ b.className='fail'; b.textContent='FAILED'; })
+    .then(function(){ setTimeout(function(){
+      b.className=''; b.textContent='MARK'; },1100); });
+});
+
 pbLoad();
 PB_KEYS.forEach(k=>{const e=$(k); if(e) e.addEventListener('change',()=>{
   pbSave(); pbHist=[]; pbSig='';
@@ -741,7 +817,8 @@ void appendCan(Appender& j) {
 
     j.add("\"can\":{\"running\":%s,\"state\":\"%s\",\"bitrate\":%lu,"
           "\"listen_only\":%s,\"rx\":%lu,\"drop\":%lu,\"missed\":%lu,"
-          "\"err\":%lu,\"rec\":%lu,\"silence_ms\":%lu},",
+          "\"err\":%lu,\"rec\":%lu,\"silence_ms\":%lu,"
+          "\"uniq\":%u,\"idfull\":%s},",
           st == CanState::Running ? "true" : "false",
           st == CanState::Running       ? "RUNNING"
             : st == CanState::BusError      ? "BUS_ERROR"
@@ -753,9 +830,19 @@ void appendCan(Appender& j) {
           (unsigned long)c.rx_missed,
           (unsigned long)c.bus_errors,
           (unsigned long)c.recoveries,
-          (unsigned long)(sil == UINT32_MAX ? 0 : sil));
+          (unsigned long)(sil == UINT32_MAX ? 0 : sil),
+          // Emitted here, in the first object written, so it survives even if
+          // the identifier array below is cut short by a full buffer. The page
+          // compares the array length against this to detect that.
+          (unsigned)c.unique_ids_seen,
+          CanManager::seenIdOverflow() ? "true" : "false");
 }
 
+// appendCan runs before this and carries "uniq", the true number of distinct
+// identifiers. The array below can be cut short when the buffer fills, so the
+// page compares its length against uniq and says so instead of quietly
+// reporting the short count as the total. That silent substitution is exactly
+// how the table came to look complete while missing 47% of the traffic.
 void appendIds(Appender& j) {
     j.add("\"ids\":[");
     const uint16_t n = CanManager::seenIdCount();
@@ -858,17 +945,24 @@ void appendThermal(Appender& j) {
 
 void appendSystem(Appender& j) {
     const WifiStats w = WifiManager::stats();
-    j.add("\"cap\":{\"sink\":%u,\"frames\":%lu,\"bytes\":%lu,\"path\":\"%s\"},",
+    j.add("\"cap\":{\"sink\":%u,\"frames\":%lu,\"bytes\":%lu,\"path\":\"%s\","
+          "\"qdrop\":%lu},",
           (unsigned)RawCanLogger::sink(),
           (unsigned long)RawCanLogger::framesWritten(),
           (unsigned long)RawCanLogger::bytesWritten(),
-          RawCanLogger::currentPath());
+          RawCanLogger::currentPath(),
+          (unsigned long)RawCanLogger::queueDrops());
     j.add("\"heap\":%lu,\"rssi\":%ld,\"ip\":\"%s\",\"wifi\":\"%s\",\"reqs\":%lu,"
-          "\"led\":\"%s\"",
+          "\"led\":\"%s\",\"clock\":%lld,\"marks\":%lu",
           (unsigned long)ESP.getFreeHeap(), (long)w.rssi, w.ip,
           WifiManager::stateName(WifiManager::state()),
           (unsigned long)s_requests,
-          StatusLed::statusName(StatusLed::current()));
+          StatusLed::statusName(StatusLed::current()),
+          // Zero until SNTP answers. The page shows the difference between "no
+          // wall clock yet" and a time, because a capture whose header says
+          // boot_epoch=0 has to be aligned by hand.
+          (long long)(time(nullptr) > 1600000000 ? time(nullptr) : 0),
+          (unsigned long)RawCanLogger::markCount());
 }
 
 // ---- routes -----------------------------------------------------------------
@@ -906,9 +1000,26 @@ void handleState() {
     s_server.send(200, "application/json", s_json);
 }
 
+// Writes an operator marker into the capture. It touches the FILE only — there
+// is no path from here to the CAN bus, and the label is stripped of anything
+// that could forge a frame or header line inside RawCanLogger::mark().
+void handleMark() {
+    if (!RawCanLogger::isCapturing()) {
+        s_server.send(409, "text/plain", "Capture is not running");
+        return;
+    }
+    String label = s_server.arg("label");
+    if (label.length() == 0) label = "MARK";
+    if (label.length() > 48) label = label.substring(0, 48);
+    RawCanLogger::mark(label.c_str());
+    s_server.sendHeader("Cache-Control", "no-store");
+    s_server.send(200, "text/plain", String(RawCanLogger::markCount()));
+}
+
 void handleNotFound() {
     ++s_requests;
-    s_server.send(404, "text/plain", "Not found. This device serves / only.");
+    s_server.send(404, "text/plain",
+                  "Not found. This device serves /, /api/state and /api/mark.");
 }
 
 }  // namespace
@@ -922,6 +1033,7 @@ void begin() {
 
     s_server.on("/", HTTP_GET, handleIndex);
     s_server.on("/api/state", HTTP_GET, handleState);
+    s_server.on("/api/mark", HTTP_POST, handleMark);
     s_server.onNotFound(handleNotFound);
     s_server.begin();
     s_started = true;

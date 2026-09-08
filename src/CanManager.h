@@ -89,6 +89,11 @@ void     noteDecodeQueueDrop();
 // Tracks which IDs have been seen, for the Fase 0 survey. Capacity-limited.
 void     noteId(uint32_t id);
 uint16_t seenIdCount();
+
+// True once the survey has run out of slots. Distinguishes "these are all the
+// identifiers on the bus" from "these are the first 128 we happened to meet",
+// which are very different statements to build a work plan on.
+bool seenIdOverflow();
 bool     seenIdAt(uint16_t index, uint32_t* id, uint32_t* count);
 
 // Stops the driver. Used by factory reset and by OTA before a restart.

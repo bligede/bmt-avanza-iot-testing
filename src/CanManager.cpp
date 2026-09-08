@@ -224,6 +224,7 @@ void poll() {
 
 CanState state()    { return s_state; }
 CanStats stats()    { CanStats s = s_stats; s.unique_ids_seen = s_seen_count; return s; }
+bool seenIdOverflow() { return s_seen_full_warned; }
 uint32_t bitrate()  { return s_bitrate; }
 bool isListenOnlyLocked() { return s_locked; }
 

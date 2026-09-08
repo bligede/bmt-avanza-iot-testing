@@ -16,6 +16,54 @@ uint32_t s_frames        = 0;
 uint32_t s_segment       = 0;
 char     s_path[48]      = {0};
 bool     s_ceiling_warned = false;
+uint32_t s_seg_bytes     = 0;   // includes what is still staged in RAM
+uint32_t s_queue_drops   = 0;
+uint32_t s_marks         = 0;
+
+// Staging buffer. See RAWLOG_WRITE_BUF in Config.h for why this exists.
+char     s_wr[RAWLOG_WRITE_BUF];
+size_t   s_wr_len        = 0;
+uint32_t s_blocks        = 0;   // buffer writes since boot, for fsync pacing
+
+void flushBuffer() {
+    if (s_wr_len == 0 || !s_file_open) return;
+    s_file.write(reinterpret_cast<const uint8_t*>(s_wr), s_wr_len);
+    s_wr_len = 0;
+    // fsync every eighth block rather than every frame. A sync per frame would
+    // erase-cycle the flash hard and stall the storage task; never syncing
+    // would lose the tail on a power cut.
+    if ((++s_blocks & 0x07) == 0) s_file.flush();
+}
+
+void appendRaw(const char* text, size_t len) {
+    if (!s_file_open || len == 0) return;
+    if (s_wr_len + len > sizeof(s_wr)) flushBuffer();
+    if (len > sizeof(s_wr)) {                 // never happens; handled anyway
+        s_file.write(reinterpret_cast<const uint8_t*>(text), len);
+        s_bytes += len; s_seg_bytes += len;
+        return;
+    }
+    memcpy(s_wr + s_wr_len, text, len);
+    s_wr_len   += len;
+    s_bytes    += len;
+    s_seg_bytes += len;
+}
+
+// Every segment opens with its own provenance. A capture file without metadata
+// becomes a mystery within weeks: which vehicle, which firmware, which bitrate,
+// and what wall-clock time "millis 177678" actually was.
+void writeHeader() {
+    char h[240];
+    const time_t now = time(nullptr);
+    const int n = snprintf(h, sizeof(h),
+        "# BMT CAN capture v1\n"
+        "# unit=%s fw=%s bitrate=%lu listen_only=1\n"
+        "# segment=%lu millis_at_open=%lu boot_epoch=%lld\n",
+        UNIT_ID, FW_VERSION, (unsigned long)CAN_DEFAULT_BITRATE,
+        (unsigned long)s_segment, (unsigned long)millis(),
+        (long long)(now > 1600000000 ? now - (time_t)(millis() / 1000) : 0));
+    if (n > 0) appendRaw(h, static_cast<size_t>(n));
+}
 
 bool openSegment(uint32_t index) {
     if (s_file_open) { s_file.close(); s_file_open = false; }
@@ -27,6 +75,8 @@ bool openSegment(uint32_t index) {
         return false;
     }
     s_file_open = true;
+    s_seg_bytes = 0;
+    writeHeader();
     LOG_I(TAG, "Capturing to %s", s_path);
     return true;
 }
@@ -94,17 +144,15 @@ void write(const CanFrame& frame) {
             }
             return;
         }
-        if (s_file.position() >= RAWLOG_SEGMENT_BYTES) {
+        // Segment size is tracked, not read back from the file: position()
+        // lags whatever is still staged in RAM.
+        if (s_seg_bytes >= RAWLOG_SEGMENT_BYTES) {
+            flushBuffer();
             openSegment(++s_segment);
         }
-        s_file.print(line);
-        s_file.print('\n');
-        s_bytes += len + 1;
+        line[len] = '\n';
+        appendRaw(line, len + 1);
         ++s_frames;
-
-        // Flush periodically rather than per frame: a flush per frame on a busy
-        // bus would erase-cycle the flash hard and stall the storage task.
-        if ((s_frames & 0x3F) == 0) s_file.flush();
     }
 }
 
@@ -117,6 +165,31 @@ void setSink(uint8_t sink) {
     else if (!wantFile && haveFile) stopFileCapture();
     LOG_I(TAG, "Sink -> %u", (unsigned)sink);
 }
+
+void noteQueueDrop() { ++s_queue_drops; }
+uint32_t queueDrops() { return s_queue_drops; }
+
+void mark(const char* label) {
+    if (!s_file_open) return;
+    char m[160];
+    char safe[80];
+    size_t k = 0;
+    for (const char* p = label; *p && k < sizeof(safe) - 1; ++p) {
+        // The label reaches here from an HTTP query string. Anything that could
+        // forge a frame line or a header line is dropped rather than escaped.
+        if (*p == '\n' || *p == '\r' || *p == '|' || *p == '#') continue;
+        safe[k++] = *p;
+    }
+    safe[k] = '\0';
+    const int n = snprintf(m, sizeof(m), "# MARK %lu %s\n",
+                           (unsigned long)millis(), safe);
+    if (n > 0) appendRaw(m, static_cast<size_t>(n));
+    ++s_marks;
+    flushBuffer();          // a marker is worthless if it is lost in a stall
+    LOG_I(TAG, "Marker: %s", safe);
+}
+
+uint32_t markCount() { return s_marks; }
 
 uint8_t sink() { return s_sink; }
 bool isCapturing() { return s_sink != RAWLOG_SINK_NONE; }
@@ -131,6 +204,7 @@ bool startFileCapture() {
 
 void stopFileCapture() {
     if (s_file_open) {
+        flushBuffer();
         s_file.flush();
         s_file.close();
         s_file_open = false;

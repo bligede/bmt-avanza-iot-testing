@@ -25,7 +25,7 @@
 // -----------------------------------------------------------------------------
 // 1. IDENTITY
 // -----------------------------------------------------------------------------
-#define UNIT_ID         "AVANZA-TEST-01"
+#define UNIT_ID         "HRV-TEST-01"   // the vehicle actually under test
 
 // -----------------------------------------------------------------------------
 // 2. PIN MAP — SN65HVD230 transceiver
@@ -66,7 +66,11 @@
 #define CAN_DEFAULT_BITRATE     500000
 
 #define CAN_RX_QUEUE_LEN        64
-#define CAN_RAWLOG_QUEUE_LEN    256
+// Deep enough to ride out a filesystem stall. At ~1,300 frames/s a 256-slot
+// queue overflows after 200 ms of the writer being busy, which is well within
+// what LittleFS takes to do wear-levelling bookkeeping. 1024 slots is ~20 KB
+// of internal RAM against 17.9% used, and buys 800 ms.
+#define CAN_RAWLOG_QUEUE_LEN    1024
 #define CAN_SILENCE_TIMEOUT_MS  5000
 
 // --- SAFETY ------------------------------------------------------------------
@@ -96,6 +100,12 @@
 #define RAWLOG_MAX_BYTES        (12UL * 1024UL * 1024UL)  // ~12 MB, fits the 16 MB layout
 #define RAWLOG_SEGMENT_BYTES    (256UL * 1024UL)
 
+// Frames are staged in RAM and written in one block. Two File::print calls per
+// frame at 1,300 frames/s is 2,600 trips through the filesystem every second,
+// each paying LittleFS bookkeeping. That is what put the capture behind the bus
+// and turned the record into a sample.
+#define RAWLOG_WRITE_BUF        4096
+
 // -----------------------------------------------------------------------------
 // 5. DIAGNOSTIC WiFi + WEB DASHBOARD
 //    ON by default — unlike the fleet firmware, this is the whole point here.
@@ -114,7 +124,10 @@
 #define WEB_PORT                80
 // Live frames held for the dashboard. Each costs ~20 B of RAM and ~60 B of JSON.
 #define WEB_FRAME_RING          60
-#define WEB_JSON_BUF            10240
+// 128 identifiers plus 60 frames does not fit in 10 KB, and the overflow was
+// silent: the identifier table simply stopped early and the page reported the
+// truncated row count as the identifier total. See appendIds().
+#define WEB_JSON_BUF            16384
 #define WEB_POLL_TICK_MS        10
 
 // -----------------------------------------------------------------------------

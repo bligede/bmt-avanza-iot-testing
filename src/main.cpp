@@ -80,6 +80,7 @@ static void taskCanReader(void*) {
         // is acceptable; the bus itself is unaffected and `rx` on the dashboard
         // still counts every frame received.
         if (q_rawlog != nullptr && xQueueSend(q_rawlog, &frame, 0) != pdTRUE) {
+            RawCanLogger::noteQueueDrop();
             if ((++queue_full_drops % 500) == 1) {
                 LOG_W("CAN", "Log queue full — %lu frames not written to the "
                              "capture (bus reception is unaffected)",
@@ -192,6 +193,20 @@ static void taskHousekeeping(void*) {
                                                    !GpsManager::hasFreshFix());
         StatusLed::set(LedStatus::ModemConnecting, wifi_try);
         StatusLed::set(LedStatus::NetworkOk,       WifiManager::isConnected());
+
+        // Wall clock, requested once the link is up.
+        //
+        // Every timestamp in the capture is millis() since boot. Matching those
+        // against a run sheet that says "16:42:10 brake pressed" otherwise means
+        // guessing an offset, and every reboot invalidates the guess. SNTP comes
+        // from the Arduino core, not a library; the capture header records the
+        // resulting boot epoch so the whole file can be converted afterwards.
+        static bool s_sntp_asked = false;
+        if (!s_sntp_asked && WifiManager::isConnected()) {
+            s_sntp_asked = true;
+            configTime(0, 0, "pool.ntp.org", "time.google.com");
+            LOG_I("TIME", "SNTP requested (UTC)");
+        }
 
         const uint32_t now = millis();
         if (now - last_report >= 30000) {
