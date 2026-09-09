@@ -35,13 +35,13 @@ Three rules follow from that, and they matter more than the phase list:
 The run is wasted if any of these is still open.
 
 - [ ] **Capture writer keeps up.** The Capture panel must NOT show *"Written is
-      behind received"*. Today it does, at about 1,000 frames/s: the format is
-      ~56 bytes per frame written one line at a time, with a 256-frame queue.
-      Until that is fixed the file on flash is a sample, and the known-value
-      search will be searching a file with holes in it.
-- [ ] **`UNIT_ID` names the actual vehicle.** It is still `AVANZA-TEST-01` in
-      `src/Config.h`, and it is written into the capture file. Raw evidence must
-      not carry the wrong vehicle (D-015). Change it before the run, never after.
+      behind received"*, and `Dropped before writing` must read 0. Fixed on
+      9 Sep 2026 (frames staged in a 4 KB buffer, queue 256 -> 1024), but
+      **verify it on the actual bus before trusting it** — the fix has not yet
+      met 1,300 frames/s in a vehicle.
+- [ ] **`UNIT_ID` names the actual vehicle.** Now `HRV-TEST-01` in `src/Config.h`.
+      It is written into the capture header, so it must match the vehicle in front
+      of you before the run starts, never after (D-015).
 - [ ] **Flash storage is empty**, or the existing captures are already pulled off
       and archived. `RAWLOG_MAX_BYTES` is 12 MB.
 - [ ] **Vehicle change is logged** in `03-DECISIONS-LOG.md` and accepted by the
@@ -63,6 +63,14 @@ Substitute for it, do not skip it:
   odometer and fuel on one synchronised track.
 
 Filming the cluster is the stronger of the two and is required regardless.
+
+**And the video is now machine-readable.** The `cansub-reverse-engineering` skill
+installed on 9 Sep 2026 has a VISION mode that OCRs an instrument-cluster video into a
+reference series, then correlates it against the CAN log to find the ID, start bit,
+length, endianness, scale and offset. That turns the cluster video from an annotation
+track a human reads into the reference signal the search runs against — which matters
+more than usual while the GNSS antenna is dead. Frame the cluster so the speedometer
+digits are legible and stay in frame; a shaky or glare-washed video costs the whole run.
 
 ---
 

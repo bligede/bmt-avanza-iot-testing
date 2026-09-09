@@ -24,3 +24,6 @@ docs/evidence/**/*.tmp
 
 # ---- Local design preview harness: not part of the firmware ----------------
 brand/
+
+# Lampiran masukan (gambar WhatsApp, PDF) — isinya sudah diringkas ke docs/CAN-REFERENCES.md
+feedback/
