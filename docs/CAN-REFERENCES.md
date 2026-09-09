@@ -147,3 +147,56 @@ Satu catatan operasional dari sana yang berlaku untuk kita juga: **bitrate salah
 interface masuk bus-off, dan keluarannya terlihat kosong — bukan error yang jelas.**
 Persis kelas cacat yang sama dengan tabel identifier yang kehilangan 47 persen data tanpa
 tanda apa pun.
+
+---
+
+## 7. Alat ini untuk banyak jenis kendaraan, bukan hanya Baswara
+
+Arahan operator, 9 Sep 2026. Ini mengubah beberapa hal yang sebelumnya aman diasumsikan.
+
+### Bitrate bukan lagi konstanta yang bisa diabaikan
+
+`CAN_DEFAULT_BITRATE` ditetapkan saat kompilasi, dengan komentar di `Config.h` yang
+berbunyi *"Decide on the bench, flash once."* Itu masuk akal untuk satu armada. Untuk alat
+yang akan bertemu banyak kendaraan, ia jadi jebakan: kebanyakan mobil 500 kbps, tetapi
+banyak kendaraan lama dan bus bodi memakai 250 kbps.
+
+**Yang sudah diperbaiki (9 Sep 2026):** dashboard kini membedakan keduanya. Bus error yang
+naik sementara tidak ada frame yang terdekode adalah tanda khas **bitrate salah** —
+controller mendengar transisi yang tidak bisa ia bingkai. Nol frame dengan nol bus error
+berarti tidak ada yang tersambung. Sebelum ini keduanya terbaca sama persis: *"No frames
+yet"*, dan kendaraan 250 kbps tampak identik dengan konektor yang tidak dicolok.
+
+**Yang belum diputuskan:** apakah bitrate boleh diganti saat berjalan, atau tetap
+flash-per-kendaraan. Komentar di `Config.h` melarang penggantian runtime dengan alasan
+yang belum saya verifikasi. Ini keputusan, bukan pekerjaan — jangan diubah sepihak.
+
+### Identifikasi kendaraan tanpa melanggar listen-only
+
+Alat multi-kendaraan harus tahu ia sedang menempel di kendaraan apa, supaya profil sinyal
+yang benar dipakai. Tiga jalan, dan hanya dua yang boleh:
+
+| Cara | Bisa dipakai? |
+|---|---|
+| Ditetapkan manual per unit (`UNIT_ID` + profil) | ya, sudah ada sebagian |
+| **Sidik jari CAN** — himpunan identifier dan DLC yang terlihat | ya, dan **pasif** |
+| Baca VIN lewat OBD-II | **tidak** — butuh mengirim request, melanggar listen-only |
+
+Sidik jari CAN adalah cara openpilot mengenali kendaraan, dan cocok sempurna dengan alat
+yang hanya mendengar: himpunan identifier pada sebuah bus cukup khas untuk membedakan
+model. Kita sudah merekam himpunan itu — `unique_ids_seen` beserta tabel identifier —
+jadi bahannya ada, tinggal disimpan sebagai profil.
+
+### Prosedur run jadi berulang, bukan sekali
+
+`docs/RUN-PROCEDURE.md` ditulis untuk satu kendaraan uji. Dengan cakupan baru, ia menjadi
+**prosedur per kendaraan**: setiap jenis kendaraan baru butuh run-nya sendiri, dengan
+`UNIT_ID` dan header capture yang menyebut kendaraan itu, dan hasilnya jadi profil
+tersendiri.
+
+### Satu risiko yang sekarang punya nama
+
+Identifier dari satu kendaraan **tidak boleh bocor ke profil kendaraan lain**. `0x1A6` di
+Honda HR-V tidak berarti apa-apa di Wuling. Aturan lama berbunyi "jangan mengarang CAN
+ID"; aturan itu sekarang bertambah: **jangan memakai ulang ID lintas kendaraan.** Setiap
+profil berdiri sendiri sampai divalidasi sendiri.

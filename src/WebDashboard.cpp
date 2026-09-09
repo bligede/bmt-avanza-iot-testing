@@ -527,6 +527,19 @@ function paint(d){
     vl='CAN driver is down';
     vw='The TWAI driver failed to start. Check the serial log — this is a '+
        'firmware or wiring fault, not a quiet bus.'; cls='bad';
+  }else if(c.rx===0&&c.err>0){
+    /* Bus errors climbing with nothing received is the signature of the WRONG
+       BITRATE: the controller is hearing transitions it cannot frame. Without
+       this branch both cases read 'No frames yet', and a 250 kbps vehicle looks
+       exactly like an unplugged connector — one failure wearing the other's
+       clothes. It matters more now that the tool is meant to meet many vehicle
+       types, not just one. */
+    vl='Wrong bitrate, most likely';
+    vw='Nothing decoded, but '+c.err.toLocaleString()+' bus error'+
+       (c.err===1?'':'s')+'. The wire is live — the controller is hearing '+
+       'transitions it cannot frame at '+(c.bitrate/1000)+' kbps. Most vehicles '+
+       'run 500; many older and body buses run 250. Reflash with the other rate '+
+       'and try again.'; cls='warn';
   }else if(c.rx===0){
     vl='No frames yet';
     vw='The driver is running at '+(c.bitrate/1000)+' kbps in listen-only mode '+

@@ -1,7 +1,11 @@
 # Capture run procedure — CAN bring-up
 
-Applies to the diagnostic firmware in this repository, listen-only, on a vehicle
-whose CAN bus is confirmed present at OBD-II pins 6 and 14 (60 Ω across them).
+Applies to the diagnostic firmware in this repository, listen-only, on any vehicle
+whose CAN bus is confirmed present at OBD-II pins 6 and 14 (60 ohm across them).
+
+This is a PER-VEHICLE procedure, and it repeats. Every new vehicle type gets its own
+run, its own UNIT_ID, and its own signal profile. Nothing carries across: an identifier
+decoded on one vehicle means nothing on another.
 
 Written after the first successful bus contact on a Honda HR-V 2023,
 8 September 2026: 40 identifiers, 900–1,282 frames/s, 0 dropped, 0 missed.
