@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B0A0B">
+<title>BMT · CAN Bring-Up</title>
+<link rel="stylesheet" href="app.css"></head><body>
+
+<header>
+  <!-- BMT mark, traced from BMT.png rather than drawn by eye. The three
+       strokes are 45-degree capsules of equal width; the third is cut by the
+       artboard edge, which is why its right side is flat.
+
+       The source art also carries a dark parallelogram in the gap between the
+       first and second stroke. It is not reproduced: on a dark ground it would
+       be the ground, which is exactly what BMT do in their own dark-background
+       icon. On a light surface this mark would need that shape back.
+
+       stroke-linejoin rounds the traced corners back into the caps the logo
+       has, at a width small enough not to thicken the strokes. -->
+  <svg class="mk" viewBox="-1 -1 138 85" aria-hidden="true">
+    <g fill="var(--g)" stroke="var(--g)" stroke-width="1.4" stroke-linejoin="round">
+      <path d="M65 0 60 2 2 60 0 71 5 79 10 81 21 79 79 21 81 16 79 6 73 1Z"/>
+      <path d="M118 1 56 61 54 70 60 80 67 82 75 80 133 22 135 18 133 6 126 1Z"/>
+      <path d="M134 26 102 59 102 71 112 81 124 81 134 72Z"/>
+    </g>
+  </svg>
+  <div class="wm">BALI <b>MICRO</b><br>TECHNOLOGY</div>
+  <div class="hs"><span class="pip" id="pip"></span><span id="hstat">connecting</span></div>
+  <div class="sub" id="sub">CAN bring-up · waiting for device</div>
+</header>
+
+<div class="verdict">
+  <p class="vh">Bus status</p>
+  <p class="vl" id="vl">Contacting device…</p>
+  <p class="vw" id="vw"></p>
+  <div class="metrics">
+    <div><span>received </span><b id="m-rx">–</b></div>
+    <div><span>identifiers </span><b id="m-id">–</b></div>
+    <div><span>dropped </span><b id="m-drop">–</b></div>
+    <div><span>missed </span><b id="m-miss" title="Frames the CAN driver lost to a full queue or a FIFO overrun">–</b></div>
+    <div><span>bus errors </span><b id="m-err">–</b></div>
+    <div><span>bitrate </span><b id="m-rate">–</b></div>
+  </div>
+</div>
+
+<main>
+  <!-- The monitoring table. Full width and never scrolled, so the whole bus is
+       one look: every identifier in ID order, which does not reshuffle as
+       counts change, so the eye learns where each one lives. -->
+  <section class="wide">
+    <div class="sh">
+      <h2>Identifiers</h2>
+      <span class="legend" aria-hidden="true">
+        <i class="lg-chg"></i>byte changed in the last 2 s
+        <i class="lg-stale"></i>identifier silent over 2 s
+      </span>
+      <span class="n" id="idn"></span>
+    </div>
+    <div class="idgrid" id="idgrid">
+      <div class="empty" id="id-empty"><b>Nothing on the bus yet</b>Every ECU broadcasts its own identifiers. Each one gets a row here, its bytes in hex with the decimal value underneath.</div>
+    </div>
+    <div id="id-note" class="body" style="padding-top:0"></div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Signal probe</h2><span class="n" id="pb-n"></span></div>
+    <div class="body">
+      <div class="pbf">
+        <label>CAN ID<select id="pb-id"></select></label>
+        <label>Start byte<input id="pb-off" type="number" min="0" max="7" value="0"></label>
+        <label>Width<select id="pb-w">
+          <option value="8">8 bit</option><option value="16" selected>16 bit</option>
+          <option value="24">24 bit</option><option value="32">32 bit</option></select></label>
+        <label>Byte order<select id="pb-e">
+          <option value="be">big-endian</option>
+          <option value="le">little-endian</option></select></label>
+        <label>Scale<input id="pb-s" type="number" step="any" value="1"></label>
+        <label>Offset<input id="pb-o" type="number" step="any" value="0"></label>
+        <label class="ck"><input id="pb-sg" type="checkbox"> signed</label>
+      </div>
+      <div class="pbv"><b id="pb-val">–</b><span id="pb-raw"></span></div>
+      <svg class="spark" id="pb-spark" viewBox="0 0 300 48" preserveAspectRatio="none"
+           aria-hidden="true"></svg>
+      <div class="kv"><span>Range seen</span><span id="pb-mm">–</span></div>
+      <div id="pb-note"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Health</h2><span class="n" id="hn"></span></div>
+    <div class="body">
+      <div id="h-verdict"></div>
+      <div class="mtrs" id="h-core"></div>
+      <h3 class="sub3">Task stacks — closest they have come to running out</h3>
+      <div class="mtrs" id="h-tasks"></div>
+      <div id="h-note"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Capture</h2><span class="n" id="cn"></span></div>
+    <div class="body">
+      <div class="kv"><span>Frames written</span><span id="c-f">–</span></div>
+      <div class="kv"><span>Size</span><span id="c-b">–</span></div>
+      <div class="kv"><span>File</span><span id="c-p">–</span></div>
+      <div class="kv"><span>Dropped before writing</span><span id="c-qd">–</span></div>
+      <div class="kv"><span>Markers written</span><span id="c-mk">–</span></div>
+      <div class="kv"><span>Identifier notes</span><span id="c-nt">–</span></div>
+      <div class="mkrow">
+        <input id="mk-l" type="text" maxlength="48" placeholder="label, e.g. 40kmh"
+               autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button id="mk-b" type="button">MARK</button>
+      </div>
+      <div id="c-note"></div>
+      <h3 class="sub3">Files on the device</h3>
+      <div class="files" id="c-files"><p class="lednb">Listing…</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>GNSS</h2><span class="n" id="gn"></span></div>
+    <div class="body">
+      <div class="kv"><span>Position</span><span id="g-pos">–</span></div>
+      <div class="kv"><span>Ground speed</span><span id="g-sog">–</span></div>
+      <div class="kv"><span>Satellites / HDOP</span><span id="g-sat">–</span></div>
+      <div class="kv"><span>UTC</span><span id="g-utc">–</span></div>
+      <div class="kv"><span>Bytes / lines</span><span id="g-byt">–</span></div>
+      <div class="kv"><span>GGA+RMC / bad CRC</span><span id="g-sen">–</span></div>
+      <div class="kv"><span>Sky: in view / heard</span><span id="g-sky">–</span></div>
+      <div class="kv"><span>Strongest signal</span><span id="g-cnr">–</span></div>
+      <div id="g-note"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Thermal</h2><span class="n" id="tn"></span></div>
+    <div class="body">
+      <div class="kv"><span>Enclosure (DHT22)</span><span id="e-t">–</span></div>
+      <div class="kv"><span>Humidity</span><span id="e-h">–</span></div>
+      <div class="kv"><span>Fan sensor</span><span id="f-t">–</span></div>
+      <div class="kv"><span>Fan</span><span id="f-s">–</span></div>
+      <div class="kv"><span>Reads ok / no-reply / CRC</span><span id="e-c">–</span></div>
+      <div class="kv"><span>DATA line idle</span><span id="e-l">–</span></div>
+      <div id="e-note"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Device</h2></div>
+    <div class="body">
+      <div class="kv"><span>Unit</span><span id="s-u">–</span></div>
+      <div class="kv"><span>Firmware</span><span id="s-fw">–</span></div>
+      <div class="kv"><span>Uptime</span><span id="s-up">–</span></div>
+      <div class="kv"><span>WiFi</span><span id="s-wf">–</span></div>
+      <div class="kv"><span>Requests served</span><span id="s-rq">–</span></div>
+      <div class="kv"><span>Wall clock (UTC)</span><span id="s-clk">–</span></div>
+      <div class="kv"><span>Status light</span><span id="s-led">–</span></div>
+      <div id="s-lednote"></div>
+      <div class="ledtab" id="s-ledtab"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span class="rule"></span>
+  <span>Listen-only diagnostic tool. Never transmits to the vehicle bus.</span>
+  <span id="ft"></span>
+</footer>
+
+<script src="app.js"></script></body></html>

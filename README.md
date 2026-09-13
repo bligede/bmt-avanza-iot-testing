@@ -226,20 +226,26 @@ blink**. That is the correct idle state, not a fault.
 
 ### Dashboard
 
-
-
 | Panel | What matters |
 |---|---|
-| **CAN bus** | `frames received` climbing, `LISTEN-ONLY LOCKED` green, live frames/s |
-| **Distinct CAN IDs** | the headline result — tens of IDs means the bus talks to us |
-| **Live frames** | bytes changing as you drive = real data, not one stuck frame |
-| **GNSS** | fix, position, satellites, **ground speed** — the speed reference |
+| **Bus status** | the verdict sentence; `received` climbing; `missed` is the driver's own count of **frames** lost |
+| **Identifiers** | every ID on the bus in ID order, latest bytes in **hex with decimal underneath**, bytes that just changed lit, silent IDs dimmed, a **note** per ID — one view, no scrolling |
+| **Signal probe** | pick an ID, start byte, width, byte order: the decoded value live, with a sparkline |
+| **Health** | is the ESP32 keeping up — queue peaks, stack headroom per task, heap low-water, loop lag, CPU per core |
+| **Capture** | frames written, operator markers, and the capture **files, downloadable** |
+| **GNSS** | fix, satellites heard, strongest signal — and a sentence naming the fault |
 | **Thermal** | DHT22 enclosure temp *and* SoC die temp, fan state |
-| **Capture** | frames and bytes written to flash |
-| **System** | heap, WiFi, uptime |
+| **Device** | unit, WiFi, wall clock, and what the status LED is saying |
 
-Watch **`rx missed`** and **`dropped`**. Both should stay **0**. See *Known
-risk* below.
+Type a note into the Identifiers table while testing — "moves with the brake
+pedal" — and press Enter. Notes are saved on the device under `/notes/`, **apart
+from the captures**: a note is what somebody thinks an identifier is, and that is
+kept separate from the evidence (D-015). Every edit is journalled with its time.
+
+The Health verdict reads **Overworked** only on things that precede lost data: a
+queue near full, a stack near its end, the heap near empty, frames being lost
+right now. CPU load is shown but not trusted for it — see `SystemHealth.h` for why
+the figure under-states load on this framework.
 
 ### Console
 
@@ -265,13 +271,30 @@ interesting halfway through has still been recorded.
 
 ### Pulling and analysing a capture
 
+**Over WiFi (preferred):** the Capture panel lists every file on the device;
+click one to download it. Take finished segments — the one marked *writing* still
+lacks what sits in RAM. The notes journal is listed there too.
+
+**Over the serial console:**
+
 ```
 capture off
 ls
 cat /capture/can-000.log
 ```
 
-Save the console output to `captures/`, then:
+**For the reverse-engineering skill** (`cansub-reverse-engineering`), convert to
+webCAN CSV first:
+
+```sh
+python tools/capture_to_webcan.py can-003.log can-004.log -o captures/run-002.csv
+```
+
+It refuses to put files from two different boots on one timeline, and says so
+when a capture has no wall-clock header. Operator markers go to
+`run-002.markers.csv`.
+
+For a quick known-value search without the skill:
 
 ```sh
 python tools/can_find_value.py captures/avanza-....log --value 40 \
@@ -298,9 +321,12 @@ short preemption; the dashboard is the lowest-priority task on core 1; frames
 reach it through a queue on core 1, so the reader only does one non-blocking
 enqueue.
 
-**None of that has been measured.** Treat it as an acceptance criterion:
+**None of that has been measured yet.** The Health panel now measures it — the
+CAN driver queue peak, frames lost by the driver, and CPU per core. Treat it as an
+acceptance criterion:
 
-- [ ] `rx missed` stays 0 with the dashboard being polled
+- [ ] Health → *Frames lost by driver* stays 0 with the dashboard being polled
+- [ ] Health → *CAN driver queue* peak stays well under half
 - [ ] `dropped` stays 0
 - [ ] a 2-minute window with the dashboard open matches 2 minutes with it closed
 
@@ -324,24 +350,45 @@ src/
   ButtonManager.*         GPIO0, reserved
   RawCanLogger.*          capture to serial and/or LittleFS
   WifiManager.*           non-blocking WiFi state machine
-  WebDashboard.*          read-only HTTP dashboard
+  WebDashboard.*          HTTP routes only
+  StateJson.*             the JSON documents the page reads
+  JsonWriter.h            bounded JSON writer, zero dependencies
+  FrameRing.*             last frames, for /api/frames
+  NotesStore.*            identifier notes, kept apart from captures
+  SystemHealth.*          heap, stacks, queues, loop lag, CPU per core
+  generated/WebAssets.h   GENERATED from web/ at build time — do not edit
   SerialConsole.*         technician console
   StatusLed.*             non-blocking LED patterns
   WatchdogManager.*       10 s task watchdog
   Logger.*                levelled console
-partitions/               8 MB and 4 MB flash layouts
+web/                      the dashboard: index.html, app.css, app.js
+partitions/               flash layouts
 tools/
   check_listen_only.sh    release gate
+  embed_web.py            web/ -> gzipped header, runs before every build
+  capture_to_webcan.py    capture files -> webCAN CSV for the RE skill
   can_find_value.py       known-value search over a capture
 captures/                 raw logs (git-ignored)
+docs/RUN-PROCEDURE.md     how to run a controlled drive
+docs/PHASE-2-DASHBOARD.md phase-2 plan, CEO questions, RE workflow
 docs/evidence/            test artifacts
 ```
 
-`CanManager`, `CanBusSafety`, `RawCanLogger`, `Logger`, `StatusLed`,
-`WatchdogManager` and `WifiManager` are copied from
-`bmt-can-bus-telemetry@7586b27` **unmodified**, so the safety behaviour is
-identical to the fleet firmware. Keep them that way; if one needs changing, fix
-it there and re-copy, so the two do not drift.
+`CanBusSafety`, `Logger`, `StatusLed`, `WatchdogManager` and `WifiManager` are
+copied from `bmt-can-bus-telemetry@7586b27` unmodified.
+
+**Two are no longer identical, and this says so rather than pretend otherwise.**
+The rule used to be "fix it in the fleet repo and re-copy". That repo is under a
+feature freeze (its D-006), so both changes were made here and must be ported
+back when the freeze lifts:
+
+| File | Diverged in | What changed | Why |
+|---|---|---|---|
+| `RawCanLogger` | `fd386ba` | 4 KB RAM write buffer; segment header with unit, firmware, bitrate, boot epoch; `mark()`; queue-drop count | the writer fell behind the bus at ~1,300 frames/s (review F-05) |
+| `CanManager` | Phase 2 dashboard | per-ID latest payload under a seqlock (`survey`, `seenIdSnapshot`); `driverCounters()` exposing the TWAI driver's own frame counts | the monitor table needs payloads; "missed" was counting alert events, not frames (review F-02) |
+
+The listen-only mechanism itself is untouched in both: `TWAI_MODE_LISTEN_ONLY`,
+the poison pragma and the release gate are exactly as in the fleet firmware.
 
 ---
 

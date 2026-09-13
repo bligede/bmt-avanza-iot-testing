@@ -74,8 +74,9 @@ void showIds() {
     }
     Serial.println("        ID     frames");
     for (uint16_t i = 0; i < n; ++i) {
-        uint32_t id = 0, count = 0;
-        if (CanManager::seenIdAt(i, &id, &count)) {
+        SeenIdView v;
+        if (CanManager::seenIdSnapshot(i, &v)) {
+            const uint32_t id = v.id, count = v.count;
             if (id > 0x7FF) {
                 Serial.printf("  0x%08lX  %9lu  EXT\r\n",
                               (unsigned long)id, (unsigned long)count);

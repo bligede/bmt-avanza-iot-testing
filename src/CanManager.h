@@ -16,6 +16,10 @@
 //  never auto-negotiated on a live vehicle: probing a bus by switching bitrates
 //  is exactly how a monitoring device starts corrupting frames for real ECUs.
 // =============================================================================
+// DIVERGENCE FROM THE FLEET FIRMWARE (bmt-can-bus-telemetry@7586b27):
+//   survey()/seenIdSnapshot() keep each identifier's latest payload under a
+//   seqlock, and driverCounters() exposes the TWAI driver's own FRAME counts.
+//   Port back when the fleet freeze lifts. The listen-only path is unchanged.
 #pragma once
 
 #include <Arduino.h>
@@ -43,11 +47,39 @@ enum class CanState : uint8_t {
 struct CanStats {
     uint32_t frames_received;
     uint32_t frames_dropped_queue;   // decoder queue was full
-    uint32_t rx_missed;              // driver-level overrun
-    uint32_t bus_errors;
+    uint32_t rx_missed;              // RX_QUEUE_FULL *alert events*, not frames:
+                                     // one event can hide many lost frames. The
+                                     // frame count is in driverCounters().
+    uint32_t bus_errors;             // BUS_ERROR alert events, not the driver count
     uint32_t recoveries;
     uint32_t last_frame_ms;
     uint32_t unique_ids_seen;
+};
+
+// One identifier as last seen on the bus: how often it has arrived, when it last
+// did, and the payload it carried. This is the "which bytes are moving" view a
+// person needs while reverse engineering, and what the dashboard table shows.
+struct SeenIdView {
+    uint32_t id;
+    uint32_t count;
+    uint32_t last_ms;
+    uint8_t  dlc;
+    bool     extended;
+    uint8_t  data[8];
+};
+
+// What the TWAI driver itself counts. These are FRAMES, where CanStats above
+// counts alert EVENTS; the two diverge exactly when it matters, under load.
+// Reported under the driver's own field names so nobody has to guess which is
+// which (bring-up review F-02).
+struct CanDriverCounters {
+    uint32_t rx_backlog;        // msgs_to_rx, now
+    uint32_t rx_backlog_peak;   // highest msgs_to_rx seen since boot
+    uint32_t rx_queue_len;      // the queue that backlog is measured against
+    uint32_t rx_missed;         // rx_missed_count: frames lost to a full queue
+    uint32_t rx_overrun;        // rx_overrun_count: frames lost to FIFO overrun
+    uint32_t bus_errors;        // bus_error_count
+    uint32_t rx_error_counter;  // REC, now
 };
 
 namespace CanManager {
@@ -87,14 +119,20 @@ bool isAlive();
 void     noteDecodeQueueDrop();
 
 // Tracks which IDs have been seen, for the Fase 0 survey. Capacity-limited.
-void     noteId(uint32_t id);
+// Counts the frame against its identifier and keeps its latest payload.
+// Call from the CAN reader task only — it is the single writer of the survey.
+void     survey(const CanFrame& frame);
 uint16_t seenIdCount();
 
 // True once the survey has run out of slots. Distinguishes "these are all the
 // identifiers on the bus" from "these are the first 128 we happened to meet",
 // which are very different statements to build a work plan on.
 bool seenIdOverflow();
-bool     seenIdAt(uint16_t index, uint32_t* id, uint32_t* count);
+// A consistent copy of one survey entry, safe to call from any task while the
+// reader task keeps writing. Returns false only for an index out of range.
+bool     seenIdSnapshot(uint16_t index, SeenIdView* out);
+
+CanDriverCounters driverCounters();
 
 // Stops the driver. Used by factory reset and by OTA before a restart.
 void end();

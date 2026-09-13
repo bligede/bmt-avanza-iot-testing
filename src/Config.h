@@ -127,8 +127,17 @@
 // 128 identifiers plus 60 frames does not fit in 10 KB, and the overflow was
 // silent: the identifier table simply stopped early and the page reported the
 // truncated row count as the identifier total. See appendIds().
-#define WEB_JSON_BUF            16384
+#define WEB_JSON_BUF            20480   // ids now carry their latest payload
 #define WEB_POLL_TICK_MS        10
+
+// Notes typed against an identifier during a run. Interpretation, so they are
+// kept apart from the capture files (D-015). See NotesStore.h.
+#define NOTES_MAX               128
+#define NOTE_TEXT_MAX           60      // bytes of UTF-8, not characters
+#define NOTES_DIR               "/notes"
+
+// How often SystemHealth turns raw counters into rates and percentages.
+#define HEALTH_SAMPLE_MS        1000UL
 
 // -----------------------------------------------------------------------------
 // 5b. GNSS — GY-GPS6MV2

@@ -15,6 +15,9 @@
 //  File writing happens on core 1. Core 0 only enqueues, so a slow flash erase
 //  can never stall CAN acquisition (master prompt §36).
 // =============================================================================
+// DIVERGENCE FROM THE FLEET FIRMWARE (bmt-can-bus-telemetry@7586b27):
+//   RAM write buffer, segment header, mark(), queue-drop count (review F-05).
+//   Port back when the fleet freeze lifts.
 #pragma once
 
 #include <Arduino.h>

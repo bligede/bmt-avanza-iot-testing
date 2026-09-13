@@ -1,0 +1,231 @@
+/* Bali Micro Technology. Both colours are sampled from the logo file itself,
+   not from the website CSS: green #04FB2D and dark #373435.
+
+   Dark surface. The greys are warm — they carry the hue of the logo dark
+   rather than a neutral grey, so the mark sits in the page instead of on it.
+   On this ground #04FB2D reaches about 12:1, so unlike the light build green
+   is legible as text here. It is still spent sparingly: the mark, the bars,
+   one rule, and badges that need to be found at a glance. Everything a
+   technician reads line by line stays near-white, because a page of green on
+   black is a novelty, not an instrument. */
+:root{
+  --g:#04FB2D; --g-dk:#02C224;
+  --ink:#EDEAE5; --ink-2:#A9A39C; --ink-3:#8F8880;
+  --bg:#141314; --card:#1D1B1C; --hdr:#0B0A0B;
+  --line:#302C2E; --line-2:#262324;
+  --warn:#F2B233; --warn-bg:#2A1F0C; --warn-line:#4A3714;
+  --bad:#FF7566;  --bad-bg:#2C1614; --bad-line:#4E2320;
+  --g-soft:#10301A;          /* a changed byte: green, dark enough to read over */
+  --r:10px;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);
+  font-variant-numeric:tabular-nums;padding-bottom:env(safe-area-inset-bottom)}
+::selection{background:var(--g);color:var(--hdr)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+
+/* ---- header ---- */
+header{background:var(--hdr);color:var(--ink);padding:14px 18px;
+  display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.mk{width:40px;height:auto;flex:none}
+.wm{font-weight:700;letter-spacing:-.02em;line-height:1.15;font-size:13px}
+.wm b{color:var(--g);font-weight:700}
+.hs{margin-left:auto;display:flex;align-items:center;gap:7px;
+  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.hs .pip{width:7px;height:7px;border-radius:50%;background:var(--g);flex:none}
+.sub{width:100%;font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+  letter-spacing:.01em}
+.sub a{color:var(--ink-3)}
+
+/* ---- verdict ---- */
+.verdict{padding:20px 18px 18px;border-bottom:1px solid var(--line)}
+.vh{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 10px}
+.vl{font-size:21px;font-weight:650;letter-spacing:-.025em;margin:0 0 4px;
+  line-height:1.25}
+.vl.bad{color:var(--bad)}
+.vl.warn{color:var(--warn)}
+.vw{font-size:13.5px;color:var(--ink-2);margin:0;max-width:62ch}
+.metrics{display:flex;flex-wrap:wrap;gap:0 26px;margin-top:16px;
+  font-family:var(--mono);font-size:12.5px}
+.metrics div{padding:2px 0}
+.metrics span{color:var(--ink-3)}
+.metrics b{font-weight:600}
+.metrics b.hot{color:var(--bad)}
+
+/* ---- panels ---- */
+main{padding:18px;display:grid;gap:18px;align-items:start;
+  grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+section{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  overflow:hidden;min-width:0}
+.sh{display:flex;align-items:baseline;gap:9px;padding:11px 14px;
+  border-bottom:1px solid var(--line)}
+.sh h2{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  margin:0}
+.sh .n{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-left:auto}
+.body{padding:12px 14px}
+.scroll{max-height:290px;overflow:auto;overscroll-behavior:contain}
+.scroll::-webkit-scrollbar{width:9px;height:9px}
+.scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+.scroll::-webkit-scrollbar-track{background:transparent}
+.scroll{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+
+/* ---- rows ---- */
+.kv{display:flex;justify-content:space-between;gap:14px;padding:6px 0;
+  border-bottom:1px solid var(--line-2);font-size:13.5px}
+.kv:last-child{border-bottom:0}
+.kv>span:first-child{color:var(--ink-2);flex:none}
+.kv>span:last-child{font-family:var(--mono);font-size:12.5px;text-align:right;
+  word-break:break-word}
+
+/* ---- tables ---- */
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+th{position:sticky;top:0;background:var(--card);text-align:left;padding:7px 14px;
+  font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid var(--line)}
+td{padding:5px 14px;border-bottom:1px solid var(--line-2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.id{font-weight:600}
+td.num{text-align:right}
+.bar{display:block;height:3px;background:var(--g);border-radius:2px;min-width:2px}
+
+/* ---- badges / notes ---- */
+.tag{display:inline-block;padding:2px 8px;border-radius:5px;font-family:var(--sans);
+  font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.t-ok{background:var(--g);color:var(--hdr)}
+.t-warn{background:var(--warn-bg);color:var(--warn)}
+.t-bad{background:var(--bad-bg);color:var(--bad)}
+.t-idle{background:#2A2628;color:var(--ink-2)}
+.note{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:#232021;
+  border:1px solid var(--line);font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+.note.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
+.note.bad{background:var(--bad-bg);border-color:var(--bad-line);color:var(--bad)}
+.note b{color:inherit}
+/* ---- signal probe ---- */
+.pbf{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));
+  gap:9px 10px;margin-bottom:13px}
+.pbf label{display:flex;flex-direction:column;gap:4px;font-size:10px;font-weight:700;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.pbf select,.pbf input{background:#151314;color:var(--ink);border:1px solid var(--line);
+  border-radius:6px;padding:5px 7px;font:12px var(--mono);min-width:0}
+.pbf label.ck{flex-direction:row;align-items:center;gap:6px;text-transform:none;
+  letter-spacing:0;font-size:11.5px;font-weight:500;color:var(--ink-2);align-self:end;
+  padding-bottom:6px}
+.pbf label.ck input{width:auto;accent-color:var(--g)}
+.pbv{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.pbv b{font-size:27px;font-weight:650;letter-spacing:-.02em;font-family:var(--mono);
+  color:var(--g);line-height:1.1}
+.pbv span{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.spark{width:100%;height:48px;display:block;margin:9px 0 3px}
+
+/* ---- event marker ----
+   Sized to be hit without looking. The operator is holding a camera on the
+   instrument cluster with the other hand. */
+.mkrow{display:flex;gap:9px;margin:12px 0 4px}
+.mkrow input{flex:1;min-width:0;background:#151314;color:var(--ink);
+  border:1px solid var(--line);border-radius:7px;padding:10px 11px;
+  font:13px var(--mono)}
+.mkrow button{flex:none;padding:10px 22px;border:0;border-radius:7px;
+  background:var(--g);color:var(--hdr);font:700 13px var(--sans);
+  letter-spacing:.07em;cursor:pointer;-webkit-appearance:none}
+.mkrow button:active{background:var(--g-dk)}
+.mkrow button.sent{background:var(--ink-3);color:var(--hdr)}
+.mkrow button.fail{background:var(--bad);color:var(--hdr)}
+.ledtab{margin-top:11px;border-top:1px solid var(--line);padding-top:10px}
+.ledtab h3{font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 8px}
+.ledtab>div{display:flex;gap:9px;align-items:center;padding:3px 0;
+  font-size:12px;color:var(--ink-3)}
+.ledtab>div.on{color:var(--ink)}
+.ledtab i{flex:none;width:6px;height:6px;border-radius:50%;background:#3A3537}
+.ledtab>div.on i{background:var(--g)}
+.ledtab b{flex:none;width:125px;font-weight:500;color:inherit}
+.ledtab>div.on b{font-weight:700}
+.lednb{margin:9px 0 0;font-size:11.5px;line-height:1.45;color:var(--ink-3)}
+.empty{padding:22px 14px;text-align:center;color:var(--ink-3);font-size:13px}
+
+/* ---- identifier monitor ----
+   One look, no scrolling. Rows are in ID order so a position means the same
+   identifier every time; two tables side by side on a wide screen roughly
+   double how many fit. On a phone the table cannot fit anyway, so it may scroll
+   sideways there — never up and down. */
+.wide{grid-column:1/-1}
+.sh .legend{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-3);
+  margin-left:12px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-left:10px}
+.legend i:first-child{margin-left:0}
+.lg-chg{background:var(--g-soft);box-shadow:inset 0 -2px 0 var(--g)}
+.lg-stale{background:#2A2628}
+.idgrid{display:grid;grid-template-columns:1fr;overflow-x:auto}
+.idgrid.split{grid-template-columns:1fr 1fr}
+.idgrid.split>table+table{border-left:1px solid var(--line)}
+table.idt{font-size:12px}
+table.idt th{position:static;padding:6px 8px;background:transparent}
+table.idt td{padding:2px 8px;vertical-align:middle}
+table.idt td.id{min-width:80px}
+table.idt td.hz{color:var(--ink-2);min-width:42px}
+table.idt th.bh,table.idt td.b{padding:2px 3px;text-align:center;width:36px;min-width:36px}
+.b .hx{display:block;font-weight:600;line-height:1.25;color:var(--ink)}
+.b .dc{display:block;font-size:10.5px;line-height:1.2;color:var(--ink-3)}
+.b.chg{background:var(--g-soft);box-shadow:inset 0 -2px 0 var(--g)}
+.b.chg .hx{color:var(--g)}
+.b.chg .dc{color:var(--ink-2)}
+.b.nil .hx{color:#4A4446;font-weight:400}
+tr.stale td{opacity:.42}
+tr.stale td.nt{opacity:1}
+table.idt td.nt{width:100%;min-width:130px;padding:2px 6px}
+.ni{width:100%;background:transparent;color:var(--ink);border:1px solid transparent;
+  border-radius:5px;padding:4px 6px;font:12px var(--sans)}
+.ni::placeholder{color:#4F494B}
+.ni:hover{border-color:var(--line)}
+.ni:focus{background:#151314;border-color:var(--ink-3);outline:none}
+.ni.saved{border-color:var(--g)}
+.ni.err{border-color:var(--bad)}
+
+/* ---- health meters ---- */
+.sub3{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);margin:14px 0 6px}
+.mtrs{display:grid;gap:7px}
+.mtr{display:grid;grid-template-columns:minmax(0,38%) 1fr auto;gap:10px;
+  align-items:center;font-size:12.5px}
+.mtr>span{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mtr>i{height:6px;border-radius:3px;background:#2A2628;overflow:hidden}
+.mtr>i>b{display:block;height:100%;border-radius:3px;background:var(--g)}
+.mtr>i>b.warn{background:var(--warn)}
+.mtr>i>b.bad{background:var(--bad)}
+.mtr>em{font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--ink);
+  text-align:right;white-space:nowrap}
+.hv{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+.hv b{font-size:17px;font-weight:650;letter-spacing:-.01em}
+.hv b.ok{color:var(--g)}
+.hv b.warn{color:var(--warn)}
+.hv b.bad{color:var(--bad)}
+.hv span{font-size:12.5px;color:var(--ink-2)}
+
+/* ---- capture files ---- */
+.files{display:grid;gap:2px}
+.files a{display:flex;justify-content:space-between;gap:12px;padding:5px 8px;
+  border-radius:6px;color:var(--ink);text-decoration:none;font:12px var(--mono)}
+.files a:hover{background:#232021}
+.files a span:last-child{color:var(--ink-3)}
+.files a.cur span:first-child::after{content:"  writing";color:var(--warn);
+  font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.05em}
+.empty b{display:block;color:var(--ink-2);font-weight:600;margin-bottom:3px}
+
+footer{padding:14px 18px 22px;color:var(--ink-3);font-size:11.5px;
+  border-top:1px solid var(--line);display:flex;gap:14px;flex-wrap:wrap}
+footer .rule{flex:none;width:22px;height:3px;background:var(--g);border-radius:2px;
+  align-self:center}
+footer #ft{margin-left:auto}
+@media(max-width:1279px){
+  .idgrid.split{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+  main{padding:14px;gap:14px}
+  .verdict{padding:16px 14px 14px}
+  .vl{font-size:19px}
+  header{padding:12px 14px}
+}

@@ -43,6 +43,8 @@
 #include "WebDashboard.h"
 #include "SerialConsole.h"
 #include "StatusLed.h"
+#include "SystemHealth.h"
+#include "NotesStore.h"
 #include "WatchdogManager.h"
 #include "GpsManager.h"
 #include "EnvironmentManager.h"
@@ -74,7 +76,7 @@ static void taskCanReader(void*) {
         // once.
         if (!CanManager::receive(&frame, 50)) continue;
 
-        CanManager::noteId(frame.id);
+        CanManager::survey(frame);
 
         // Best-effort hand-off to core 1. Losing a line from the capture file
         // is acceptable; the bus itself is unaffected and `rx` on the dashboard
@@ -100,6 +102,8 @@ static void taskStorage(void*) {
     CanFrame frame;
     for (;;) {
         WatchdogManager::feed();
+        // Depth is sampled just before each receive, when the queue is fullest.
+        SystemHealth::noteQueueDepth(uxQueueMessagesWaiting(q_rawlog), CAN_RAWLOG_QUEUE_LEN);
         if (xQueueReceive(q_rawlog, &frame, pdMS_TO_TICKS(200)) == pdTRUE) {
             RawCanLogger::write(frame);
             WebDashboard::noteFrame(frame);
@@ -140,6 +144,7 @@ static void taskHousekeeping(void*) {
     for (;;) {
         WatchdogManager::feed();
         vTaskDelay(pdMS_TO_TICKS(LED_TICK_MS));
+        SystemHealth::noteLoop();
 
         StatusLed::tick();
         SerialConsole::poll();
@@ -155,6 +160,7 @@ static void taskHousekeeping(void*) {
             last_slow = nowMs;
             EnvironmentManager::poll();   // rate-limited internally
             FanManager::poll();
+            SystemHealth::sample();       // HEALTH_SAMPLE_MS is this same second
         }
 
         // ---- LED mapping for this diagnostic build --------------------------
@@ -238,6 +244,7 @@ static void taskWeb(void*) {
 // =============================================================================
 void setup() {
     Logger::begin(LOG_BAUD);
+    SystemHealth::begin();              // idle hooks, before any task exists
 
     LOG_I("BOOT", "%s %s", FW_NAME, FW_VERSION);
     LOG_I("BOOT", "Chip %s rev %d, %d MHz, %lu KB flash",
@@ -280,6 +287,7 @@ void setup() {
     }
 
     RawCanLogger::begin(fsOk ? RAWLOG_DEFAULT_SINK : RAWLOG_SINK_NONE);
+    NotesStore::begin(fsOk);
 
     // --- Queue + core 0 task, as early as possible --------------------------
     q_rawlog = xQueueCreate(CAN_RAWLOG_QUEUE_LEN, sizeof(CanFrame));
@@ -289,8 +297,10 @@ void setup() {
         ESP.restart();
     }
 
+    TaskHandle_t hCan = nullptr;
     xTaskCreatePinnedToCore(taskCanReader, "can_reader", TASK_CAN_READER_STACK,
-                            nullptr, TASK_CAN_READER_PRIO, nullptr, CORE_REALTIME);
+                            nullptr, TASK_CAN_READER_PRIO, &hCan, CORE_REALTIME);
+    SystemHealth::watchTask(hCan, "can_reader", TASK_CAN_READER_STACK, CORE_REALTIME);
     LOG_I("BOOT", "CAN acquisition is running. Everything below is optional to it.");
 
     // --- Auxiliary sensors --------------------------------------------------
@@ -310,17 +320,24 @@ void setup() {
 
     // --- Core 1 tasks -------------------------------------------------------
 #if ENABLE_GPS
+    TaskHandle_t hGps = nullptr;
     xTaskCreatePinnedToCore(taskGps, "gps", TASK_GPS_STACK,
-                            nullptr, TASK_GPS_PRIO, nullptr, CORE_COMMS);
+                            nullptr, TASK_GPS_PRIO, &hGps, CORE_COMMS);
+    SystemHealth::watchTask(hGps, "gps", TASK_GPS_STACK, CORE_COMMS);
 #endif
+    TaskHandle_t hStorage = nullptr, hHouse = nullptr;
     xTaskCreatePinnedToCore(taskStorage, "storage", TASK_STORAGE_STACK,
-                            nullptr, TASK_STORAGE_PRIO, nullptr, CORE_COMMS);
+                            nullptr, TASK_STORAGE_PRIO, &hStorage, CORE_COMMS);
+    SystemHealth::watchTask(hStorage, "storage", TASK_STORAGE_STACK, CORE_COMMS);
     xTaskCreatePinnedToCore(taskHousekeeping, "housekeeping",
                             TASK_HOUSEKEEPING_STACK, nullptr,
-                            TASK_HOUSEKEEPING_PRIO, nullptr, CORE_COMMS);
+                            TASK_HOUSEKEEPING_PRIO, &hHouse, CORE_COMMS);
+    SystemHealth::watchTask(hHouse, "housekeeping", TASK_HOUSEKEEPING_STACK, CORE_COMMS);
 #if ENABLE_WEB_DASHBOARD
+    TaskHandle_t hWeb = nullptr;
     xTaskCreatePinnedToCore(taskWeb, "web", TASK_WEB_STACK,
-                            nullptr, TASK_WEB_PRIO, nullptr, CORE_COMMS);
+                            nullptr, TASK_WEB_PRIO, &hWeb, CORE_COMMS);
+    SystemHealth::watchTask(hWeb, "web", TASK_WEB_STACK, CORE_COMMS);
 #endif
 
     WatchdogManager::begin();

@@ -27,3 +27,7 @@ brand/
 
 # Lampiran masukan (gambar WhatsApp, PDF) — isinya sudah diringkas ke docs/CAN-REFERENCES.md
 feedback/
+
+# Generated from web/ by tools/embed_web.py on every build
+src/generated/
+web/dist/

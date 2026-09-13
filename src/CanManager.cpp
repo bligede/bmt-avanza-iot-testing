@@ -19,10 +19,35 @@ CanStats  s_stats    = {};
 // Fase 0 ID survey. 128 distinct IDs comfortably covers a passenger-car bus;
 // past that the survey stops growing and says so, rather than dropping frames.
 constexpr uint16_t MAX_SEEN_IDS = 128;
-struct SeenId { uint32_t id; uint32_t count; };
+//
+// The survey is written by the CAN reader task on core 0 and read by the web and
+// console tasks on core 1, with no lock. Counts alone could get away with that;
+// a payload cannot — a reader copying the eight data bytes while the writer is
+// replacing them would show a mixture of two frames, and a mixture looks exactly
+// like a signal changing.
+//
+// So each entry carries a sequence number (a seqlock). The writer makes it odd
+// before touching the entry and even again after; a reader copies the entry and
+// keeps the copy only if the number was even and unchanged across the copy. The
+// writer never waits, which is the property that matters on the bus task.
+struct SeenId {
+    volatile uint32_t seq;
+    uint32_t id;
+    uint32_t count;
+    uint32_t last_ms;
+    uint8_t  dlc;
+    bool     extended;
+    uint8_t  data[8];
+};
 SeenId   s_seen[MAX_SEEN_IDS];
 uint16_t s_seen_count = 0;
 bool     s_seen_full_warned = false;
+
+// Last driver status, taken in poll() on the reader task and copied out under a
+// spinlock by driverCounters() on another core.
+portMUX_TYPE       s_status_mux = portMUX_INITIALIZER_UNLOCKED;
+twai_status_info_t s_status     = {};
+uint32_t           s_backlog_peak = 0;
 
 twai_timing_config_t timingFor(uint32_t bitrate) {
     // Only the two bitrates the blueprint sanctions. Config.h refuses anything
@@ -202,6 +227,10 @@ void poll() {
 
     twai_status_info_t st;
     if (twai_get_status_info(&st) == ESP_OK) {
+        portENTER_CRITICAL(&s_status_mux);
+        s_status = st;
+        if (st.msgs_to_rx > s_backlog_peak) s_backlog_peak = st.msgs_to_rx;
+        portEXIT_CRITICAL(&s_status_mux);
         if (st.state == TWAI_STATE_RUNNING && s_state == CanState::BusError) {
             LOG_I(TAG, "Bus recovered");
             s_state = CanState::Running;
@@ -241,13 +270,29 @@ void noteDecodeQueueDrop() {
     ++s_stats.frames_dropped_queue;
 }
 
-void noteId(uint32_t id) {
+void survey(const CanFrame& frame) {
     for (uint16_t i = 0; i < s_seen_count; ++i) {
-        if (s_seen[i].id == id) { ++s_seen[i].count; return; }
+        SeenId& e = s_seen[i];
+        if (e.id != frame.id || e.extended != frame.extended) continue;
+        e.seq = e.seq + 1;                 // odd: an update is in progress
+        ++e.count;
+        e.last_ms = frame.rx_millis;
+        e.dlc     = frame.dlc;
+        memcpy(e.data, frame.data, sizeof(e.data));
+        e.seq = e.seq + 1;                 // even: stable again
+        return;
     }
     if (s_seen_count < MAX_SEEN_IDS) {
-        s_seen[s_seen_count].id    = id;
-        s_seen[s_seen_count].count = 1;
+        // A new entry is filled completely BEFORE the count that makes it
+        // visible is raised, so no reader can ever see it half-built.
+        SeenId& e = s_seen[s_seen_count];
+        e.seq      = 0;
+        e.id       = frame.id;
+        e.extended = frame.extended;
+        e.count    = 1;
+        e.last_ms  = frame.rx_millis;
+        e.dlc      = frame.dlc;
+        memcpy(e.data, frame.data, sizeof(e.data));
         ++s_seen_count;
     } else if (!s_seen_full_warned) {
         // Say so rather than quietly truncating the survey.
@@ -259,11 +304,43 @@ void noteId(uint32_t id) {
 
 uint16_t seenIdCount() { return s_seen_count; }
 
-bool seenIdAt(uint16_t index, uint32_t* id, uint32_t* count) {
-    if (index >= s_seen_count) return false;
-    if (id != nullptr)    *id    = s_seen[index].id;
-    if (count != nullptr) *count = s_seen[index].count;
+bool seenIdSnapshot(uint16_t index, SeenIdView* out) {
+    if (out == nullptr || index >= s_seen_count) return false;
+    const SeenId& e = s_seen[index];
+    auto copy = [&]() {
+        out->id       = e.id;
+        out->count    = e.count;
+        out->last_ms  = e.last_ms;
+        out->dlc      = e.dlc;
+        out->extended = e.extended;
+        memcpy(out->data, e.data, sizeof(out->data));
+    };
+    copy();                                // a value in hand whatever happens
+    for (uint8_t attempt = 0; attempt < 32; ++attempt) {
+        const uint32_t before = e.seq;
+        if (before & 1u) continue;         // writer mid-update; it takes nanoseconds
+        copy();
+        if (e.seq == before) return true;
+    }
+    // Contended thirty-two times running, which a writer holding one entry for a
+    // few nanoseconds at under a hundred frames a second does not do. Keep the
+    // last copy rather than drop the row: a missing row reads as a truncated
+    // table, and that is the worse lie.
     return true;
+}
+
+CanDriverCounters driverCounters() {
+    CanDriverCounters d = {};
+    portENTER_CRITICAL(&s_status_mux);
+    d.rx_backlog       = s_status.msgs_to_rx;
+    d.rx_backlog_peak  = s_backlog_peak;
+    d.rx_missed        = s_status.rx_missed_count;
+    d.rx_overrun       = s_status.rx_overrun_count;
+    d.bus_errors       = s_status.bus_error_count;
+    d.rx_error_counter = s_status.rx_error_counter;
+    portEXIT_CRITICAL(&s_status_mux);
+    d.rx_queue_len = CAN_RX_QUEUE_LEN;
+    return d;
 }
 
 void end() {
