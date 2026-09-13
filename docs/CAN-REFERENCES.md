@@ -126,6 +126,13 @@ Hex mentah disimpan untuk satu tampilan debug terpisah, bukan dijadikan format u
 **Berlaku langsung untuk MDT:** panel ESP32-S3 tidak mendekode apa pun. Ia menerima nilai
 jadi. Dicatat sebagai D-006 di `project-mdt-tds`.
 
+**Koreksi 12 Sep 2026 (D-008 di `project-mdt-tds`):** untuk telemetri hidup, "gateway" di
+sistem kita adalah **perangkat di kendaraan itu sendiri**, bukan server. Frame mentah sekitar
+400 kali lebih besar daripada nilai terdekode dan tidak bisa dialirkan lewat seluler, jadi
+perangkat mendekode memakai profil `signals.cfg` yang dihasilkan dari pustaka DBC di server,
+sedangkan server mendekode frame mentah dari rekaman massal. Dua decoder itu dijaga uji
+golden-file. Prinsip bahwa klien tidak mendekode tetap berlaku utuh.
+
 ---
 
 ## 6. Perangkat keras: Raspberry Pi + SocketCAN
