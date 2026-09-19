@@ -31,3 +31,6 @@ feedback/
 # Generated from web/ by tools/embed_web.py on every build
 src/generated/
 web/dist/
+
+# Python bytecode
+__pycache__/
