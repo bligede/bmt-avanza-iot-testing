@@ -362,6 +362,7 @@ src/
   WatchdogManager.*       10 s task watchdog
   Logger.*                levelled console
 web/                      the dashboard: index.html, app.css, app.js
+hardware/                 PCB rev A: generator, KiCad schematic, BOM, netlist, verifier
 partitions/               flash layouts
 tools/
   check_listen_only.sh    release gate
