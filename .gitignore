@@ -11,8 +11,7 @@ src/Secrets.h
 .vscode/ipch/
 
 # ---- Captures: large, per-vehicle, pulled off the device --------------------
-captures/*.log
-captures/*.txt
+captures/**
 !captures/README.md
 
 # ---- Evidence: raw artifacts are committed, scratch is not ------------------

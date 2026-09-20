@@ -91,9 +91,14 @@ def main() -> int:
     ap.add_argument("--channel", type=int, default=1, help="BusChannel value (default 1)")
     ap.add_argument("--allow-multiple-boots", action="store_true",
                     help="permit files from different boots (they will NOT share a timeline)")
+    ap.add_argument("--start-ms", type=int, default=None,
+                    help="drop frames before this millis() value")
+    ap.add_argument("--stop-ms", type=int, default=None,
+                    help="drop frames from this millis() value on, to cut the burst of junk "
+                         "identifiers a bus emits while the connector is being unplugged")
     args = ap.parse_args()
 
-    stats = {"bad": 0, "dlc_mismatch": 0}
+    stats = {"bad": 0, "dlc_mismatch": 0, "outside_window": 0}
     frames, marks = [], []
     boots = set()
     unit = None
@@ -116,6 +121,9 @@ def main() -> int:
                         boots.add(round(boot_epoch))
                 continue
             ms = item[1]
+            if (args.start_ms is not None and ms < args.start_ms) or                (args.stop_ms is not None and ms >= args.stop_ms):
+                stats["outside_window"] += 1
+                continue
             if last_ms is not None and ms + 1000 < last_ms:
                 print(f"error: millis went backwards inside {path.name} ({last_ms} -> {ms}); "
                       f"the device rebooted mid-file", file=sys.stderr)
@@ -161,6 +169,8 @@ def main() -> int:
     print(f"markers       {len(marks)}")
     print(f"timeline      {timeline}")
     print(f"unparsed      {stats['bad']}")
+    if stats["outside_window"]:
+        print(f"outside window {stats['outside_window']:,} frame(s) dropped by --start-ms/--stop-ms")
     if stats["dlc_mismatch"]:
         print(f"DLC mismatch  {stats['dlc_mismatch']} frame(s) where payload length != DLC")
     print(f"wrote         {args.output}")
