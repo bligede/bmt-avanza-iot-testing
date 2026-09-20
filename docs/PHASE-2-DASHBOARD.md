@@ -133,21 +133,23 @@ nilai fisik yang diketahui pada waktu yang sama:
 
 ### Soal foto panel instrumen HR-V (8 Sep): angka mana yang terekam?
 
-Foto menunjukkan odometer **069620 km**, trip A **1459,6 km**, suhu luar **29 °C**.
+**Terjawab pada 20 Sep 2026.** Rekaman penuh ditarik dari flash perangkat lewat WiFi
+sebelum perangkat di-flash ulang: 34 berkas, 8,8 MB, satu run utuh 3 menit 23 detik.
 
-Payload yang terbaca di screenshot dicari untuk nilai-nilai itu (odometer dalam km, 0,1 km,
-dan meter; trip dalam 0,1 km; suhu mentah dan dengan offset +40), big- dan little-endian,
-8–32 bit: **nol kecocokan dari 10 payload**. Itu bukti yang lemah — screenshot hanya
-memperlihatkan 7 dari 40 ID — jadi **pertanyaannya belum terjawab, bukan terjawab "tidak"**.
+| Angka di panel | Hasil |
+|---|---|
+| Odometer **069620 km** | `0x294`, byte 3-5 big-endian, di 100% frame ID itu |
+| Suhu luar **29 °C** | `0x324`, byte 0, dengan rumus `°C = nilai - 40` |
+| Trip A **1459,6 km** | tidak ada di bus ini |
 
-Menjawabnya butuh berkas capture penuh. Segmen `can-001` s.d. `can-014` dari run HR-V
-kemungkinan masih ada di flash perangkat. Dua catatan sebelum mencari:
+Perkiraan lama bahwa rekaman hanya memuat "sekitar separuh frame" ternyata terlalu
+pesimistis: ID berperiode 10 ms tercatat 78 Hz, bukan 100 Hz, jadi kehilangannya sekitar
+22 sampai 26 persen dan merata di semua ID.
 
-- Rekaman itu dibuat **sebelum** perbaikan penulis flash, saat file hanya berisi sekitar
-  separuh frame. Untuk nilai statis seperti odometer itu tidak masalah — nilainya diulang
-  terus.
-- Sebagian mobil menaruh data panel instrumen di bus bodi yang tidak dirutekan ke pin 6/14.
-  Kalau odometer tidak ditemukan di rekaman penuh, itu kemungkinan yang pertama diperiksa.
+Rinciannya: [`docs/evidence/hrv-001.md`](evidence/hrv-001.md) untuk asal-usul dan
+keutuhan data, [`hrv-001-candidates.md`](evidence/hrv-001-candidates.md) untuk kandidat
+sinyal dan cara membuktikannya. Keduanya masih hipotesis sampai diuji sambil kendaraan
+bergerak.
 
 ---
 
