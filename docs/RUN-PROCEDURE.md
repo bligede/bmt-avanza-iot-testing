@@ -46,8 +46,17 @@ The run is wasted if any of these is still open.
 - [ ] **`UNIT_ID` names the actual vehicle.** Now `HRV-TEST-01` in `src/Config.h`.
       It is written into the capture header, so it must match the vehicle in front
       of you before the run starts, never after (D-015).
-- [ ] **Flash storage is empty**, or the existing captures are already pulled off
-      and archived. `RAWLOG_MAX_BYTES` is 12 MB.
+- [ ] **Flash storage is empty.** Not merely "pulled off": the logger restarts its
+      segment numbering at `can-000` on every boot and opens the file for APPEND,
+      so leftover files receive the new run's frames on a different `millis()`
+      base. The converter then refuses the file, correctly. Clear it with
+      `clearcaptures` on the serial console once the old captures are archived.
+      `RAWLOG_MAX_BYTES` is 12 MB; the HR-V run of 8 Sep filled 8.8 MB in 3.4 min.
+- [ ] **Old captures archived and verified.** The HR-V run was pulled on 20 Sep
+      (`docs/evidence/hrv-001.md`): 34 files, all 34 SHA-256 digests matched the
+      device. Pull with `tools/fetch_captures.py` over WiFi. **Never through the
+      serial console** — it corrupted a first attempt, returning files larger than
+      the originals, padded with zero bytes.
 - [ ] **Vehicle change is logged** in `03-DECISIONS-LOG.md` and accepted by the
       Project Leader. The Avanza 2009 has no CAN at OBD-II (pins 6↔14 measured
       open, drifting ~22.5 kΩ); the test vehicle is now a Honda HR-V 2023.
@@ -255,8 +264,24 @@ wiring and the bitrate.
 1. **Speed**, using the phase E plateaus. Search for the plateau values.
    Cross-check against the video and the phone GPS track.
 2. **RPM**, using the phase D holds.
-3. **Odometer**, using `tools/can_find_value.py` with the phase F readings, both
-   endiannesses, and a retry at 0.1 km resolution.
+3. **Odometer**, using `tools/match_dashboard.py` with the phase F readings. It
+   tries every byte position, width, endianness and 12-bit field across all
+   identifiers at once:
+
+   ```
+   python tools/match_dashboard.py captures/<run> --value <km on the cluster>        --scales 1 0.1 0.01 --label "odometer km"
+   ```
+
+   **Two candidates are already waiting for this run to confirm or kill them**
+   (`docs/evidence/hrv-001-candidates.md`):
+
+   | Candidate | Confirmed if |
+   |---|---|
+   | `0x294` bytes 3-5 big-endian = odometer km | it rises by exactly 2 over the 2 km leg |
+   | `0x324` byte 0 minus 40 = outside temperature °C | it tracks the cluster between a cool morning and a hot afternoon |
+
+   Both were matched against a stationary capture, where nothing moved. A field
+   that merely held the right number proves nothing until it moves with it.
 4. **Discrete signals** from phase B, by diffing the quiet gaps against the
    action windows.
 
@@ -267,10 +292,21 @@ independent observation. Until then it is a hypothesis.
 confirmation.** These are Honda identifiers on a test vehicle; the fleet is a
 different platform entirely.
 
+### Name the identifiers while you are in the car
+
+The dashboard's identifier table carries an empty **Name** field immediately right
+of each ID. Fill it in during the run, the moment something is noticed: "moves
+with the brake pedal", "climbs with speed". Press Enter and it is stored on the
+device, in `/notes/ids.tsv`, with every change journalled to `/notes/journal.log`.
+
+Notes are deliberately kept out of the capture files (D-015): a note is what
+somebody thinks an identifier is, the capture is what the bus actually said. A
+wrong guess is corrected without touching the evidence.
+
 ### The live probe
 
-Once the signal probe build is flashed, a second short drive can confirm a
-candidate in the car rather than at a desk: select the identifier, set the start
+The signal probe is flashed and live on the device, so a second short drive can
+confirm a candidate in the car rather than at a desk: select the identifier, set the start
 byte, width and byte order, and watch the number while the driver calls out the
 speedometer. It samples rather than captures, so the file on flash remains the
 record — but it turns a one-hour desk loop into a ten-second one.
