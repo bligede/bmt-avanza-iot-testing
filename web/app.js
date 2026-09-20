@@ -68,6 +68,19 @@ function monMakeRow(x) {
     return td;
   };
   cell('id', hex(x.id, x.x ? 8 : 3));
+  const nt = cell('nt');
+  const inp = document.createElement('input');
+  inp.className = 'ni';
+  inp.maxLength = 60;
+  inp.placeholder = MON.notesOk ? 'name this ID…' : 'notes unavailable';
+  inp.disabled = !MON.notesOk;
+  inp.autocomplete = 'off';
+  inp.spellcheck = false;
+  inp.setAttribute('aria-label', 'Name for ' + hex(x.id, x.x ? 8 : 3));
+  inp.value = MON.notes.get(k) || '';
+  inp.addEventListener('change', () => saveNote(x.id, x.x, inp));
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+  nt.appendChild(inp);
   const hz = cell('num hz', '–');
   const dlc = cell('num', String(x.l));
   const bytes = [];
@@ -78,19 +91,6 @@ function monMakeRow(x) {
     td.append(hx, dc);
     bytes.push({td, hx, dc, v: -1, at: 0});
   }
-  const nt = cell('nt');
-  const inp = document.createElement('input');
-  inp.className = 'ni';
-  inp.maxLength = 60;
-  inp.placeholder = MON.notesOk ? 'what is it?' : 'notes unavailable';
-  inp.disabled = !MON.notesOk;
-  inp.autocomplete = 'off';
-  inp.spellcheck = false;
-  inp.setAttribute('aria-label', 'Note for ' + hex(x.id, x.x ? 8 : 3));
-  inp.value = MON.notes.get(k) || '';
-  inp.addEventListener('change', () => saveNote(x.id, x.x, inp));
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
-  nt.appendChild(inp);
   return {k, tr, hz, dlc, bytes, inp, win: []};
 }
 
@@ -113,9 +113,10 @@ function monLayout(list) {
   for (let t = 0; t < tables; t++) {
     const table = document.createElement('table');
     table.className = 'idt';
-    let head = '<thead><tr><th>ID</th><th class="num">Hz</th><th class="num">DLC</th>';
+    let head = '<thead><tr><th>ID</th><th class="nth">Name</th>'
+             + '<th class="num">Hz</th><th class="num">DLC</th>';
     for (let i = 0; i < 8; i++) head += '<th class="bh">B' + i + '</th>';
-    table.innerHTML = head + '<th>Note</th></tr></thead>';
+    table.innerHTML = head + '</tr></thead>';
     const body = document.createElement('tbody');
     list.slice(t * perTable, (t + 1) * perTable).forEach(x => body.appendChild(MON.rows.get(keyOf(x)).tr));
     table.appendChild(body);

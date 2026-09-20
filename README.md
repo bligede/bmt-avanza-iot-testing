@@ -229,7 +229,7 @@ blink**. That is the correct idle state, not a fault.
 | Panel | What matters |
 |---|---|
 | **Bus status** | the verdict sentence; `received` climbing; `missed` is the driver's own count of **frames** lost |
-| **Identifiers** | every ID on the bus in ID order, latest bytes in **hex with decimal underneath**, bytes that just changed lit, silent IDs dimmed, a **note** per ID — one view, no scrolling |
+| **Identifiers** | every ID on the bus in ID order, latest bytes in **hex with decimal underneath**, bytes that just changed lit, silent IDs dimmed, an empty **Name** field beside each ID, ready to fill in and save — one view, no scrolling |
 | **Signal probe** | pick an ID, start byte, width, byte order: the decoded value live, with a sparkline |
 | **Health** | is the ESP32 keeping up — queue peaks, stack headroom per task, heap low-water, loop lag, CPU per core |
 | **Capture** | frames written, operator markers, and the capture **files, downloadable** |

@@ -176,7 +176,7 @@ table.idt th.bh,table.idt td.b{padding:2px 3px;text-align:center;width:36px;min-
 .b.nil .hx{color:#4A4446;font-weight:400}
 tr.stale td{opacity:.42}
 tr.stale td.nt{opacity:1}
-table.idt td.nt{width:100%;min-width:130px;padding:2px 6px}
+table.idt td.nt,table.idt th.nth{width:100%;min-width:150px;padding:2px 6px}
 .ni{width:100%;background:transparent;color:var(--ink);border:1px solid transparent;
   border-radius:5px;padding:4px 6px;font:12px var(--sans)}
 .ni::placeholder{color:#4F494B}

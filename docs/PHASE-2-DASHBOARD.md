@@ -32,8 +32,10 @@ Rencana dua minggu dan catatan apa yang sudah dibangun. Mulai 13 September 2026.
 - Di layar ≥1280 px tabel dibagi **dua kolom berdampingan**: 40 ID muat dalam satu layar
   1440 px. Di HP tabel bisa digeser ke samping di dalam panelnya, tidak pernah atas-bawah.
 
-### Kolom catatan per ID
+### Kolom nama per ID, tepat di sebelah ID
 
+- Kolom **Name** kosong dan siap diisi, letaknya persis di kanan kolom ID, sebelum Hz dan
+  byte, sehingga terbaca berpasangan dengan ID-nya.
 - Ketik di baris ID-nya, tekan Enter. Tersimpan di perangkat, bingkai hijau = tersimpan,
   merah = gagal (arahkan kursor untuk alasannya).
 - Perangkat mengembalikan teks yang **benar-benar disimpan** (dipangkas, maks 60 byte
