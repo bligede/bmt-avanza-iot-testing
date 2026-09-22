@@ -183,6 +183,12 @@ table.idt td.nt,table.idt th.nth{width:100%;min-width:150px;padding:2px 6px}
 .ni:hover{border-color:var(--line)}
 .ni:focus{background:#151314;border-color:var(--ink-3);outline:none}
 .ni.saved{border-color:var(--g)}
+/* A formula note, rendered: the result, then the bytes it was computed from. */
+.nv{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;cursor:text;
+    padding:2px 5px;border:1px solid transparent;border-radius:3px;min-height:20px}
+.nv:hover{border-color:var(--line)}
+.nv b{color:var(--g);font-weight:600}
+.nv span{color:var(--ink-3);font-size:11px;font-family:var(--mono)}
 .ni.err{border-color:var(--bad)}
 
 /* ---- health meters ---- */

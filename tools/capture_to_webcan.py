@@ -42,6 +42,10 @@ from pathlib import Path
 
 HEADER = "TimestampEpoch;BusChannel;ID;IDE;DLC;DataLength;Dir;EDL;BRS;ESI;RTR;DataBytes"
 
+# Two segment headers belong to the same boot if their boot_epoch agrees within
+# this many seconds. See the note where boots are collected.
+BOOT_EPOCH_TOLERANCE_S = 5
+
 FRAME_RE = re.compile(
     r"^\s*(?P<ms>\d+)\s*\|\s*ID:\s*0x(?P<id>[0-9A-Fa-f]+)\s*\|\s*DLC:\s*(?P<dlc>\d+)\s*\|"
     r"\s*(?P<data>(?:[0-9A-Fa-f]{2}\s*)*)(?P<tail>.*)$"
@@ -118,7 +122,12 @@ def main() -> int:
                 if "boot_epoch" in meta:
                     boot_epoch = float(meta["boot_epoch"])
                     if boot_epoch > 0:
-                        boots.add(round(boot_epoch))
+                        # boot_epoch is DERIVED per segment as (now - uptime), so
+                        # rounding makes consecutive segments of one boot differ by
+                        # a second. Only a real reboot moves it far.
+                        if not any(abs(boot_epoch - b) <= BOOT_EPOCH_TOLERANCE_S
+                                   for b in boots):
+                            boots.add(round(boot_epoch))
                 continue
             ms = item[1]
             if (args.start_ms is not None and ms < args.start_ms) or                (args.stop_ms is not None and ms >= args.stop_ms):
@@ -129,13 +138,15 @@ def main() -> int:
                       f"the device rebooted mid-file", file=sys.stderr)
                 return 3
             last_ms = ms
-            base = boot_epoch if (boot_epoch and boot_epoch > 0) else args.epoch_base
-            t = (base or 0.0) + ms / 1000.0
+            # Timestamps stay as millis() here. The epoch base is applied once,
+            # after every file is read: a capture that began before the clock
+            # was set has boot_epoch=0 in its first segments and the real value
+            # in later ones, and all of them share one millis() timeline.
             if kind == "mark":
-                marks.append((t, item[2]))
+                marks.append((ms, item[2]))
             else:
                 _, _, cid, ext, rtr, data = item
-                frames.append((t, cid, ext, rtr, data))
+                frames.append((ms, cid, ext, rtr, data))
                 ids.add((cid, ext))
 
     if len(boots) > 1 and not args.allow_multiple_boots:
@@ -144,6 +155,10 @@ def main() -> int:
               f"separately, or pass --allow-multiple-boots if you know why.", file=sys.stderr)
         return 4
 
+    base = (min(boots) if boots else args.epoch_base) or 0.0
+    frames = [(base + ms / 1000.0, cid, ext, rtr, data)
+              for ms, cid, ext, rtr, data in frames]
+    marks = [(base + ms / 1000.0, label) for ms, label in marks]
     frames.sort(key=lambda f: f[0])
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8", newline="\n") as out:

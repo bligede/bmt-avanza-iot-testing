@@ -77,7 +77,10 @@
   #define CAN_DEFAULT_BITRATE   500000
 #endif
 
-#define CAN_RX_QUEUE_LEN        64
+// Frames the TWAI driver may hold before the reader task takes them. It only
+// covers the reader being late; it CANNOT cover the hardware FIFO overrunning,
+// which is what happens while flash is written (see docs/evidence/frame-loss.md).
+#define CAN_RX_QUEUE_LEN        256
 // Deep enough to ride out a filesystem stall. At ~1,300 frames/s a 256-slot
 // queue overflows after 200 ms of the writer being busy, which is well within
 // what LittleFS takes to do wear-levelling bookkeeping. 1024 slots is ~20 KB

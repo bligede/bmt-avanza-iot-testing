@@ -49,6 +49,116 @@ const CHANGE_MS = 2000;   // a changed byte stays lit this long
 const STALE_MS  = 2000;   // an identifier silent this long is dimmed
 const SPLIT_MQ  = window.matchMedia('(min-width:1280px)');
 
+/* ---- live formulas in a note -----------------------------------------
+   A note may carry {expressions} over the identifier's latest payload:
+
+       SOC {b1*0.5} %        ->   SOC 89.5 %          b1=179
+       Pack {le16(2)} V      ->   Pack 357 V          le16(2)=357
+       Temp {b6-40} C        ->   Temp 30 C           b6=70
+
+   The raw operands stay on screen next to the result: a decoded number
+   nobody can trace back to a byte is a number nobody can check.
+
+   Deliberately a tiny parser and not eval(): a note travels from the device
+   to every browser that opens the dashboard, so it is untrusted text. */
+const FN = {
+  le16: (b, i) => b[i] | (b[i + 1] << 8),
+  be16: (b, i) => (b[i] << 8) | b[i + 1],
+  le24: (b, i) => b[i] | (b[i + 1] << 8) | (b[i + 2] << 16),
+  be24: (b, i) => (b[i] << 16) | (b[i + 1] << 8) | b[i + 2],
+  le32: (b, i) => (b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)) >>> 0,
+  be32: (b, i) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0
+};
+
+function compile(src) {                       // -> f(bytes, seen) or null
+  const t = src.match(/\d+\.\d+|\d+|[A-Za-z_]\w*|[-+*/%(),]/g) || [];
+  let p = 0;
+  const peek = () => t[p], eat = v => (t[p] === v ? (p++, true) : false);
+
+  function primary() {
+    const tok = t[p++];
+    if (tok === undefined) throw 0;
+    if (tok === '(') { const e = expr(); if (!eat(')')) throw 0; return e; }
+    if (tok === '-') { const e = primary(); return (b, s) => -e(b, s); }
+    if (/^\d/.test(tok)) { const v = parseFloat(tok); return () => v; }
+    if (FN[tok]) {
+      if (!eat('(')) throw 0;
+      const a = expr(); if (!eat(')')) throw 0;
+      return (b, s) => {
+        const i = a(b, s) | 0, need = +tok.slice(2) / 8;
+        if (i < 0 || i + need > b.length) throw 0;
+        const v = FN[tok](b, i);
+        s.push(tok + '(' + i + ')=' + v);
+        return v;
+      };
+    }
+    const m = /^b([0-7])$/.exec(tok);
+    if (m) {
+      const i = +m[1];
+      return (b, s) => { if (i >= b.length) throw 0; s.push('b' + i + '=' + b[i]); return b[i]; };
+    }
+    if (tok === 'dlc') return (b, s) => (s.push('dlc=' + b.length), b.length);
+    throw 0;
+  }
+  function term() {
+    let l = primary();
+    for (;;) {
+      const o = peek();
+      if (o !== '*' && o !== '/' && o !== '%') return l;
+      p++; const r = primary(), a = l;
+      l = o === '*' ? (b, s) => a(b, s) * r(b, s)
+        : o === '/' ? (b, s) => a(b, s) / r(b, s)
+        : (b, s) => a(b, s) % r(b, s);
+    }
+  }
+  function expr() {
+    let l = term();
+    for (;;) {
+      const o = peek();
+      if (o !== '+' && o !== '-') return l;
+      p++; const r = term(), a = l;
+      l = o === '+' ? (b, s) => a(b, s) + r(b, s) : (b, s) => a(b, s) - r(b, s);
+    }
+  }
+  try { const e = expr(); return p === t.length ? e : null; } catch (_) { return null; }
+}
+
+const CACHE = new Map();                      // note text -> parsed parts
+function parseNote(txt) {
+  let parts = CACHE.get(txt);
+  if (parts) return parts;
+  parts = [];
+  const re = /\{([^}]*)\}/g;
+  let at = 0, m;
+  while ((m = re.exec(txt))) {
+    if (m.index > at) parts.push({lit: txt.slice(at, m.index)});
+    parts.push({fn: compile(m[1]), src: m[1]});
+    at = m.index + m[0].length;
+  }
+  if (at < txt.length) parts.push({lit: txt.slice(at)});
+  if (!parts.some(x => x.fn !== undefined)) parts = null;   // plain text note
+  CACHE.set(txt, parts);
+  return parts;
+}
+
+const num = v => !isFinite(v) ? '?'
+  : Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v))
+  : String(Math.round(v * 1000) / 1000);
+
+/* Returns {text, raw} or null when the note carries no formula. */
+function renderNote(txt, bytes) {
+  const parts = parseNote(txt);
+  if (!parts) return null;
+  const seen = [];
+  let out = '';
+  for (const part of parts) {
+    if (part.lit !== undefined) { out += part.lit; continue; }
+    if (!part.fn) { out += '{' + part.src + '?}'; continue; }
+    try { out += num(part.fn(bytes, seen)); } catch (_) { out += '?'; }
+  }
+  return {text: out, raw: seen.join(' ')};
+}
+
 const MON = {
   rows:   new Map(),      // key -> row record
   layout: '',             // signature of the current arrangement
@@ -72,7 +182,7 @@ function monMakeRow(x) {
   const inp = document.createElement('input');
   inp.className = 'ni';
   inp.maxLength = 60;
-  inp.placeholder = MON.notesOk ? 'name this ID…' : 'notes unavailable';
+  inp.placeholder = MON.notesOk ? 'name this ID…  or  SOC {b1*0.5} %' : 'notes unavailable';
   inp.disabled = !MON.notesOk;
   inp.autocomplete = 'off';
   inp.spellcheck = false;
@@ -81,6 +191,16 @@ function monMakeRow(x) {
   inp.addEventListener('change', () => saveNote(x.id, x.x, inp));
   inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
   nt.appendChild(inp);
+  // Shown instead of the input while a formula note is not being edited.
+  const nv = document.createElement('div');
+  nv.className = 'nv';
+  nv.hidden = true;
+  nv.title = 'click to edit the formula';
+  nv.addEventListener('click', () => {
+    nv.hidden = true; inp.hidden = false; inp.focus(); inp.select();
+  });
+  inp.addEventListener('blur', () => { if (MON.notes.get(k) !== undefined) monNote(r); });
+  nt.appendChild(nv);
   const hz = cell('num hz', '–');
   const dlc = cell('num', String(x.l));
   const bytes = [];
@@ -91,7 +211,30 @@ function monMakeRow(x) {
     td.append(hx, dc);
     bytes.push({td, hx, dc, v: -1, at: 0});
   }
-  return {k, tr, hz, dlc, bytes, inp, win: []};
+  const r = {k, tr, hz, dlc, bytes, inp, nv, win: []};
+  return r;
+}
+
+/* Show a formula note as its result, with the operands it used, and keep the
+   editable text one click away. A note without {..} stays an ordinary input. */
+function monNote(r) {
+  const txt = MON.notes.get(r.k) || '';
+  const out = r.bytes && txt ? renderNote(txt, r.lastBytes || []) : null;
+  if (!out || document.activeElement === r.inp) {
+    if (r.nv.hidden) return;
+    r.nv.hidden = true; r.inp.hidden = false;
+    return;
+  }
+  r.nv.textContent = '';
+  const v = document.createElement('b');
+  v.textContent = out.text;
+  r.nv.appendChild(v);
+  if (out.raw) {
+    const raw = document.createElement('span');
+    raw.textContent = out.raw;
+    r.nv.appendChild(raw);
+  }
+  r.inp.hidden = true; r.nv.hidden = false;
 }
 
 /* Arrange rows into one table, or two side by side on a wide screen. Only when
@@ -150,6 +293,8 @@ function monPaint(d) {
     r.dlc.textContent = x.l;
 
     const b = bytesOf(x.d);
+    r.lastBytes = b;
+    monNote(r);
     for (let i = 0; i < 8; i++) {
       const c = r.bytes[i];
       if (i >= b.length) {
@@ -182,6 +327,7 @@ async function loadNotes() {
     MON.rows.forEach((row, k) => {
       if (document.activeElement !== row.inp) row.inp.value = MON.notes.get(k) || '';
       row.inp.disabled = !MON.notesOk;
+      monNote(row);
     });
   } catch (e) { /* the state poll reports connectivity; stay quiet here */ }
 }
