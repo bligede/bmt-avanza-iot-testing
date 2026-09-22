@@ -26,9 +26,11 @@ Press Ctrl+C to stop; the current segment is flushed and closed.
 
 import argparse
 import re
+import signal
 import socket
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 FRAME = re.compile(rb"^\d+ \| ID: 0x[0-9A-Fa-f]+ \| DLC: \d+ \|")
@@ -87,6 +89,21 @@ class Segments:
             self.fh = None
 
 
+def sink(host: str, mode: str) -> str:
+    """Pause or resume the device's own recording to flash.
+
+    Writing to flash is what costs frames: measured on a DFSK Gelora E, 14.8 %
+    of the bus lost while the device wrote to its own flash, 0 % while
+    streaming with that writer paused. Leaving it on would quietly reintroduce
+    the loss this tool exists to avoid, so pause it and put it back after.
+    """
+    try:
+        with urllib.request.urlopen(f"http://{host}/api/sink?mode={mode}", data=b"", timeout=8) as r:
+            return r.read().decode().strip()
+    except Exception as e:                       # noqa: BLE001 - report, keep streaming
+        return f"could not set sink={mode}: {e.__class__.__name__}"
+
+
 def connect(host: str, port: int, timeout: float) -> socket.socket:
     s = socket.create_connection((host, port), timeout=timeout)
     s.settimeout(timeout)
@@ -100,7 +117,19 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True, help="directory for the capture files")
     ap.add_argument("--timeout", type=float, default=10.0, help="seconds of silence before reconnecting")
     ap.add_argument("--quiet", action="store_true", help="no per-second progress line")
+    ap.add_argument("--keep-flash", action="store_true",
+                    help="also leave the device recording to its own flash, which costs "
+                         "about 15%% of the bus in lost frames")
     args = ap.parse_args()
+
+    # A run that is killed rather than interrupted would otherwise leave the
+    # device paused, and the next person would find a recorder that records
+    # nothing. Turn a TERM into the same KeyboardInterrupt Ctrl+C raises.
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
+
+    if not args.keep_flash:
+        print(f"  device recording to flash: {sink(args.host, 'off')}"
+              f"   (flash writes cost ~15 % of the frames; --keep-flash overrides)")
 
     seg = Segments(args.out)
     print(f"writing to {args.out}/can-{seg.index:03d}.log onwards; Ctrl+C to stop")
@@ -159,6 +188,8 @@ def main() -> int:
     except KeyboardInterrupt:
         print("\nstopped")
     finally:
+        if not args.keep_flash:
+            print(f"  device recording to flash: {sink(args.host, 'file')}")
         if tail:
             seg.write(tail if tail.endswith(b"\n") else tail + b"\n")
         seg.close()

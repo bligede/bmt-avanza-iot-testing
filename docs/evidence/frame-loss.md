@@ -55,6 +55,27 @@ kehilangan yang kecil (95 frame), dan sengaja dilakukan karena murah: sekitar
 8 KB heap dari 176 KB yang menganggur. **Ini bukan perbaikan untuk masalah
 utamanya**, dan komentarnya di `Config.h` menyatakan hal itu.
 
+## Terbukti: mengalirkan lewat WiFi menghapus kehilangan itu
+
+Diuji 22 Sep 2026 pada kendaraan yang sama, bus mengalir sekitar 640 frame per
+detik, dua fase berturut-turut masing-masing 30 detik:
+
+| Fase | Frame diterima | Frame hilang | Rasio |
+|---|---|---|---|
+| Perangkat menulis ke flash sendiri | 16.627 | 2.898 | **14,8 %** |
+| Dialirkan ke laptop lewat WiFi, penulisan flash dijeda | 19.337 | **0** | **0,0 %** |
+
+Di laptop tersimpan 19.303 frame dari 19.332 yang dikirim perangkat. Sembilan
+dibuang oleh perangkat karena buffer soket sempat penuh, dan sisanya masih di
+jalan saat soket ditutup. Keduanya terhitung, bukan hilang diam-diam.
+
+Ini juga menjelaskan kenapa angka 4,9 % sebelumnya lebih kecil: laju bus saat
+itu lebih rendah. Semakin ramai bus, semakin besar bagian yang hilang.
+
+**Karena penulisan flash itu sendiri penyebabnya, perekaman flash harus dijeda
+selama mengalirkan.** `tools/stream_capture.py` melakukannya sendiri di awal
+dan mengembalikannya di akhir, termasuk saat prosesnya dihentikan paksa.
+
 ## Pilihan perbaikan yang sebenarnya
 
 | Pilihan | Efek | Biaya |
