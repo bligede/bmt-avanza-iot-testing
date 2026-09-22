@@ -51,9 +51,53 @@ sesi yang sama.
 | Suhu baterai **maks 30 °C** | `0x0CFF7E03` | b6 = 70 | °C = nilai − 40 | tetap |
 | Suhu baterai **min 29 °C** | `0x0CFF7E03` | b7 = 69 | °C = nilai − 40 | tetap |
 | Suhu controller **26 °C** | `0x0CFF1601` | b2 = 26 | apa adanya | 307 / 307 |
+| **Tegangan 90 sel** | `0x0CFF8203` | b1 nomor sel, 3 × 16-bit LE | mV | cocok sel per sel dengan foto |
+| **Suhu 30 sensor** | `0x0CFF8303` | b1 nomor sensor, 3 × 16-bit LE | °C = nilai − 40 | 29–30 °C, cocok |
 
 Keempat ID itu sudah diberi nama di alat lewat `POST /api/note`, jadi tampil di
 kolom Name pada dashboard dan tercatat di `/notes/GELORAE-TEST-01/journal.log`.
+
+### Frame BMS yang multiplex, dan bukti yang saling mengunci
+
+`0x0CFF8203` membawa tegangan sel, dengan **b1 sebagai nomor sel awal** (1, 4, 7,
+sampai 88) lalu tiga nilai 16-bit little-endian dalam milivolt. `0x0CFF8303`
+berbentuk sama untuk suhu: b1 nomor sensor, tiga nilai, °C = nilai − 40.
+
+Ini bukan lagi kecocokan angka statis, karena tiga hal saling mengunci:
+
+1. **Cocok sel per sel dengan foto.** Indeks 1 memberi 3,979 / 3,980 / 3,973 V,
+   sedangkan layar menampilkan sel 1–3 = 3,979 / 3,980 / 3,972 V. Indeks 4
+   memberi 3,980 / 3,977 / 3,979 V melawan 3,979 / 3,977 / 3,979 V di layar.
+   Enam nilai berurutan, meleset paling jauh 1 mV.
+2. **Jumlahnya sama dengan tegangan pack.** Sembilan puluh sel dijumlahkan
+   menghasilkan **357,0 V**, dan layar menampilkan 357 V. Dua pemetaan yang
+   ditemukan terpisah saling membuktikan.
+3. **Sel maksimum dan minimum di frame SOC cocok dengan isi frame sel.**
+   `0x0CFF7D03` b6–b7 = 3778 mV, dan sel terendah yang sebenarnya adalah sel 7
+   = 3778 mV, persis seperti yang ditunjuk b5 = 7. Untuk sisi maksimum, b3–b4 =
+   3991 mV cocok dengan nilai tertinggi, tetapi b2 = 44 sedangkan sel 3991 mV
+   yang ditemukan ada di posisi 46. Kemungkinan ada beberapa sel bernilai sama,
+   atau penomorannya berbeda. Belum dipastikan.
+
+Jadi susunan `0x0CFF7D03` adalah: SOC, lalu nomor dan nilai sel tertinggi, lalu
+nomor dan nilai sel terendah.
+
+### Temuan tentang kendaraannya, bukan tentang alat
+
+Paket ini **tidak seimbang**. Sel 7 berada di 3,778 V sementara mayoritas sel di
+kisaran 3,96–3,99 V, jadi selisihnya sekitar 200 mV. Sel 54 menyusul di 3,822 V.
+
+| Sel | Tegangan |
+|---|---|
+| 7 | 3,778 V |
+| 54 | 3,822 V |
+| 89 | 3,913 V |
+| 85 | 3,921 V |
+
+Pada paket lithium, sel terendah yang menentukan kapasitas dan batas pengisian.
+Layar CarInfo hanya menampilkan enam sel pertama box 1, semuanya sehat, sehingga
+selisih ini tidak terlihat dari layar mobil. Ini perlu disampaikan ke pemilik
+kendaraan, dan sebaiknya dipantau apakah selisihnya melebar.
 
 ### Belum pasti
 
