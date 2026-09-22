@@ -19,6 +19,21 @@ uint32_t s_bytes     = 0;
 uint32_t s_dropped   = 0;
 uint32_t s_sessions  = 0;
 
+// poll() and write() both touch the buffer and the socket. They are called
+// from the same task by design (see FrameStream.h), but a lock costs nothing
+// here and turns a future mistake into a wait instead of a crash: the first
+// version ran poll() from housekeeping while write() ran from storage, and the
+// device rebooted the moment frames started flowing.
+SemaphoreHandle_t s_lock = nullptr;
+
+struct Guard {
+    bool held;
+    explicit Guard(uint32_t wait_ms) {
+        held = s_lock && xSemaphoreTakeRecursive(s_lock, pdMS_TO_TICKS(wait_ms)) == pdTRUE;
+    }
+    ~Guard() { if (held) xSemaphoreGiveRecursive(s_lock); }
+};
+
 // Staging buffer. One TCP write per frame would spend more time in lwIP than
 // in the CAN reader; a few kilobytes at a time costs nothing and keeps the
 // socket from being poked 600 times a second.
@@ -75,6 +90,7 @@ void sendHeader() {
 namespace FrameStream {
 
 void begin() {
+    s_lock = xSemaphoreCreateRecursiveMutex();
     s_server.begin();
     s_server.setNoDelay(true);
     s_listening = true;
@@ -83,6 +99,8 @@ void begin() {
 
 void poll() {
     if (!s_listening) return;
+    Guard g(20);
+    if (!g.held) return;
 
     if (s_server.hasClient()) {
         WiFiClient fresh = s_server.available();
@@ -112,6 +130,9 @@ void poll() {
 
 void write(const CanFrame& frame) {
     if (!s_client || !s_client.connected()) return;
+    // Never wait here: this runs on the path that drains the CAN queue.
+    Guard g(0);
+    if (!g.held) { ++s_dropped; return; }
 
     char line[96];
     const size_t len = RawCanLogger::formatLine(frame, line, sizeof(line));
@@ -132,6 +153,7 @@ void write(const CanFrame& frame) {
 }
 
 StreamStats stats() {
+    Guard g(10);
     StreamStats s;
     s.listening = s_listening;
     s.connected = s_client && s_client.connected();

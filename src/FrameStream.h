@@ -42,6 +42,12 @@ struct StreamStats {
 void begin();
 
 // Accepts a waiting client and flushes the staging buffer. Cheap; call often.
+//
+// Call it from the SAME task that calls write(), which is the storage task.
+// The first version polled from housekeeping while frames arrived on storage,
+// and the device rebooted as soon as the bus was busy: two tasks were moving
+// the same buffer under each other. A recursive mutex now guards it too, but
+// one owner is the design, and the lock is only the seat belt.
 void poll();
 
 // Queues one frame. Never blocks: when the socket is behind, the frame is

@@ -110,6 +110,9 @@ static void taskStorage(void*) {
             FrameStream::write(frame);
             WebDashboard::noteFrame(frame);
         }
+        // Accepting a receiver and flushing the socket happen on THIS task, the
+        // only one that writes frames into the stream. One owner, no races.
+        FrameStream::poll();
     }
 }
 
@@ -236,7 +239,6 @@ static void taskWeb(void*) {
     for (;;) {
         WatchdogManager::feed();
         WebDashboard::poll();
-        FrameStream::poll();
         vTaskDelay(pdMS_TO_TICKS(WEB_POLL_TICK_MS));
     }
 }
