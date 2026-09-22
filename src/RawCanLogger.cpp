@@ -1,6 +1,7 @@
 #include "RawCanLogger.h"
 
 #include <LittleFS.h>
+#include <cstdio>
 #include "Logger.h"
 #include "CanBusSafety.h"
 
@@ -17,6 +18,8 @@ uint32_t s_segment       = 0;
 char     s_path[48]      = {0};
 bool     s_ceiling_warned = false;
 uint32_t s_seg_bytes     = 0;   // includes what is still staged in RAM
+uint32_t s_budget        = RAWLOG_MAX_BYTES;  // bytes this capture may write
+uint32_t s_bytes_at_start = 0;  // s_bytes when the current capture began
 uint32_t s_queue_drops   = 0;
 uint32_t s_marks         = 0;
 
@@ -63,6 +66,39 @@ void writeHeader() {
         (unsigned long)s_segment, (unsigned long)millis(),
         (long long)(now > 1600000000 ? now - (time_t)(millis() / 1000) : 0));
     if (n > 0) appendRaw(h, static_cast<size_t>(n));
+}
+
+// The first segment number not already on flash.
+//
+// Numbering used to restart at can-000 on every boot, and segments open for
+// append. A new run therefore landed INSIDE the previous run's file, on a
+// different millis() base, and the converter rightly refused the file. Found
+// while recovering the HR-V capture, 20 Sep 2026 (docs/evidence/hrv-001.md).
+uint32_t nextFreeSegment() {
+    File dir = LittleFS.open(RAWLOG_DIR);
+    if (!dir || !dir.isDirectory()) return 0;
+    long highest = -1;
+    for (File e = dir.openNextFile(); e; e = dir.openNextFile()) {
+        unsigned long n = 0;
+        if (sscanf(e.name(), "can-%lu.log", &n) == 1 && static_cast<long>(n) > highest) {
+            highest = static_cast<long>(n);
+        }
+        e.close();
+    }
+    dir.close();
+    return static_cast<uint32_t>(highest + 1);
+}
+
+// How much this capture may write: RAWLOG_MAX_BYTES, or what the filesystem
+// actually has left, whichever is smaller. The ceiling used to count only this
+// boot's bytes, so with an earlier run still on flash the filesystem filled up
+// mid-run and writes failed, instead of the capture stopping cleanly.
+uint32_t captureBudget() {
+    const size_t total = LittleFS.totalBytes();
+    const size_t used  = LittleFS.usedBytes();
+    const size_t spare = (total > used + RAWLOG_FS_RESERVE)
+                         ? total - used - RAWLOG_FS_RESERVE : 0;
+    return static_cast<uint32_t>(spare < RAWLOG_MAX_BYTES ? spare : RAWLOG_MAX_BYTES);
 }
 
 bool openSegment(uint32_t index) {
@@ -134,11 +170,11 @@ void write(const CanFrame& frame) {
     if ((s_sink == RAWLOG_SINK_FILE || s_sink == RAWLOG_SINK_BOTH) && s_file_open) {
         // Stop before the capture starves the telemetry buffer. Blueprint §6.2
         // puts the 24 h buffer above raw capture in the priority order.
-        if (s_bytes >= RAWLOG_MAX_BYTES) {
+        if (s_bytes - s_bytes_at_start >= s_budget) {
             if (!s_ceiling_warned) {
-                LOG_W(TAG, "Capture ceiling %lu B reached — stopping file sink "
-                           "to protect the telemetry buffer",
-                      (unsigned long)RAWLOG_MAX_BYTES);
+                LOG_W(TAG, "Capture budget %lu B reached — stopping file sink. "
+                           "Pull the captures and run clearcaptures to record more",
+                      (unsigned long)s_budget);
                 s_ceiling_warned = true;
                 stopFileCapture();
             }
@@ -199,6 +235,16 @@ bool startFileCapture() {
         LittleFS.mkdir(RAWLOG_DIR);
     }
     s_ceiling_warned = false;
+    s_segment = nextFreeSegment();
+    s_budget = captureBudget();
+    s_bytes_at_start = s_bytes;
+    LOG_I(TAG, "Capture budget %lu B (%lu B free on flash, ceiling %lu B)",
+          (unsigned long)s_budget,
+          (unsigned long)(LittleFS.totalBytes() - LittleFS.usedBytes()),
+          (unsigned long)RAWLOG_MAX_BYTES);
+    if (s_budget < RAWLOG_SEGMENT_BYTES) {
+        LOG_W(TAG, "Flash is nearly full: pull the captures and run clearcaptures");
+    }
     return openSegment(s_segment);
 }
 

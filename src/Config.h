@@ -111,6 +111,9 @@
 #define RAWLOG_DIR              "/capture"
 #define RAWLOG_MAX_BYTES        (12UL * 1024UL * 1024UL)  // ~12 MB, fits the 16 MB layout
 #define RAWLOG_SEGMENT_BYTES    (256UL * 1024UL)
+// Flash kept free when capture computes its budget: identifier notes, their
+// journal and LittleFS metadata still need room while a capture is running.
+#define RAWLOG_FS_RESERVE       (512UL * 1024UL)
 
 // Frames are staged in RAM and written in one block. Two File::print calls per
 // frame at 1,300 frames/s is 2,600 trips through the filesystem every second,

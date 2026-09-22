@@ -47,12 +47,13 @@ The run is wasted if any of these is still open.
       -t upload`, for example). The dashboard header shows the `UNIT_ID`; check it
       names the vehicle in front of you before the run starts, never after
       (D-015). It goes into every capture header and selects the notes folder.
-- [ ] **Flash storage is empty.** Not merely "pulled off": the logger restarts its
-      segment numbering at `can-000` on every boot and opens the file for APPEND,
-      so leftover files receive the new run's frames on a different `millis()`
-      base. The converter then refuses the file, correctly. Clear it with
-      `clearcaptures` on the serial console once the old captures are archived.
-      `RAWLOG_MAX_BYTES` is 12 MB; the HR-V run of 8 Sep filled 8.8 MB in 3.4 min.
+- [ ] **Flash has room for the run.** Since 22 Sep a new boot continues after
+      the highest existing segment instead of reopening `can-000`, and capture
+      stops cleanly when the flash runs out instead of failing mid-write. So old
+      files no longer corrupt a new run, but they still take its space: the
+      HR-V run of 8 Sep filled 8.8 MB in 3.4 min (about 43 kB/s). Once the old
+      captures are archived off the laptop too, run `clearcaptures` on the
+      serial console. The capture budget is logged at boot.
 - [ ] **Old captures archived and verified.** The HR-V run was pulled on 20 Sep
       (`docs/evidence/hrv-001.md`): 34 files, all 34 SHA-256 digests matched the
       device. Pull with `tools/fetch_captures.py` over WiFi. **Never through the
