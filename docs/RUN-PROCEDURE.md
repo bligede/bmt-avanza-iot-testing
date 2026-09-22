@@ -337,10 +337,11 @@ Everything above still applies. These are the additions.
 
 **Bitrate**
 
-Not yet measured on this vehicle. Start with `gelora-e` (500 kbps). If the
-dashboard's bus status reads **"Wrong bitrate, most likely"** (bus errors
-climbing, nothing decoded), switch the vehicle off, flash `gelora-e-250k`, and
-retry. Both builds are ready.
+**Measured on 22 Sep 2026: the Gelora E runs at 250 kbps**, so flash
+`gelora-e-250k`. At 500 kbps it produced 1,579,745 bus errors in 378 s and not
+one frame, which is exactly what the dashboard's "Wrong bitrate, most likely"
+is there to catch. Its identifiers are all 29-bit extended, J1939-style.
+Results: [`docs/evidence/gelora-001.md`](evidence/gelora-001.md).
 
 **The OBD port may be silent, and that is a finding**
 
