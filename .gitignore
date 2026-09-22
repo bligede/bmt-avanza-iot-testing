@@ -33,3 +33,9 @@ web/dist/
 
 # Python bytecode
 __pycache__/
+.gstack/
+
+# Python venv for the CAN reverse-engineering skill scripts, and its outputs
+.venv/
+temp-output/
+decoding-output/
