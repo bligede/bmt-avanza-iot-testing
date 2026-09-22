@@ -9,6 +9,7 @@
 #include "FrameRing.h"
 #include "GpsManager.h"
 #include "NotesStore.h"
+#include "FrameStream.h"
 #include "RawCanLogger.h"
 #include "StatusLed.h"
 #include "SystemHealth.h"
@@ -130,13 +131,18 @@ void appendThermal(JsonWriter& j) {
 
 void appendSystem(JsonWriter& j, uint32_t requestsServed) {
     const WifiStats w = WifiManager::stats();
+    const FrameStream::StreamStats st = FrameStream::stats();
     j.add("\"cap\":{\"sink\":%u,\"frames\":%lu,\"bytes\":%lu,\"path\":\"%s\","
-          "\"qdrop\":%lu},",
+          "\"qdrop\":%lu,"
+          "\"net\":{\"on\":%s,\"up\":%s,\"n\":%lu,\"b\":%lu,\"drop\":%lu,\"ses\":%lu}},",
           (unsigned)RawCanLogger::sink(),
           (unsigned long)RawCanLogger::framesWritten(),
           (unsigned long)RawCanLogger::bytesWritten(),
           RawCanLogger::currentPath(),
-          (unsigned long)RawCanLogger::queueDrops());
+          (unsigned long)RawCanLogger::queueDrops(),
+          st.listening ? "true" : "false", st.connected ? "true" : "false",
+          (unsigned long)st.frames, (unsigned long)st.bytes,
+          (unsigned long)st.dropped, (unsigned long)st.sessions);
     j.add("\"rssi\":%ld,\"ip\":\"%s\",\"wifi\":\"%s\",\"reqs\":%lu,"
           "\"led\":\"%s\",\"clock\":%lld,\"marks\":%lu,\"notes\":%u,",
           (long)w.rssi, w.ip, WifiManager::stateName(WifiManager::state()),

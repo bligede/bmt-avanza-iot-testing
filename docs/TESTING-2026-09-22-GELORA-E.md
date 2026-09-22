@@ -1,0 +1,172 @@
+# Laporan pengujian DFSK Gelora E, 22 September 2026
+
+Sesi pertama pada kendaraan listrik, dan sesi pertama yang berhasil memetakan
+angka di layar kendaraan ke byte CAN dalam satu hari yang sama.
+
+Kondisi: mesin mati, kunci kontak ON, kendaraan diam sepanjang perekaman.
+Alat dalam mode listen-only permanen.
+
+---
+
+## 1. Hasil utama
+
+### Bitrate bus: 250 kbps, bukan 500
+
+Percobaan pertama di 500 kbps menghasilkan **1.579.745 bus error dalam 378 detik**
+dan **nol frame**. Dashboard menyebutnya "Wrong bitrate, most likely", dan itu
+tepat. Setelah diganti ke 250 kbps: 34 identifier, nol bus error.
+
+Ribuan error itu tidak mengganggu kendaraan. Mode listen-only tidak pernah
+mengirim bit dominan, termasuk error frame.
+
+### Bentuk bus berbeda dari mobil penumpang
+
+Seluruh 34 identifier memakai **29-bit extended**, bergaya J1939 seperti
+kendaraan niaga, bukan 11-bit seperti Honda HR-V. Byte terakhir ID adalah
+alamat ECU: terlihat `01`, `02`, `03`, `06`, `8F`, `A6`, `D0`, `D5`, `F5`.
+
+### Sinyal yang berhasil dipetakan
+
+| Nilai di layar kendaraan | ID | Byte | Rumus |
+|---|---|---|---|
+| Odometer 30410 | `0x18FEDCD5` | b1–b2 LE | apa adanya |
+| SOC 89,5 % | `0x0CFF7D03` | b1 | × 0,5 |
+| Tegangan pack 357 V | `0x0CFF7E03` | b2–b3 LE | apa adanya |
+| SOH 97 % | `0x0CFF7E03` | b1 | apa adanya |
+| Suhu baterai maks/min 30/29 °C | `0x0CFF7E03` | b6, b7 | − 40 |
+| Suhu controller 26 °C | `0x0CFF1601` | b2 | apa adanya |
+| **Tegangan 90 sel** | `0x0CFF8203` | b1 nomor sel, 3 × 16-bit LE | mV |
+| **Suhu 30 sensor** | `0x0CFF8303` | b1 nomor sensor, 3 × 16-bit LE | − 40 |
+| Sel tertinggi dan terendah + nomornya | `0x0CFF7D03` | b2, b3–4, b5, b6–7 | mV |
+
+Dua frame terakhir berbentuk **multiplex**: satu byte menyatakan nomor awal,
+tiga nilai menyusul.
+
+### Kenapa pemetaan ini kuat
+
+Tiga pemeriksaan yang saling mengunci, bukan sekadar satu angka yang kebetulan
+cocok:
+
+1. **Cocok sel per sel dengan foto layar.** Indeks 1 memberi 3,979 / 3,980 /
+   3,973 V melawan 3,979 / 3,980 / 3,972 V di layar. Indeks 4 cocok untuk tiga
+   sel berikutnya. Meleset paling jauh 1 mV.
+2. **Jumlah 90 sel = 357,0 V**, dan layar menampilkan tegangan pack 357 V. Dua
+   pemetaan yang ditemukan terpisah membuktikan satu sama lain.
+3. **Sel terendah di frame SOC cocok dengan isi frame sel**: 3778 mV di sel 7,
+   persis seperti yang ditunjuk penomorannya.
+
+### Yang tidak ditemukan
+
+Resistansi isolasi 7480 kΩ tidak ada di identifier mana pun. Kemungkinan besar
+diminta head unit lewat permintaan diagnostik, bukan disiarkan berkala. Alat ini
+tidak pernah meminta apa pun.
+
+---
+
+## 2. Temuan tentang kendaraannya
+
+**Paket baterai tidak seimbang.** Sel 7 berada di 3,778 V sementara mayoritas
+sel di 3,96–3,99 V, selisih sekitar 200 mV. Sel 54 menyusul di 3,822 V.
+
+Layar CarInfo hanya menampilkan enam sel pertama box 1, semuanya sehat, jadi
+selisih ini **tidak terlihat dari dalam kendaraan**. Pada paket lithium, sel
+terendah yang menentukan kapasitas dan batas pengisian.
+
+Ini temuan yang perlu disampaikan ke pemilik kendaraan, dan perlu dipantau
+apakah selisihnya melebar.
+
+---
+
+## 3. Temuan tentang alat kita sendiri
+
+**Alat kehilangan frame justru ketika merekam.** Terukur 4,9 % di Gelora E, dan
+22 sampai 26 % di Honda HR-V yang busnya jauh lebih padat.
+
+Penyebabnya bukan CPU, yang hanya terpakai beberapa persen. Framework yang
+dipakai dikirim dengan `CONFIG_TWAI_ISR_IN_IRAM` tidak aktif, sehingga rutin
+interupsi CAN berada di flash. Setiap kali flash ditulis, cache instruksi mati,
+interupsi berhenti, dan FIFO controller meluap. Terbukti dari perbandingan:
+**31.548 dari 31.643 frame hilang berjenis `rx_overrun`** (FIFO hardware), dan
+saat flash menganggur kehilangannya **nol** pada 644 frame per detik.
+
+Artinya untuk pekerjaan pemetaan: survei ID dan pemetaan nilai tetap sah, karena
+nilai disiarkan berulang. Yang tidak bisa dipercaya adalah analisis yang
+bergantung pada urutan antar-frame.
+
+Rinciannya di [`evidence/frame-loss.md`](evidence/frame-loss.md).
+
+---
+
+## 4. Yang dibangun selama sesi ini
+
+**Dashboard**
+
+- Kolom **Name** kosong di sebelah ID, siap diisi saat pengujian dan tersimpan
+  di alat.
+- Catatan bisa berisi **rumus hidup**: ditulis `SOC {b1*0.5} %`, tampil sebagai
+  `SOC 89.5 %` dan ikut berubah tiap frame. Nilai mentahnya tetap ditampilkan
+  di sebelahnya, supaya setiap angka bisa ditelusuri balik ke byte.
+- Tiap byte tampil hex di atas, desimal di bawah. Tabel muat satu layar.
+- Panel Health yang menyatakan kondisi alat apa adanya, termasuk yang
+  menemukan masalah kehilangan frame di atas.
+
+**Firmware**
+
+- Satu env PlatformIO per kendaraan: `hrv`, `gelora-e`, `gelora-e-250k`. Nama
+  unit dan bitrate ikut env, tidak lagi diedit tangan.
+- Catatan ID dipisah per kendaraan, karena nomor ID berulang antar merek.
+- Penomoran segmen melanjutkan dari yang terakhir, dan anggaran rekaman memakai
+  sisa ruang yang sebenarnya. Sebelumnya rekaman baru bisa menempel di berkas
+  run lama dengan basis waktu berbeda.
+- **Aliran frame lewat WiFi** ke laptop, plus tombol jeda, lanjut, dan kosongkan
+  flash lewat HTTP.
+
+**Alat bantu**
+
+| Berkas | Gunanya |
+|---|---|
+| `tools/fetch_captures.py` | menarik rekaman lewat WiFi, memeriksa ukuran dan isi tiap berkas |
+| `tools/stream_capture.py` | menerima aliran langsung dan menulisnya sebagai berkas capture |
+| `tools/match_dashboard.py` | mencocokkan angka di layar ke seluruh posisi byte di semua ID |
+| `tools/capture_to_webcan.py` | dua bug diperbaiki: basis waktu dan deteksi boot |
+
+**Perangkat keras**
+
+Rancangan PCB rev A selesai, dan rev B mendapat satu tambahan wajib: **slot
+microSD**, karena menulis ke SD lewat SPI tidak mematikan cache.
+
+---
+
+## 5. Data dan tempatnya
+
+| Rekaman | Isi | Tempat |
+|---|---|---|
+| `hrv-001` | Honda HR-V, 8 Sep, 194 ribu frame | laptop, dua salinan, plus Google Drive |
+| `gelora-001` | Gelora E, 22 Sep, 194.219 frame, 34 ID | laptop, `captures/gelora-001/` |
+
+Rekaman Gelora E **belum punya cadangan di luar laptop**. Ini yang paling
+mendesak setelah laporan ini.
+
+---
+
+## 6. Yang belum terbukti
+
+Seluruh pemetaan di atas diambil saat **kendaraan diam**, jadi nilainya tidak
+bergerak. Pembuktiannya menuntut satu kali jalan:
+
+| Kandidat | Terbukti kalau |
+|---|---|
+| Odometer | naik sesuai jarak tempuh |
+| SOC | turun mengikuti layar |
+| Arus, `0x0CFF7E03` b4–b5 LE = 1000 | keluar dari 1000 saat akselerasi, berbalik saat regeneratif |
+| Suhu | naik setelah pemakaian |
+| Tegangan sel | ikut turun saat akselerasi berat |
+
+---
+
+## 7. Batas pemakaian
+
+Ini temuan tentang **DFSK**. Armada memakai Wuling, jadi tidak satu pun ID di
+sini boleh masuk `signals.cfg` armada. Yang berpindah adalah **caranya**, bukan
+angkanya: cara menemukan bitrate, bentuk frame BMS yang multiplex, dan cara
+membuktikan pemetaan lewat jumlah sel melawan tegangan pack.

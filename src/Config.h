@@ -118,6 +118,12 @@
 // journal and LittleFS metadata still need room while a capture is running.
 #define RAWLOG_FS_RESERVE       (512UL * 1024UL)
 
+// Live frame stream (FrameStream.h). Writing to internal flash costs bus
+// frames on this framework; streaming to a laptop over WiFi does not.
+#define CAPTURE_STREAM_PORT     3333
+#define CAPTURE_STREAM_BUF      4096    // staging bytes before a socket write
+#define CAPTURE_STREAM_FLUSH_MS 200UL   // send a partial buffer at least this often
+
 // Frames are staged in RAM and written in one block. Two File::print calls per
 // frame at 1,300 frames/s is 2,600 trips through the filesystem every second,
 // each paying LittleFS bookkeeping. That is what put the capture behind the bus

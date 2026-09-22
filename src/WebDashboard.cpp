@@ -89,6 +89,44 @@ void handleCaptures() {
 }
 
 // ---- actions ----------------------------------------------------------------
+// Recording control from the phone. Until now both needed a laptop on the
+// serial console, which in a vehicle means unplugging the device from the car.
+//
+// Pausing is not destructive, so it just does it. Clearing IS destructive, so
+// it demands the unit id as confirmation: a stray request cannot wipe a run,
+// and whoever sends it has at least read the dashboard header.
+void handleSink() {
+    ++s_requests;
+    const String mode = s_server.arg("mode");
+    if (mode == "off") {
+        RawCanLogger::setSink(RAWLOG_SINK_NONE);
+    } else if (mode == "file") {
+        RawCanLogger::setSink(RAWLOG_SINK_FILE);
+    } else {
+        s_server.send(400, "text/plain", "mode must be off or file");
+        return;
+    }
+    s_server.sendHeader("Cache-Control", "no-store");
+    s_server.send(200, "text/plain", RawCanLogger::isCapturing() ? "recording" : "paused");
+}
+
+void handleClear() {
+    ++s_requests;
+    if (s_server.arg("confirm") != UNIT_ID) {
+        s_server.send(403, "text/plain", "confirm= must be the unit id shown in the header");
+        return;
+    }
+    const uint8_t sink = RawCanLogger::sink();
+    if (!RawCanLogger::clearCaptures()) {
+        s_server.send(500, "text/plain", "Could not clear /capture");
+        return;
+    }
+    if (sink != RAWLOG_SINK_NONE) RawCanLogger::startFileCapture();
+    LOG_W(TAG, "Captures cleared over HTTP");
+    s_server.sendHeader("Cache-Control", "no-store");
+    s_server.send(200, "text/plain", "cleared");
+}
+
 // An operator marker, written into the capture file. The label is stripped of
 // anything that could forge a frame or header line inside RawCanLogger::mark().
 void handleMark() {
@@ -189,6 +227,8 @@ void begin() {
     s_server.on("/api/captures", HTTP_GET,  handleCaptures);
     s_server.on("/api/capture",  HTTP_GET,  handleDownload);
     s_server.on("/api/mark",     HTTP_POST, handleMark);
+    s_server.on("/api/sink",     HTTP_POST, handleSink);
+    s_server.on("/api/clear",    HTTP_POST, handleClear);
     s_server.on("/api/note",     HTTP_POST, handleNote);
     s_server.onNotFound(handleNotFound);
     s_server.begin();

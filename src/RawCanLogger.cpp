@@ -121,6 +121,12 @@ bool openSegment(uint32_t index) {
 
 namespace RawCanLogger {
 
+// FrameStream sends byte-identical lines, so it borrows this formatter rather
+// than growing a second one that could drift.
+size_t formatLine(const CanFrame& frame, char* out, size_t outLen) {
+    return format(frame, out, outLen);
+}
+
 void begin(uint8_t sink) {
     s_sink  = sink;
     s_bytes = 0;

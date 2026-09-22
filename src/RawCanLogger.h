@@ -31,6 +31,10 @@ void begin(uint8_t sink = RAWLOG_DEFAULT_SINK);
 // reader task through a queue.
 void write(const CanFrame& frame);
 
+// One capture line, without the newline. Exposed so FrameStream sends exactly
+// what the file would have contained.
+size_t formatLine(const CanFrame& frame, char* out, size_t outLen);
+
 // Renders one frame in the capture format. Exposed so the serial console and
 // the file sink share a single implementation.
 size_t format(const CanFrame& frame, char* out, size_t outLen);

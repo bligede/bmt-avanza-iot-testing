@@ -45,6 +45,7 @@
 #include "StatusLed.h"
 #include "SystemHealth.h"
 #include "NotesStore.h"
+#include "FrameStream.h"
 #include "WatchdogManager.h"
 #include "GpsManager.h"
 #include "EnvironmentManager.h"
@@ -106,6 +107,7 @@ static void taskStorage(void*) {
         SystemHealth::noteQueueDepth(uxQueueMessagesWaiting(q_rawlog), CAN_RAWLOG_QUEUE_LEN);
         if (xQueueReceive(q_rawlog, &frame, pdMS_TO_TICKS(200)) == pdTRUE) {
             RawCanLogger::write(frame);
+            FrameStream::write(frame);
             WebDashboard::noteFrame(frame);
         }
     }
@@ -234,6 +236,7 @@ static void taskWeb(void*) {
     for (;;) {
         WatchdogManager::feed();
         WebDashboard::poll();
+        FrameStream::poll();
         vTaskDelay(pdMS_TO_TICKS(WEB_POLL_TICK_MS));
     }
 }
@@ -316,6 +319,7 @@ void setup() {
     WifiManager::begin();
 #if ENABLE_WEB_DASHBOARD
     WebDashboard::begin();
+    FrameStream::begin();
 #endif
 
     // --- Core 1 tasks -------------------------------------------------------
