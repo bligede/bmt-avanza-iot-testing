@@ -54,7 +54,7 @@ sesi yang sama.
 | **Tegangan 90 sel** | `0x0CFF8203` | b1 nomor sel, 3 × 16-bit LE | mV | cocok sel per sel dengan foto |
 | **Suhu 30 sensor** | `0x0CFF8303` | b1 nomor sensor, 3 × 16-bit LE | °C = nilai − 40 | 29–30 °C, cocok |
 
-Keempat ID itu sudah diberi nama di alat lewat `POST /api/note`, jadi tampil di
+Enam ID itu sudah diberi nama di alat lewat `POST /api/note`, jadi tampil di
 kolom Name pada dashboard dan tercatat di `/notes/GELORAE-TEST-01/journal.log`.
 
 ### Frame BMS yang multiplex, dan bukti yang saling mengunci
@@ -104,10 +104,10 @@ kendaraan, dan sebaiknya dipantau apakah selisihnya melebar.
 - **Arus 0 A** → `0x0CFF7E03` b4–b5 LE = 1000. Offset 1000 adalah pola lazim
   supaya arus negatif (regeneratif) tetap muat dalam bilangan tanpa tanda.
   Tidak bisa dibedakan dari nilai tetap apa pun selama arusnya nol.
-- **Tegangan sel tertinggi 3991 mV** → `0x0CFF7D03` b3–b4 LE. Foto menampilkan
-  box 1 sel 1–6 di kisaran 3.972–3.980 V, jadi 3.991 mV masuk akal sebagai sel
-  tertinggi di box lain, tetapi belum terbukti. Byte b2 dan b5 di frame yang
-  sama berubah bersamanya, dan bentuknya cocok dengan nomor sel.
+- **Nomor sel tertinggi** → `0x0CFF7D03` b2 = 44, sedangkan sel bernilai 3991 mV
+  ada di posisi 46. Nilainya sendiri sudah terbukti; yang belum jelas hanya
+  penomorannya. Sisi minimum tidak punya masalah ini: b5 = 7 menunjuk tepat ke
+  sel 7.
 
 ### Tidak ditemukan
 
