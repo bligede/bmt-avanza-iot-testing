@@ -25,7 +25,16 @@
 // -----------------------------------------------------------------------------
 // 1. IDENTITY
 // -----------------------------------------------------------------------------
-#define UNIT_ID         "HRV-TEST-01"   // the vehicle actually under test
+// The vehicle actually under test, chosen by the PlatformIO env (see the end of
+// platformio.ini). It is written into every capture header and names the notes
+// folder, so it must be right BEFORE a run starts (D-015).
+#if defined(VEHICLE_HRV)
+  #define UNIT_ID       "HRV-TEST-01"
+#elif defined(VEHICLE_GELORA_E)
+  #define UNIT_ID       "GELORAE-TEST-01"
+#else
+  #error "No vehicle selected. Build with an env from platformio.ini, e.g. pio run -e gelora-e"
+#endif
 
 // -----------------------------------------------------------------------------
 // 2. PIN MAP — SN65HVD230 transceiver
@@ -61,9 +70,12 @@
 // -----------------------------------------------------------------------------
 // 3. CAN
 // -----------------------------------------------------------------------------
-// 500000 or 250000. Decide on the bench, flash once. Do NOT switch bitrates
-// repeatedly while connected to a live vehicle.
-#define CAN_DEFAULT_BITRATE     500000
+// 500000 or 250000. A vehicle env may override it (platformio.ini). Decide on the
+// bench, flash once. Do NOT switch bitrates repeatedly while connected to a live
+// vehicle.
+#ifndef CAN_DEFAULT_BITRATE
+  #define CAN_DEFAULT_BITRATE   500000
+#endif
 
 #define CAN_RX_QUEUE_LEN        64
 // Deep enough to ride out a filesystem stall. At ~1,300 frames/s a 256-slot
@@ -132,9 +144,14 @@
 
 // Notes typed against an identifier during a run. Interpretation, so they are
 // kept apart from the capture files (D-015). See NotesStore.h.
+//
+// One folder PER VEHICLE. Identifier numbers repeat across makes: 0x294 is the
+// HR-V odometer, and on another vehicle it is something else entirely, or
+// nothing. A shared folder would show one car's names on another car's IDs.
 #define NOTES_MAX               128
 #define NOTE_TEXT_MAX           60      // bytes of UTF-8, not characters
-#define NOTES_DIR               "/notes"
+#define NOTES_ROOT              "/notes"
+#define NOTES_DIR               NOTES_ROOT "/" UNIT_ID
 
 // How often SystemHealth turns raw counters into rates and percentages.
 #define HEALTH_SAMPLE_MS        1000UL

@@ -109,11 +109,14 @@ void begin(bool filesystemMounted) {
         LOG_W(TAG, "Filesystem not mounted — notes will not be kept");
         return;
     }
+    // mkdir is not recursive: the per-vehicle folder needs its parent first.
+    if (!LittleFS.exists(NOTES_ROOT)) LittleFS.mkdir(NOTES_ROOT);
     if (!LittleFS.exists(NOTES_DIR)) LittleFS.mkdir(NOTES_DIR);
+    LOG_I(TAG, "Notes folder %s", NOTES_DIR);
 
     File f = LittleFS.open(IDS_PATH, "r");
     if (!f) {
-        LOG_I(TAG, "No notes yet");
+        LOG_I(TAG, "No notes yet for %s", UNIT_ID);
         return;
     }
     char line[NOTE_TEXT_MAX + 24];

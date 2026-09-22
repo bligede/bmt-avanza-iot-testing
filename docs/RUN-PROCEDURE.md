@@ -43,9 +43,10 @@ The run is wasted if any of these is still open.
       9 Sep 2026 (frames staged in a 4 KB buffer, queue 256 -> 1024), but
       **verify it on the actual bus before trusting it** — the fix has not yet
       met 1,300 frames/s in a vehicle.
-- [ ] **`UNIT_ID` names the actual vehicle.** Now `HRV-TEST-01` in `src/Config.h`.
-      It is written into the capture header, so it must match the vehicle in front
-      of you before the run starts, never after (D-015).
+- [ ] **The firmware was flashed with this vehicle's env** (`pio run -e gelora-e
+      -t upload`, for example). The dashboard header shows the `UNIT_ID`; check it
+      names the vehicle in front of you before the run starts, never after
+      (D-015). It goes into every capture header and selects the notes folder.
 - [ ] **Flash storage is empty.** Not merely "pulled off": the logger restarts its
       segment numbering at `can-000` on every boot and opens the file for APPEND,
       so leftover files receive the new run's frames on a different `millis()`
@@ -297,7 +298,9 @@ different platform entirely.
 The dashboard's identifier table carries an empty **Name** field immediately right
 of each ID. Fill it in during the run, the moment something is noticed: "moves
 with the brake pedal", "climbs with speed". Press Enter and it is stored on the
-device, in `/notes/ids.tsv`, with every change journalled to `/notes/journal.log`.
+device, in `/notes/<UNIT_ID>/ids.tsv`, with every change journalled to
+`/notes/<UNIT_ID>/journal.log`. Each vehicle has its own folder: a name typed
+against `0x294` on the HR-V does not appear against `0x294` on another car.
 
 Notes are deliberately kept out of the capture files (D-015): a note is what
 somebody thinks an identifier is, the capture is what the bus actually said. A
@@ -312,6 +315,59 @@ speedometer. It samples rather than captures, so the file on flash remains the
 record — but it turns a one-hour desk loop into a ten-second one.
 
 ---
+
+---
+
+## 7b. DFSK Gelora E: what is different about an electric van
+
+Everything above still applies. These are the additions.
+
+**Before connecting**
+
+- **Flash the `gelora-e` env.** The header must read `GELORAE-TEST-01`.
+- **Vehicle fully OFF, not READY**, when connecting and disconnecting. On an EV,
+  "engine off" is not a state; READY is the equivalent of a running engine.
+- **Never go near the orange high-voltage cabling.** The OBD-II port is on the
+  12 V side and is all this test touches.
+- **Measure pins 6-14 with the vehicle off**, as always: about 60 ohm means a bus
+  is there. Also measure **3-11 and 12-13**, only with the meter. Some makes put
+  a second CAN bus on those pins. This harness reads 6/14 only, but knowing a
+  second bus exists changes what to try next.
+
+**Bitrate**
+
+Not yet measured on this vehicle. Start with `gelora-e` (500 kbps). If the
+dashboard's bus status reads **"Wrong bitrate, most likely"** (bus errors
+climbing, nothing decoded), switch the vehicle off, flash `gelora-e-250k`, and
+retry. Both builds are ready.
+
+**The OBD port may be silent, and that is a finding**
+
+Many recent vehicles put a gateway between the OBD-II port and the internal
+buses, and the gateway only answers a diagnostic request. This device never
+sends one: it is listen-only, permanently. If the port is silent with the
+vehicle READY, record the silence with photos and the 6-14 resistance, and stop.
+Do not look for a way to make the device transmit.
+
+**What to film on the cluster, beyond the odometer**
+
+An EV cluster carries the signals the fleet actually needs, which the HR-V
+could not show:
+
+| Reading | Why it matters |
+|---|---|
+| **Battery %** (SoC) | first in the fleet's signal order (Speed, SoC, Odometer, Ignition) |
+| Range estimate, km | moves with SoC; a second reference for it |
+| **READY** lamp, gear P/R/N/D | the EV equivalent of ignition |
+| Speed | the only signal with a GNSS cross-check, once the antenna works |
+| Power / regen gauge, if shown | a signed value: negative while regenerating |
+
+Film the cluster for the **whole** run, starting with the sync marker (§4).
+Without that video every candidate stays a guess.
+
+**This is still not the fleet vehicle.** The fleet runs Wuling EVs. Whatever is
+found on the Gelora E is a fact about DFSK, and goes nowhere near the fleet
+`signals.cfg`.
 
 ## 8. Safety
 

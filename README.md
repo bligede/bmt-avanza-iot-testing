@@ -95,9 +95,23 @@ board_upload.flash_size = 4MB
 
 | | PlatformIO toolbar | Command line |
 |---|---|---|
-| Build | ✓ | `pio run` |
-| Upload | → | `pio run -t upload` |
+| Build | ✓ | `pio run -e <vehicle>` |
+| Upload | → | `pio run -e <vehicle> -t upload` |
 | Monitor | 🔌 | `pio device monitor` |
+
+**Pick the vehicle first.** Each vehicle under test has its own env at the end of
+`platformio.ini`; the toolbar builds `default_envs`.
+
+| Env | Vehicle | Bitrate | `UNIT_ID` |
+|---|---|---|---|
+| `hrv` | Honda HR-V 2023 | 500 kbps, measured | `HRV-TEST-01` |
+| `gelora-e` | DFSK Gelora E | 500 kbps, **not yet measured** | `GELORAE-TEST-01` |
+| `gelora-e-250k` | DFSK Gelora E | 250 kbps | `GELORAE-TEST-01` |
+
+The env sets `UNIT_ID`, which goes into every capture header, and the folder the
+identifier names are kept in (`/notes/<UNIT_ID>/`). Identifier numbers repeat
+across makes, so one car's names must never appear against another car's IDs.
+A build with no vehicle selected stops with an error instead of guessing.
 
 If upload fails: hold **BOOT** (GPIO0), tap **RESET**, release BOOT, retry.
 
