@@ -60,7 +60,10 @@ class Segments:
         if self.fh:
             self.fh.close()
         path = self.dir / f"can-{self.index:03d}.log"
-        self.fh = path.open("ab")
+        # Unbuffered on purpose. A recording that only reaches disk when the
+        # process exits cleanly is a recording you lose the moment the laptop
+        # is closed, the terminal is killed, or the battery runs out.
+        self.fh = path.open("ab", buffering=0)
         self.bytes_in_segment = 0
         return path
 

@@ -1,6 +1,7 @@
 #include "FrameStream.h"
 
 #include <WiFi.h>
+#include <lwip/sockets.h>
 #include <time.h>
 
 #include "Logger.h"
@@ -30,18 +31,23 @@ void flush(bool force) {
     const uint32_t now = millis();
     if (!force && s_len < sizeof(s_buf) / 2 && now - s_last_tx < CAPTURE_STREAM_FLUSH_MS) return;
 
-    // Only write what the socket can take right now. availableForWrite() is
-    // the whole point: write() would block until lwIP had room, and a blocked
-    // storage task means a filling CAN queue.
-    const int room = s_client.availableForWrite();
-    if (room <= 0) return;
-    const size_t n = s_len < static_cast<size_t>(room) ? s_len : static_cast<size_t>(room);
-    const size_t sent = s_client.write(reinterpret_cast<const uint8_t*>(s_buf), n);
+    // Straight to the socket with MSG_DONTWAIT, deliberately not through
+    // WiFiClient::write(): that one blocks until lwIP has room, and a blocked
+    // storage task means a filling CAN queue. WiFiClient::availableForWrite()
+    // is not an option either — WiFiClient never implements it, so it returns
+    // the Print base class's 0 and nothing would ever be sent.
+    const int fd = s_client.fd();
+    if (fd < 0) return;
+    const int sent = ::send(fd, s_buf, s_len, MSG_DONTWAIT);
     if (sent > 0) {
-        s_bytes += sent;
-        s_len -= sent;
+        s_bytes += static_cast<uint32_t>(sent);
+        s_len -= static_cast<size_t>(sent);
         if (s_len) memmove(s_buf, s_buf + sent, s_len);
         s_last_tx = now;
+    } else if (sent < 0 && errno != EWOULDBLOCK && errno != EAGAIN) {
+        LOG_W(TAG, "Receiver socket error %d; dropping it", errno);
+        s_client.stop();
+        s_len = 0;
     }
 }
 
