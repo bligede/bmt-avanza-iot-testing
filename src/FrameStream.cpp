@@ -44,7 +44,7 @@ uint32_t s_last_tx = 0;
 void flush(bool force) {
     if (s_len == 0 || !s_client || !s_client.connected()) return;
     const uint32_t now = millis();
-    if (!force && s_len < sizeof(s_buf) / 2 && now - s_last_tx < CAPTURE_STREAM_FLUSH_MS) return;
+    if (!force && s_len < CAPTURE_STREAM_CHUNK && now - s_last_tx < CAPTURE_STREAM_FLUSH_MS) return;
 
     // Straight to the socket with MSG_DONTWAIT, deliberately not through
     // WiFiClient::write(): that one blocks until lwIP has room, and a blocked

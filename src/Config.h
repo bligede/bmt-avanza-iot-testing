@@ -121,8 +121,14 @@
 // Live frame stream (FrameStream.h). Writing to internal flash costs bus
 // frames on this framework; streaming to a laptop over WiFi does not.
 #define CAPTURE_STREAM_PORT     3333
-#define CAPTURE_STREAM_BUF      4096    // staging bytes before a socket write
-#define CAPTURE_STREAM_FLUSH_MS 200UL   // send a partial buffer at least this often
+// The buffer is what a WiFi stall is measured against, not what throughput
+// needs: 640 frames/s is only ~28 kB/s, but a hotspot that pauses for a second
+// will drop frames unless the device can hold that second. The first field run
+// used 4 kB (~140 ms) and lost 7 % of the stream to exactly that. At 64 kB the
+// device rides out ~2.3 s, and it costs a fifth of the RAM still free.
+#define CAPTURE_STREAM_BUF      65536
+#define CAPTURE_STREAM_CHUNK    4096    // send once this much is waiting
+#define CAPTURE_STREAM_FLUSH_MS 200UL   // ...or when the oldest bytes are this old
 
 // Frames are staged in RAM and written in one block. Two File::print calls per
 // frame at 1,300 frames/s is 2,600 trips through the filesystem every second,

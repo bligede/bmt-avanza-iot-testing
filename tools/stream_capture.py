@@ -25,6 +25,7 @@ Press Ctrl+C to stop; the current segment is flushed and closed.
 """
 
 import argparse
+import json
 import re
 import signal
 import socket
@@ -104,6 +105,20 @@ def sink(host: str, mode: str) -> str:
         return f"could not set sink={mode}: {e.__class__.__name__}"
 
 
+def device_drops(host: str):
+    """Frames the DEVICE threw away because this link could not take them.
+
+    The progress line used to show only this end's link breaks, which stayed at
+    zero through a run that lost 7 % of the stream inside the device. A counter
+    that cannot show the loss it exists to catch is worse than none.
+    """
+    try:
+        with urllib.request.urlopen(f"http://{host}/api/state", timeout=3) as r:
+            return json.load(r)["cap"]["net"]["drop"]
+    except Exception:                            # noqa: BLE001 - never interrupt a run
+        return None
+
+
 def connect(host: str, port: int, timeout: float) -> socket.socket:
     s = socket.create_connection((host, port), timeout=timeout)
     s.settimeout(timeout)
@@ -137,7 +152,9 @@ def main() -> int:
     started = time.time()
     last_report = 0.0
     last_frames = 0
-    drops = 0
+    drops = 0                 # link breaks at this end
+    dev_drop = 0              # frames the device could not hand to the socket
+    last_devpoll = 0.0
     tail = b""
 
     try:
@@ -176,12 +193,18 @@ def main() -> int:
                     tail = buf
 
                 now = time.time()
+                if now - last_devpoll >= 5.0:
+                    d = device_drops(args.host)
+                    if d is not None:
+                        dev_drop = d
+                    last_devpoll = now
                 if not args.quiet and now - last_report >= 1.0:
                     rate = (seg.frames - last_frames) / max(now - last_report, 1e-6)
                     mb = seg.total_bytes / 1e6
                     sys.stdout.write(f"\r  {seg.frames:>9,} frames  {rate:>6.0f}/s  "
                                      f"{mb:>7.2f} MB  {int(now - started):>5} s  "
-                                     f"drops {drops}   ")
+                                     f"link breaks {drops}  device dropped {dev_drop:,}"
+                                     + ("  <-- LINK TOO SLOW   " if dev_drop else "   "))
                     sys.stdout.flush()
                     last_report, last_frames = now, seg.frames
             sock.close()
@@ -197,6 +220,17 @@ def main() -> int:
     span = time.time() - started
     print(f"{seg.frames:,} frames, {seg.total_bytes / 1e6:.2f} MB over {span:.0f} s "
           f"({seg.frames / max(span, 1):.0f}/s), {drops} link break(s)")
+    final_drop = device_drops(args.host)
+    if final_drop is not None:
+        dev_drop = final_drop
+    if dev_drop:
+        share = 100 * dev_drop / max(seg.frames + dev_drop, 1)
+        print(f"WARNING: the device dropped {dev_drop:,} frames, {share:.1f} % of the bus, "
+              f"because this link could not take them. The recording has holes.")
+        print("         Move the laptop closer to the device and to the hotspot, close the "
+              "dashboard on the phone, and record again.")
+    else:
+        print("no frames dropped by the device: the recording is complete")
     print(f"files in {args.out}. Convert with:")
     print(f"  python tools/capture_to_webcan.py {args.out}/can-*.log -o {args.out}.csv")
     return 0
