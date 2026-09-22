@@ -46,6 +46,7 @@
 #include "SystemHealth.h"
 #include "NotesStore.h"
 #include "FrameStream.h"
+#include <ArduinoOTA.h>
 #include "WatchdogManager.h"
 #include "GpsManager.h"
 #include "EnvironmentManager.h"
@@ -239,6 +240,7 @@ static void taskWeb(void*) {
     for (;;) {
         WatchdogManager::feed();
         WebDashboard::poll();
+        if (sizeof(OTA_PASSWORD) > 1) ArduinoOTA.handle();
         vTaskDelay(pdMS_TO_TICKS(WEB_POLL_TICK_MS));
     }
 }
@@ -322,6 +324,26 @@ void setup() {
 #if ENABLE_WEB_DASHBOARD
     WebDashboard::begin();
     FrameStream::begin();
+
+    // Over-the-air updates, only when a password exists. Without one the port
+    // never opens: this firmware's listen-only guarantee is enforced when it is
+    // built, so an open OTA port would be a way around the guarantee itself.
+    if (sizeof(OTA_PASSWORD) > 1) {
+        ArduinoOTA.setHostname(UNIT_ID);
+        ArduinoOTA.setPassword(OTA_PASSWORD);
+        ArduinoOTA.onStart([]() {
+            // Flash is about to be rewritten, which stalls the CAN interrupt.
+            // Stop capturing rather than write frames nobody can trust.
+            RawCanLogger::setSink(RAWLOG_SINK_NONE);
+            LOG_W("OTA", "Update starting — capture stopped");
+        });
+        ArduinoOTA.onEnd([]() { LOG_W("OTA", "Update written; restarting"); });
+        ArduinoOTA.onError([](ota_error_t e) { LOG_E("OTA", "Update failed, error %u", (unsigned)e); });
+        ArduinoOTA.begin();
+        LOG_I("BOOT", "OTA ready on %s", UNIT_ID);
+    } else {
+        LOG_I("BOOT", "OTA off (no OTA_PASSWORD in Secrets.h)");
+    }
 #endif
 
     // --- Core 1 tasks -------------------------------------------------------
