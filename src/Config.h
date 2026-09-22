@@ -280,15 +280,6 @@ The firmware still builds and reads CAN; only WiFi stays down."
   #define WIFI_PASS             ""
 #endif
 
-// Over-the-air updates. An empty password means OTA stays OFF: this device is
-// permanently listen-only by construction, and that guarantee is enforced when
-// the firmware is BUILT (tools/check_listen_only.sh), not while it runs. An
-// unauthenticated OTA port would let anyone on the same network replace the
-// firmware with one that does not carry the guarantee at all.
-#ifndef OTA_PASSWORD
-  #define OTA_PASSWORD          ""
-#endif
-
 // -----------------------------------------------------------------------------
 // 11. BUILD GUARDS
 // -----------------------------------------------------------------------------

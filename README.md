@@ -115,29 +115,6 @@ A build with no vehicle selected stops with an error instead of guessing.
 
 If upload fails: hold **BOOT** (GPIO0), tap **RESET**, release BOOT, retry.
 
-### Flashing over WiFi
-
-Set `OTA_PASSWORD` in `src/Secrets.h` (git-ignored) and the device opens an OTA
-port; leave it empty and the port never opens. Then:
-
-```
-pio run -e gelora-e-250k -t upload --upload-port <device ip>     --upload-protocol espota --upload-flags --auth=<password>
-```
-
-**Why the password is not optional.** This firmware is listen-only because
-`tools/check_listen_only.sh` refuses to build anything else. That check happens
-when the firmware is BUILT. An open OTA port would let anyone on the same
-network install a firmware that never faced the check, so the guarantee would
-only be as strong as the network.
-
-Two things still need the cable: **changing the partition table**, because the
-bootloader reads it from a fixed offset, and **a firmware that does not boot**,
-because this framework has no automatic rollback.
-
-Moving between the OTA and non-OTA partition tables **erases the captures and
-the identifier notes**: the data region moves, so LittleFS can no longer find
-what it held. Pull both first.
-
 ### 5. Verify before going near a vehicle
 
 ```sh
