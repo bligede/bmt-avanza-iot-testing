@@ -26,6 +26,18 @@ Run the gate before any build that goes near a vehicle.
 
 ---
 
+## Where the project documentation lives
+
+`ProjectDocs/` is the handover layer: who decides, what was decided, the
+environment map, current state, and what NOT to do. Start at
+`ProjectDocs/agent-documentation/00-START-HERE.md`.
+
+It **routes** to `docs/`; it does not duplicate it. The test reports, the
+evidence and the procedures stay where they are, and so do the paths that
+`project-mdt-tds` references.
+
+---
+
 ## What this answers, and what it does not
 
 | Question | |
