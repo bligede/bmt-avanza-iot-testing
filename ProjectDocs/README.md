@@ -45,7 +45,7 @@ bisa merusak, mengubah, atau mengganggu kendaraan yang diujinya.
 | DFSK Gelora E | 23 Sep 2026 | uji jalan 47 menit, pemetaan naik status jadi **terbukti** |
 
 Laporan lengkapnya ada di `docs/`, dan yang paling baru di
-`docs/evidence/gelora-004.md`.
+`docs/evidence/dfsk-gelora-e/gelora-004.md`.
 
 ## Kontak
 

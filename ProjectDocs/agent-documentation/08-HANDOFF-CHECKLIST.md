@@ -39,7 +39,7 @@ disiapkan sebelum hari H:
 
 ### 4. Uji jalan Honda HR-V, kalau kendaraannya masih bisa diakses
 
-Kandidat dari 8 Sep 2026 di `docs/evidence/hrv-001-candidates.md` belum pernah diuji
+Kandidat dari 8 Sep 2026 di `docs/evidence/honda-hrv-2023/hrv-001-candidates.md` belum pernah diuji
 sambil berjalan, jadi statusnya masih sama dengan status Gelora E sebelum 23 Sep: cocok
 di atas kertas, belum terbukti. Bus HR-V jauh lebih padat, sekitar 1.000 frame per
 detik, jadi kehilangan frame saat merekam ke flash mencapai 22 sampai 26 persen. Sesi
@@ -47,7 +47,7 @@ HR-V berikutnya wajib memakai aliran WiFi.
 
 ### 5. Papan rev B dengan slot microSD
 
-Rekomendasi yang sudah berdiri di `docs/evidence/frame-loss.md` dan
+Rekomendasi yang sudah berdiri di `docs/evidence/00-umum/frame-loss.md` dan
 `hardware/README.md` §10. Menulis ke kartu SD lewat SPI tidak mematikan cache instruksi,
 jadi interupsi CAN tetap jalan, dan batas 12 MB ikut hilang. Rev A belum pernah
 difabrikasi, jadi ini bisa masuk sebelum papan pertama dibuat.

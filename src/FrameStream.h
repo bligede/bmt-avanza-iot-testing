@@ -6,7 +6,7 @@
 //  framework), so every flash write disables the instruction cache and the
 //  interrupt cannot run. The controller FIFO then overruns. Measured on a
 //  DFSK Gelora E at 644 frames/s: 4.9 % of the bus lost while recording,
-//  and nothing at all lost with flash idle. See docs/evidence/frame-loss.md.
+//  and nothing at all lost with flash idle. See docs/evidence/00-umum/frame-loss.md.
 //
 //  WiFi does not disable the cache. Streaming the same lines to a laptop
 //  therefore records the bus WITHOUT the losses, and without the 12 MB

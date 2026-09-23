@@ -192,7 +192,7 @@ Pengujian 22 Sep 2026 menunjukkan alat **kehilangan frame justru saat merekam**:
 4,9 % di Gelora E, 22 sampai 26 % di Honda HR-V. Sebabnya bukan kecepatan CPU,
 melainkan letak rutin interupsi CAN di flash. Saat flash ditulis, cache instruksi
 mati, interupsi berhenti, dan FIFO controller meluap. Rinciannya di
-[`docs/evidence/frame-loss.md`](../docs/evidence/frame-loss.md).
+[`docs/evidence/00-umum/frame-loss.md`](../docs/evidence/00-umum/frame-loss.md).
 
 Menulis ke **kartu microSD lewat SPI tidak menyentuh flash internal**, jadi
 interupsi tetap jalan. Tambahan yang diperlukan di rev B:

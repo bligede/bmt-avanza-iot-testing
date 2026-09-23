@@ -73,7 +73,7 @@ void writeHeader() {
 // Numbering used to restart at can-000 on every boot, and segments open for
 // append. A new run therefore landed INSIDE the previous run's file, on a
 // different millis() base, and the converter rightly refused the file. Found
-// while recovering the HR-V capture, 20 Sep 2026 (docs/evidence/hrv-001.md).
+// while recovering the HR-V capture, 20 Sep 2026 (docs/evidence/honda-hrv-2023/hrv-001.md).
 uint32_t nextFreeSegment() {
     File dir = LittleFS.open(RAWLOG_DIR);
     if (!dir || !dir.isDirectory()) return 0;

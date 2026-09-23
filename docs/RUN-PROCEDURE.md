@@ -55,7 +55,7 @@ The run is wasted if any of these is still open.
       captures are archived off the laptop too, run `clearcaptures` on the
       serial console. The capture budget is logged at boot.
 - [ ] **Old captures archived and verified.** The HR-V run was pulled on 20 Sep
-      (`docs/evidence/hrv-001.md`): 34 files, all 34 SHA-256 digests matched the
+      (`docs/evidence/honda-hrv-2023/hrv-001.md`): 34 files, all 34 SHA-256 digests matched the
       device. Pull with `tools/fetch_captures.py` over WiFi. **Never through the
       serial console** — it corrupted a first attempt, returning files larger than
       the originals, padded with zero bytes.
@@ -275,7 +275,7 @@ wiring and the bitrate.
    ```
 
    **Two candidates are already waiting for this run to confirm or kill them**
-   (`docs/evidence/hrv-001-candidates.md`):
+   (`docs/evidence/honda-hrv-2023/hrv-001-candidates.md`):
 
    | Candidate | Confirmed if |
    |---|---|
@@ -341,7 +341,7 @@ Everything above still applies. These are the additions.
 `gelora-e-250k`. At 500 kbps it produced 1,579,745 bus errors in 378 s and not
 one frame, which is exactly what the dashboard's "Wrong bitrate, most likely"
 is there to catch. Its identifiers are all 29-bit extended, J1939-style.
-Results: [`docs/evidence/gelora-001.md`](evidence/gelora-001.md).
+Results: [`docs/evidence/dfsk-gelora-e/gelora-001.md`](evidence/dfsk-gelora-e/gelora-001.md).
 
 **The OBD port may be silent, and that is a finding**
 

@@ -22,7 +22,7 @@ Riwayat versi dokumen dan temuan. Terbaru di atas. Riwayat perubahan **kode** ad
 - Arus terbukti lewat arah, yaitu +133 A lalu -36 A dalam satu detik saat pedal dilepas.
 - Suhu controller turun kembali jadi dugaan, tidak bergerak sedetik pun.
 - Dicatat apa adanya: tautan WiFi putus 30 kali, 14,9 % waktu sesi tidak terekam.
-- `docs/evidence/gelora-004.md`.
+- `docs/evidence/dfsk-gelora-e/gelora-004.md`.
 
 ## 2026-09-22: DFSK Gelora E, kandidat sinyal pertama dari kendaraan listrik
 
@@ -32,8 +32,8 @@ Riwayat versi dokumen dan temuan. Terbaru di atas. Riwayat perubahan **kode** ad
   bawah mayoritas, dan itu tidak terlihat dari layar mobil.
 - Temuan tentang alat: interupsi CAN berada di flash, sehingga merekam ke flash sendiri
   membuang 14,8 % frame. Mengalirkan lewat WiFi menghapusnya.
-- `docs/evidence/gelora-001.md`, `docs/evidence/frame-loss.md`,
-  `docs/TESTING-2026-09-22-GELORA-E.md`.
+- `docs/evidence/dfsk-gelora-e/gelora-001.md`, `docs/evidence/00-umum/frame-loss.md`,
+  `docs/evidence/dfsk-gelora-e/TESTING-2026-09-22.md`.
 
 ## 2026-09-20: Rancangan papan sirkuit rev A
 
@@ -47,7 +47,7 @@ Riwayat versi dokumen dan temuan. Terbaru di atas. Riwayat perubahan **kode** ad
 - Alat terbukti bisa membaca bus kendaraan sungguhan di 500 kbps.
 - Listen-only bertahan di kendaraan hidup.
 - Kandidat sinyal dicatat, belum pernah diuji sambil berjalan.
-- `docs/evidence/hrv-001.md`, `hrv-001-candidates.md`.
+- `docs/evidence/honda-hrv-2023/hrv-001.md`, `hrv-001-candidates.md`.
 
 ## 2026-09-06: Repo dimulai
 

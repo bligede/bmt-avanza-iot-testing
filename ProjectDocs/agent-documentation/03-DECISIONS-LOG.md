@@ -88,7 +88,7 @@ menolak build kalau tidak ada kendaraan yang dipilih. Konvensi ini mengikuti D-0
 
 ## D-003: Frame dialirkan lewat WiFi, perekaman flash dijeda selama mengalirkan (22 Sep 2026 WITA, sesi Claude Code)
 
-**Source:** `docs/evidence/frame-loss.md`, diukur pada DFSK Gelora E
+**Source:** `docs/evidence/00-umum/frame-loss.md`, diukur pada DFSK Gelora E
 
 > "**Karena penulisan flash itu sendiri penyebabnya, perekaman flash harus dijeda
 > selama mengalirkan.**"

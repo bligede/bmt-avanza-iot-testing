@@ -21,11 +21,11 @@ Status yang dipakai: `Belum` · `Jalan` · `Selesai` · `Terhalang` · `Batal`
 | Task | Status | Tanggal | Catatan |
 |---|---|---|---|
 | Menentukan bitrate DFSK Gelora E | Selesai | 22 Sep 2026 | 250 kbps, setelah 500 kbps gagal total |
-| Pemetaan saat kendaraan diam | Selesai | 22 Sep 2026 | 12 nilai, `docs/evidence/gelora-001.md` |
-| Menemukan sebab kehilangan frame | Selesai | 22 Sep 2026 | interupsi CAN di flash, `docs/evidence/frame-loss.md` |
+| Pemetaan saat kendaraan diam | Selesai | 22 Sep 2026 | 12 nilai, `docs/evidence/dfsk-gelora-e/gelora-001.md` |
+| Menemukan sebab kehilangan frame | Selesai | 22 Sep 2026 | interupsi CAN di flash, `docs/evidence/00-umum/frame-loss.md` |
 | Aliran frame lewat WiFi | Selesai | 22 Sep 2026 | 14,8 % hilang jadi 0,0 % |
 | Prosedur uji jalan | Selesai | 22 Sep 2026 | `docs/PROSEDUR-TEST-JALAN.md` |
-| Uji jalan dan pembuktian | Selesai | 23 Sep 2026 | 47 menit, `docs/evidence/gelora-004.md` |
+| Uji jalan dan pembuktian | Selesai | 23 Sep 2026 | 47 menit, `docs/evidence/dfsk-gelora-e/gelora-004.md` |
 | Perbaikan `ENOMEM` pada aliran frame | **Jalan** | 23 Sep 2026 | sudah di-build dan di-commit, **belum di-flash** |
 | Cadangan rekaman uji jalan ke luar laptop | **Belum** | - | arsip 8 MB sudah dibuat, belum disalin |
 

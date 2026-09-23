@@ -116,6 +116,6 @@ python tools\capture_to_webcan.py captures\gelora-003\can-*.log -o captures\gelo
 python tools\match_dashboard.py captures\gelora-003 --value <odometer akhir> --scales 1 0.1
 ```
 
-Yang dicari: apakah keenam kandidat di `docs/evidence/gelora-001.md` **bergerak
+Yang dicari: apakah keenam kandidat di `docs/evidence/dfsk-gelora-e/gelora-001.md` **bergerak
 mengikuti** angka di foto. Kandidat yang tidak bergerak tetap dugaan, dan harus
 dinyatakan begitu.

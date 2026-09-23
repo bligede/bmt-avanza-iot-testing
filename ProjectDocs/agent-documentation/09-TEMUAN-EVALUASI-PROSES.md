@@ -37,6 +37,14 @@ bayangan.** `docs/PROSEDUR-TEST-JALAN.md` ditulis sebelum uji jalan, lalu dua bu
 termahalnya justru ditambahkan **setelah** uji jalan, yaitu jarak laptop dan cara merekam
 referensi kecepatan. Keduanya tidak terbayangkan sebelum dialami. `[belum dipanen]`
 
+**A-6. Rekaman yang ada tetapi tidak pernah didokumentasikan.** `gelora-002` dan
+`gelora-003`, masing-masing 216.454 dan 200.389 frame dari 22 September malam, tersimpan
+di `captures/` tanpa satu pun dokumen bukti. Sebagian angkanya sudah dipakai di
+`frame-loss.md`, jadi rekaman itu **bukan sampah**, hanya tidak punya jejak. Baru
+ketahuan saat mengarsipkan dokumentasi per kendaraan. Pelajarannya: menghitung berkas di
+`captures/` lawan dokumen di `docs/evidence/` adalah pemeriksaan murah yang menangkap
+hutang semacam ini. `[belum dipanen]`
+
 ## B. Temuan teknis
 
 **B-1. Interupsi CAN di flash.** `CONFIG_TWAI_ISR_IN_IRAM is not set` pada arduino-esp32
@@ -67,7 +75,7 @@ Berkas rusak itu sengaja disimpan sebagai bukti. `[belum dipanen]`
 ## C. Cara melapor
 
 **C-1. Menyatakan lubang di muka membuat sisanya bisa dipercaya.**
-`docs/evidence/gelora-004.md` menempatkan "14,9 % waktu tidak terekam" di bagian atas,
+`docs/evidence/dfsk-gelora-e/gelora-004.md` menempatkan "14,9 % waktu tidak terekam" di bagian atas,
 sebelum satu pun temuan disajikan, dan menjelaskan kenapa tiap bukti tetap tahan terhadap
 lubang itu. Laporan yang menyembunyikan kelemahannya sendiri tidak bernilai.
 `[belum dipanen]`

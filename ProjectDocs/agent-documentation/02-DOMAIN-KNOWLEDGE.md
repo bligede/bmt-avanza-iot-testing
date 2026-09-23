@@ -53,7 +53,7 @@ Konsekuensi pemakaian: survei identifier dan pemetaan nilai tetap sah, karena ni
 disiarkan berkala muncul berkali-kali. Analisis yang bergantung pada urutan antar-frame,
 misalnya pencacah bergulir atau protokol multi-frame, **tidak bisa dipercaya**.
 
-Rincian dan pilihan perbaikannya di `docs/evidence/frame-loss.md`. Rekomendasi yang
+Rincian dan pilihan perbaikannya di `docs/evidence/00-umum/frame-loss.md`. Rekomendasi yang
 berdiri: kartu microSD pada papan rev B.
 
 ## 5. Cara membuktikan sebuah pemetaan
@@ -64,7 +64,7 @@ Ini bagian paling berharga dari project ini, dan yang paling mudah dilakukan sal
 kendaraan diam. Field mana pun yang kebetulan berisi angka benar dan tidak berubah akan
 terlihat sama meyakinkannya.
 
-**Tiga cara yang terbukti bekerja**, semuanya dipakai pada `docs/evidence/gelora-004.md`:
+**Tiga cara yang terbukti bekerja**, semuanya dipakai pada `docs/evidence/dfsk-gelora-e/gelora-004.md`:
 
 1. **Adu satu sinyal dengan sinyal lain di bus yang sama.** Kecepatan diintegrasikan
    terhadap waktu menghasilkan 4,031 km, dan odometer di bus yang sama naik 4 km.
@@ -102,9 +102,9 @@ angka yang salah dengan penuh percaya diri. Yang berpindah adalah **metodenya**.
 
 | Kendaraan | Berkas | Status |
 |---|---|---|
-| Honda HR-V 2023 | `docs/evidence/hrv-001.md`, `hrv-001-candidates.md` | kandidat, belum diuji jalan |
-| DFSK Gelora E, diam | `docs/evidence/gelora-001.md` | terbukti lewat uji jalan berikutnya |
-| DFSK Gelora E, berjalan | `docs/evidence/gelora-004.md` | **terbukti** |
+| Honda HR-V 2023 | `docs/evidence/honda-hrv-2023/hrv-001.md`, `hrv-001-candidates.md` | kandidat, belum diuji jalan |
+| DFSK Gelora E, diam | `docs/evidence/dfsk-gelora-e/gelora-001.md` | terbukti lewat uji jalan berikutnya |
+| DFSK Gelora E, berjalan | `docs/evidence/dfsk-gelora-e/gelora-004.md` | **terbukti** |
 | Wuling armada | belum ada | **belum pernah diuji** |
 
 ## 9. Temuan tentang kendaraan, bukan tentang alat

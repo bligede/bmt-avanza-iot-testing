@@ -146,8 +146,8 @@ Perkiraan lama bahwa rekaman hanya memuat "sekitar separuh frame" ternyata terla
 pesimistis: ID berperiode 10 ms tercatat 78 Hz, bukan 100 Hz, jadi kehilangannya sekitar
 22 sampai 26 persen dan merata di semua ID.
 
-Rinciannya: [`docs/evidence/hrv-001.md`](evidence/hrv-001.md) untuk asal-usul dan
-keutuhan data, [`hrv-001-candidates.md`](evidence/hrv-001-candidates.md) untuk kandidat
+Rinciannya: [`docs/evidence/honda-hrv-2023/hrv-001.md`](evidence/honda-hrv-2023/hrv-001.md) untuk asal-usul dan
+keutuhan data, [`hrv-001-candidates.md`](evidence/honda-hrv-2023/hrv-001-candidates.md) untuk kandidat
 sinyal dan cara membuktikannya. Keduanya masih hipotesis sampai diuji sambil kendaraan
 bergerak.
 

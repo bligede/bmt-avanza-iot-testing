@@ -39,8 +39,8 @@ tidak menyalinnya. Yang wajib dibaca sebelum menyentuh kendaraan:
 |---|---|
 | `docs/RUN-PROCEDURE.md` | sebelum perekaman apa pun |
 | `docs/PROSEDUR-TEST-JALAN.md` | sebelum uji sambil berjalan |
-| `docs/evidence/frame-loss.md` | sebelum memercayai kelengkapan sebuah rekaman |
-| `docs/evidence/gelora-004.md` | contoh pembuktian pemetaan yang lengkap |
+| `docs/evidence/00-umum/frame-loss.md` | sebelum memercayai kelengkapan sebuah rekaman |
+| `docs/evidence/dfsk-gelora-e/gelora-004.md` | contoh pembuktian pemetaan yang lengkap |
 
 ## Kendala yang mengikat
 
@@ -56,7 +56,7 @@ tidak menyalinnya. Yang wajib dibaca sebelum menyentuh kendaraan:
    setiap penulisan flash mematikan cache instruksi dan frame hilang. Angkanya terukur:
    14,8 % saat menulis ke flash, 0 % saat dialirkan lewat WiFi. Analisis yang bergantung
    pada urutan antar-frame tidak boleh memakai rekaman dari alat ini. Lihat
-   `docs/evidence/frame-loss.md`.
+   `docs/evidence/00-umum/frame-loss.md`.
 4. **Identifier tidak pernah dipakai lintas kendaraan.** Honda HR-V, DFSK Gelora E, dan
    Wuling armada adalah platform yang berbeda sepenuhnya. Satu pun ID dari sini tidak
    boleh masuk profil sinyal armada.

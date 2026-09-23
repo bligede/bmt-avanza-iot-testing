@@ -61,3 +61,4 @@ terencana.
 | Suhu controller `0x0CFF1601` b2 turun jadi dugaan | kalau dipakai, sistem armada menampilkan angka yang tidak pernah terbukti |
 | Tautan WiFi pada sesi uji jalan putus 30 kali, 14,9 % waktu tidak terekam | rekaman berlubang tidak layak untuk analisis urutan frame |
 | Papan rev A belum punya slot microSD | kehilangan frame saat merekam ke flash tetap ada sampai rev B |
+| `gelora-002` dan `gelora-003` tersimpan tanpa dokumen bukti | 417 ribu frame yang tidak bisa ditelusuri siapa pun selain yang merekamnya |

@@ -8,7 +8,7 @@ Why this exists instead of recording to the device's own flash: the TWAI
 interrupt lives in flash on this framework, so every flash write disables the
 instruction cache, the interrupt cannot run, and the controller FIFO overruns.
 Measured at 644 frames/s on a DFSK Gelora E: 4.9 % of the bus lost while
-recording, nothing lost with flash idle (docs/evidence/frame-loss.md).
+recording, nothing lost with flash idle (docs/evidence/00-umum/frame-loss.md).
 
 Streaming costs the device nothing but WiFi, so the recording is complete, and
 its length is limited by this disk rather than by 12 MB of flash.
