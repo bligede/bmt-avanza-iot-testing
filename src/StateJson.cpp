@@ -134,7 +134,8 @@ void appendSystem(JsonWriter& j, uint32_t requestsServed) {
     const FrameStream::StreamStats st = FrameStream::stats();
     j.add("\"cap\":{\"sink\":%u,\"frames\":%lu,\"bytes\":%lu,\"path\":\"%s\","
           "\"qdrop\":%lu,"
-          "\"net\":{\"on\":%s,\"up\":%s,\"n\":%lu,\"b\":%lu,\"drop\":%lu,\"ses\":%lu}},",
+          "\"net\":{\"on\":%s,\"up\":%s,\"n\":%lu,\"b\":%lu,\"drop\":%lu,"
+          "\"dropall\":%lu,\"stall\":%lu,\"ses\":%lu}},",
           (unsigned)RawCanLogger::sink(),
           (unsigned long)RawCanLogger::framesWritten(),
           (unsigned long)RawCanLogger::bytesWritten(),
@@ -142,7 +143,8 @@ void appendSystem(JsonWriter& j, uint32_t requestsServed) {
           (unsigned long)RawCanLogger::queueDrops(),
           st.listening ? "true" : "false", st.connected ? "true" : "false",
           (unsigned long)st.frames, (unsigned long)st.bytes,
-          (unsigned long)st.dropped, (unsigned long)st.sessions);
+          (unsigned long)st.dropped, (unsigned long)st.drop_all,
+          (unsigned long)st.stalls, (unsigned long)st.sessions);
     j.add("\"rssi\":%ld,\"ip\":\"%s\",\"wifi\":\"%s\",\"reqs\":%lu,"
           "\"led\":\"%s\",\"clock\":%lld,\"marks\":%lu,\"notes\":%u,",
           (long)w.rssi, w.ip, WifiManager::stateName(WifiManager::state()),

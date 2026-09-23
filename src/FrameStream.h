@@ -34,6 +34,8 @@ struct StreamStats {
     uint32_t frames;        // frames handed to the socket since this client connected
     uint32_t bytes;
     uint32_t dropped;       // frames discarded because the socket could not keep up
+    uint32_t drop_all;      // the same, counted since boot across every receiver
+    uint32_t stalls;        // times the socket was full and the data was kept
     uint32_t sessions;      // clients served since boot
     uint32_t client_ip;
 };

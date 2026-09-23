@@ -18,6 +18,9 @@ uint32_t s_frames    = 0;
 uint32_t s_bytes     = 0;
 uint32_t s_dropped   = 0;
 uint32_t s_sessions  = 0;
+uint32_t s_drop_all  = 0;   // dropped frames since boot, across every receiver
+uint32_t s_stalls    = 0;   // times the socket had no room and we kept the data
+bool     s_up        = false;   // cached: connected() costs a syscall per call
 
 // poll() and write() both touch the buffer and the socket. They are called
 // from the same task by design (see FrameStream.h), but a lock costs nothing
@@ -42,7 +45,7 @@ size_t s_len       = 0;
 uint32_t s_last_tx = 0;
 
 void flush(bool force) {
-    if (s_len == 0 || !s_client || !s_client.connected()) return;
+    if (s_len == 0 || !s_up) return;
     const uint32_t now = millis();
     if (!force && s_len < CAPTURE_STREAM_CHUNK && now - s_last_tx < CAPTURE_STREAM_FLUSH_MS) return;
 
@@ -59,10 +62,20 @@ void flush(bool force) {
         s_len -= static_cast<size_t>(sent);
         if (s_len) memmove(s_buf, s_buf + sent, s_len);
         s_last_tx = now;
-    } else if (sent < 0 && errno != EWOULDBLOCK && errno != EAGAIN) {
-        LOG_W(TAG, "Receiver socket error %d; dropping it", errno);
-        s_client.stop();
-        s_len = 0;
+    } else if (sent < 0) {
+        // Only a broken connection ends the session. EWOULDBLOCK means the
+        // socket is full, and ENOMEM/ENOBUFS mean lwIP is out of buffers —
+        // both say "try again", and treating them as fatal is what made the
+        // first field run reconnect 338 times in 30 seconds, losing 40 % of
+        // the bus while the drop counter reset on every reconnect.
+        if (errno == EPIPE || errno == ECONNRESET || errno == ENOTCONN || errno == EBADF) {
+            LOG_W(TAG, "Receiver socket error %d; dropping it", errno);
+            s_client.stop();
+            s_up = false;
+            s_len = 0;
+        } else {
+            ++s_stalls;
+        }
     }
 }
 
@@ -110,6 +123,7 @@ void poll() {
         }
         s_client = fresh;
         s_client.setNoDelay(true);
+        s_up = true;
         s_len = 0;
         s_frames = 0;
         s_bytes = 0;
@@ -119,17 +133,20 @@ void poll() {
         sendHeader();
     }
 
-    if (s_client && !s_client.connected()) {
+    // connected() costs a syscall and decides from a stale errno, so it is
+    // asked here, once per poll, and never on the per-frame path.
+    if (s_up && !s_client.connected()) {
         LOG_W(TAG, "Receiver gone after %lu frames, %lu dropped",
               (unsigned long)s_frames, (unsigned long)s_dropped);
         s_client.stop();
+        s_up = false;
         s_len = 0;
     }
     flush(false);
 }
 
 void write(const CanFrame& frame) {
-    if (!s_client || !s_client.connected()) return;
+    if (!s_up) return;
     // Never wait here: this runs on the path that drains the CAN queue.
     Guard g(0);
     if (!g.held) { ++s_dropped; return; }
@@ -142,6 +159,7 @@ void write(const CanFrame& frame) {
         flush(true);                      // one attempt to make room
         if (s_len + len + 1 > sizeof(s_buf)) {
             ++s_dropped;                  // receiver is behind: lose the frame, not the bus
+            ++s_drop_all;
             return;
         }
     }
@@ -160,6 +178,8 @@ StreamStats stats() {
     s.frames    = s_frames;
     s.bytes     = s_bytes;
     s.dropped   = s_dropped;
+    s.drop_all  = s_drop_all;
+    s.stalls    = s_stalls;
     s.sessions  = s_sessions;
     s.client_ip = s.connected ? static_cast<uint32_t>(s_client.remoteIP()) : 0;
     return s;
