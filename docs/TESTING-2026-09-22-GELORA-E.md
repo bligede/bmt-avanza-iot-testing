@@ -154,13 +154,20 @@ mendesak setelah laporan ini.
 Seluruh pemetaan di atas diambil saat **kendaraan diam**, jadi nilainya tidak
 bergerak. Pembuktiannya menuntut satu kali jalan:
 
-| Kandidat | Terbukti kalau |
-|---|---|
-| Odometer | naik sesuai jarak tempuh |
-| SOC | turun mengikuti layar |
-| Arus, `0x0CFF7E03` b4–b5 LE = 1000 | keluar dari 1000 saat akselerasi, berbalik saat regeneratif |
-| Suhu | naik setelah pemakaian |
-| Tegangan sel | ikut turun saat akselerasi berat |
+| Kandidat | Terbukti kalau | Hasil uji jalan 23 Sep |
+|---|---|---|
+| Odometer | naik sesuai jarak tempuh | **terbukti**, 30423 → 30427 |
+| SOC | turun mengikuti layar | **terbukti**, 74,0 → 71,0 % |
+| Arus, `0x0CFF7E03` b4–b5 LE = 1000 | keluar dari 1000 saat akselerasi, berbalik saat regeneratif | **terbukti**, +133 A lalu −36 A dalam satu detik |
+| Suhu | naik setelah pemakaian | **terbukti**, 31 → 32 °C |
+| Tegangan sel | ikut turun saat akselerasi berat | **terbukti** lewat tegangan pack, 350 → 333 V lalu pulih |
+
+Uji jalan itu dilakukan 23 September 2026 dan menambah dua sinyal yang tidak
+mungkin terlihat saat kendaraan diam: **kecepatan** (`0x18FEDCD5` b0 dalam
+km/jam, dan `0x18FFDC01` b4–b5 LE dengan resolusi 1/256 km/jam) serta
+**putaran motor** (`0x0CFF7902` b4–b5 LE dikurangi 12000, meleset satu rpm dari
+angka di panel instrumen). Laporan lengkapnya di
+[`docs/evidence/gelora-004.md`](evidence/gelora-004.md).
 
 ---
 

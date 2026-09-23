@@ -101,9 +101,10 @@ kendaraan, dan sebaiknya dipantau apakah selisihnya melebar.
 
 ### Belum pasti
 
-- **Arus 0 A** → `0x0CFF7E03` b4–b5 LE = 1000. Offset 1000 adalah pola lazim
-  supaya arus negatif (regeneratif) tetap muat dalam bilangan tanpa tanda.
-  Tidak bisa dibedakan dari nilai tetap apa pun selama arusnya nol.
+- ~~**Arus 0 A** → `0x0CFF7E03` b4–b5 LE = 1000~~. **Sudah terbukti** di
+  `gelora-004`: saat pedal dilepas pada 46 km/jam, nilainya jatuh dari +133
+  menjadi −36 dalam satu detik. Offset 1000 memang untuk menampung arus
+  regeneratif yang negatif. Rumusnya A = nilai − 1000.
 - **Nomor sel tertinggi** → `0x0CFF7D03` b2 = 44, sedangkan sel bernilai 3991 mV
   ada di posisi 46. Nilainya sendiri sudah terbukti; yang belum jelas hanya
   penomorannya. Sisi minimum tidak punya masalah ini: b5 = 7 menunjuk tepat ke
@@ -115,7 +116,7 @@ Resistansi isolasi **7480 kΩ** tidak ada di seluruh 34 identifier, pada skala
 mana pun yang dicoba. Kemungkinan besar nilai itu diminta head unit lewat
 permintaan diagnostik, bukan disiarkan berkala. Alat ini tidak pernah meminta.
 
-## Kenapa semuanya masih hipotesis
+## Kenapa semuanya masih hipotesis (sudah terjawab, lihat gelora-004)
 
 Kendaraan **diam** sepanjang rekaman, jadi tidak satu pun nilai ini bergerak.
 Field mana pun yang kebetulan berisi angka yang benar dan diam akan terlihat
@@ -123,13 +124,17 @@ sama meyakinkannya.
 
 Pembuktiannya, di run berikutnya sambil berjalan:
 
-| Kandidat | Terbukti kalau |
-|---|---|
-| Odometer | naik sesuai jarak yang ditempuh |
-| SOC | turun mengikuti angka di layar |
-| Arus | keluar dari 1000, dan berbalik arah saat regeneratif |
-| Suhu | ikut naik setelah pemakaian |
-| Tegangan sel | ikut turun saat akselerasi berat |
+| Kandidat | Terbukti kalau | Hasil di `gelora-004` |
+|---|---|---|
+| Odometer | naik sesuai jarak yang ditempuh | **terbukti**, 30423 → 30427 |
+| SOC | turun mengikuti angka di layar | **terbukti**, 74,0 → 71,0 % |
+| Arus | keluar dari 1000, dan berbalik arah saat regeneratif | **terbukti**, +133 A → −36 A dalam satu detik |
+| Suhu | ikut naik setelah pemakaian | **terbukti**, baterai 31 → 32 °C |
+| Tegangan sel | ikut turun saat akselerasi berat | **terbukti** lewat tegangan pack, 350 → 333 V lalu pulih |
+
+Uji jalan 23 Sep 2026 juga menambah dua sinyal baru yang tidak terlihat saat
+diam: **kecepatan** dan **putaran motor**. Semuanya ada di
+[`gelora-004.md`](gelora-004.md).
 
 ## Catatan jam
 

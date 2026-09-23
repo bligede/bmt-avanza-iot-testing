@@ -19,7 +19,15 @@ membuktikan apa pun.
 - [ ] Buka dashboard **di laptop saja**, pastikan header menyebut `GELORAE-TEST-01`,
       bitrate 250 kbps, dan tulisan LISTEN-ONLY.
 - [ ] **Letakkan laptop dekat dengan alat dan dekat dengan HP.** Jarak dan bodi
-      mobil adalah penyebab paling umum frame terbuang di jalur WiFi.
+      mobil adalah penyebab paling umum frame terbuang di jalur WiFi. Pada run
+      `gelora-004` hal ini membuat **14,9 % waktu tidak terekam sama sekali**,
+      dengan dua lubang masing-masing dua menit. Ini kesalahan yang paling mahal
+      dan paling mudah dihindari.
+- [ ] **Siapkan kamera merekam video panel instrumen**, bukan mencatat angka
+      lewat pesan. Pada `gelora-004`, 23 laporan kecepatan yang diketik hanya
+      mencapai korelasi 0,72 dengan bus, dan tidak memutuskan apa pun. Arahkan
+      kamera ke panel, dan sekali di awal tunjukkan jam laptop ke kamera supaya
+      video dan rekaman bisa disejajarkan.
 - [ ] **Foto layar kendaraan**, keduanya:
       panel instrumen (odometer, SOC, jam) dan layar CarInfo
       (tegangan pack, arus, SOC, SOH, suhu baterai, suhu controller).

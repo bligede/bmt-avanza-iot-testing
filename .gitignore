@@ -13,6 +13,11 @@ src/Secrets.h
 # ---- Captures: large, per-vehicle, pulled off the device --------------------
 captures/**
 !captures/README.md
+# Lembar run dan referensi manual adalah catatan, bukan data mentah: kecil,
+# tidak bisa dibuat ulang, dan tanpa itu berkas capture kehilangan konteksnya.
+!captures/*/
+!captures/*/RUN-SHEET.md
+!captures/*/speed-ref.csv
 
 # ---- Evidence: raw artifacts are committed, scratch is not ------------------
 docs/evidence/**/*.tmp
