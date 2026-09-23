@@ -111,6 +111,16 @@
 // been recorded.
 #define RAWLOG_DEFAULT_SINK     RAWLOG_SINK_FILE
 
+// Where the operator's LAST CHOICE of sink is remembered, so it survives a
+// reboot. Without this the device resumed recording at every power cycle, and
+// in a vehicle that is every turn of the ignition: the switch on the dashboard
+// was undone before anyone could use it. Measured on a DFSK Gelora E with the
+// vehicle running, 23 Sep 2026: 14.6 % of the bus lost while recording, 0.20 %
+// with it off. That is what the forgotten setting was costing.
+//
+// One file, one byte, written only when the choice changes.
+#define RAWLOG_SINK_FILE_PATH   "/sink"
+
 #define RAWLOG_DIR              "/capture"
 #define RAWLOG_MAX_BYTES        (12UL * 1024UL * 1024UL)  // ~12 MB, fits the 16 MB layout
 #define RAWLOG_SEGMENT_BYTES    (256UL * 1024UL)

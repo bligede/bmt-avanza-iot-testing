@@ -76,6 +76,35 @@ itu lebih rendah. Semakin ramai bus, semakin besar bagian yang hilang.
 selama mengalirkan.** `tools/stream_capture.py` melakukannya sendiri di awal
 dan mengembalikannya di akhir, termasuk saat prosesnya dihentikan paksa.
 
+## Diukur ulang di kendaraan yang hidup, 23 Sep 2026
+
+Pengukuran sebelumnya membandingkan dua fase berturut-turut. Yang ini lebih
+langsung: satu alat, satu kendaraan hidup, satu saklar ditekan, dan penghitung
+yang sama dibaca sebelum dan sesudah.
+
+| | Frame diterima | Overrun | Hilang |
+|---|---|---|---|
+| Merekam ke flash, 123 detik sejak boot | 67.828 | 11.573 | **14,6 %** |
+| Perekaman dimatikan, 12 detik sesudahnya | 7.843 | 16 | **0,20 %** |
+
+Tujuh puluh tiga kali lebih baik, dan yang berubah hanya satu saklar.
+
+Sisa 0,20 % itu **belum dijelaskan**. Jumlahnya kecil dan tidak mengubah
+kesimpulan, tetapi ia bukan nol, jadi jangan ditulis sebagai nol. Dugaan yang
+belum diuji: metadata LittleFS, jurnal catatan, atau permintaan dashboard yang
+kebetulan menyentuh flash.
+
+### Kenapa pengukuran ini baru muncul sekarang
+
+Karena cacatnya baru terlihat sekarang. Pilihan perekaman **tidak bertahan
+melewati reboot**: perangkat selalu menyala dengan perekaman hidup, dan di
+kendaraan reboot terjadi setiap kali kontak diputar. Saklar di dashboard
+dibatalkan lebih cepat daripada sempat dipakai.
+
+Operator BMT menemukannya dengan cara paling sederhana: melihat status masih
+Overworked setelah saklar itu dimatikan. Diperbaiki dengan menyimpan pilihan
+terakhir ke berkas dan membacanya saat boot.
+
 ## Pilihan perbaikan yang sebenarnya
 
 | Pilihan | Efek | Biaya |

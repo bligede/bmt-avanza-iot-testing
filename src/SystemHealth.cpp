@@ -2,6 +2,7 @@
 
 #include <esp_freertos_hooks.h>
 #include <esp_heap_caps.h>
+#include <esp_ota_ops.h>
 #include <LittleFS.h>
 #include "Config.h"
 #include "CanManager.h"
@@ -117,8 +118,13 @@ void writeJson(JsonWriter& j) {
     // The image size verifies the whole app partition on first call, which is
     // slow. Do it once, on the web task, not during boot.
     if (!s_app_known) {
-        s_app_used  = ESP.getSketchSize();          // verifies the image: once
-        s_app_size  = s_app_used + ESP.getFreeSketchSpace();
+        s_app_used = ESP.getSketchSize();           // verifies the image: once
+        // The partition, asked directly. getFreeSketchSpace() answers "how much
+        // room is there for an OTA image", and this build has no second app
+        // slot (partitions/avanza_test_16mb.csv drops it to give LittleFS the
+        // room), so it returns 0 and the bar read 100 % full at every size.
+        const esp_partition_t* run = esp_ota_get_running_partition();
+        s_app_size = run ? run->size : s_app_used;
         s_app_known = true;
     }
 

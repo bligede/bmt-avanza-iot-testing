@@ -27,6 +27,14 @@ namespace RawCanLogger {
 
 void begin(uint8_t sink = RAWLOG_DEFAULT_SINK);
 
+// The sink the operator last chose, or `fallback` when they never have. Call it
+// before begin(), and only with the filesystem mounted.
+//
+// Why it exists: without it the device resumed recording at every reboot, which
+// in a vehicle is every turn of the ignition, and recording is what costs
+// frames. The dashboard switch was being undone faster than anyone could use it.
+uint8_t restoreSink(uint8_t fallback);
+
 // Called from the storage task on core 1, with frames handed over by the
 // reader task through a queue.
 void write(const CanFrame& frame);

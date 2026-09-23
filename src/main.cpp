@@ -291,7 +291,8 @@ void setup() {
         StatusLed::set(LedStatus::CanError, true);
     }
 
-    RawCanLogger::begin(fsOk ? RAWLOG_DEFAULT_SINK : RAWLOG_SINK_NONE);
+    RawCanLogger::begin(fsOk ? RawCanLogger::restoreSink(RAWLOG_DEFAULT_SINK)
+                             : RAWLOG_SINK_NONE);
     NotesStore::begin(fsOk);
 
     // --- Queue + core 0 task, as early as possible --------------------------

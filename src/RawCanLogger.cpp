@@ -127,6 +127,30 @@ size_t formatLine(const CanFrame& frame, char* out, size_t outLen) {
     return format(frame, out, outLen);
 }
 
+// The operator's choice outlives a power cycle. Read at boot, written only on
+// change, and deliberately a plain file rather than NVS so it can be inspected
+// and removed with the tools already used on this device.
+uint8_t restoreSink(uint8_t fallback) {
+    File f = LittleFS.open(RAWLOG_SINK_FILE_PATH, "r");
+    if (!f) return fallback;
+    const int c = f.read();
+    f.close();
+    if (c < '0' || c > '3') {
+        LOG_W(TAG, "Stored sink is not a value this firmware knows; using default");
+        return fallback;
+    }
+    const uint8_t stored = static_cast<uint8_t>(c - '0');
+    LOG_I(TAG, "Sink restored from %s: %u", RAWLOG_SINK_FILE_PATH, (unsigned)stored);
+    return stored;
+}
+
+void persistSink(uint8_t sink) {
+    File f = LittleFS.open(RAWLOG_SINK_FILE_PATH, "w");
+    if (!f) { LOG_W(TAG, "Could not remember sink %u across a reboot", (unsigned)sink); return; }
+    f.write(static_cast<uint8_t>('0' + (sink & 0x03)));
+    f.close();
+}
+
 void begin(uint8_t sink) {
     s_sink  = sink;
     s_bytes = 0;
@@ -199,7 +223,8 @@ void write(const CanFrame& frame) {
 }
 
 void setSink(uint8_t sink) {
-    if (sink == s_sink) return;
+    if (sink == s_sink) { persistSink(sink); return; }
+    persistSink(sink);
     const bool wantFile = (sink == RAWLOG_SINK_FILE || sink == RAWLOG_SINK_BOTH);
     const bool haveFile = (s_sink == RAWLOG_SINK_FILE || s_sink == RAWLOG_SINK_BOTH);
     s_sink = sink;
