@@ -41,6 +41,52 @@ header{background:var(--hdr);color:var(--ink);padding:14px 18px;
 .sub a{color:var(--ink-3)}
 
 /* ---- verdict ---- */
+/* ---- vehicle values ------------------------------------------------------
+   The one panel a person reads instead of decoding. It sits above the tool's
+   own status because the vehicle is what they came for, and it is sized to be
+   read at arm's length in a moving car: the number large and near-white, the
+   label small and quiet under it. Green is spent on the number only.
+
+   It lays itself out from however many signals are tagged, so a vehicle with
+   three reads as well as one with nine. */
+.vals{margin:0;border:0;border-bottom:1px solid var(--line);border-radius:0;
+  background:var(--hdr)}
+.vals .sh{border-bottom:1px solid var(--line-2)}
+.vgrid{display:grid;gap:1px;background:var(--line-2);
+  grid-template-columns:repeat(auto-fit,minmax(148px,1fr))}
+.vc{background:var(--hdr);padding:14px 16px 12px;min-width:0}
+.vc b{display:block;color:var(--g);font-family:var(--mono);font-weight:600;
+  font-size:26px;line-height:1.1;letter-spacing:-.01em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vc span{display:block;margin-top:3px;font-size:11px;color:var(--ink-3);
+  letter-spacing:.06em;text-transform:uppercase}
+@media (max-width:420px){
+  .vgrid{grid-template-columns:repeat(auto-fit,minmax(118px,1fr))}
+  .vc{padding:11px 12px 10px}
+  .vc b{font-size:21px}
+}
+
+/* ---- identifier filter ---------------------------------------------------
+   Three states, all visible, because a hidden filter is a trap: the operator
+   must be able to see at a glance why the table is short. */
+.flt{display:flex;gap:0;border:1px solid var(--line);border-radius:6px;
+  overflow:hidden;flex:none}
+.flt button{appearance:none;background:transparent;border:0;cursor:pointer;
+  color:var(--ink-3);font:600 10.5px/1 var(--sans);letter-spacing:.08em;
+  text-transform:uppercase;padding:6px 9px;border-right:1px solid var(--line)}
+.flt button:last-child{border-right:0}
+.flt button:hover{color:var(--ink)}
+.flt button.on{background:var(--g);color:var(--hdr)}
+
+/* Never silent about what it is hiding. */
+.hid{margin:0;padding:9px 14px 0;font-size:11.5px;line-height:1.45;
+  color:var(--ink-3);font-family:var(--mono)}
+
+/* The TDS badge in the name column. */
+.tg{font-style:normal;font:700 9.5px/1 var(--sans);letter-spacing:.08em;
+  color:var(--hdr);background:var(--g-dk);border-radius:3px;padding:3px 4px;
+  flex:none;align-self:center}
+
 .verdict{padding:20px 18px 18px;border-bottom:1px solid var(--line)}
 .vh{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   color:var(--ink-3);margin:0 0 10px}

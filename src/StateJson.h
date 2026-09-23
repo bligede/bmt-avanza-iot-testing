@@ -18,7 +18,26 @@
 
 namespace StateJson {
 
-bool buildState(JsonWriter& j, uint32_t requestsServed);
+// Which identifiers the state document carries.
+//
+// This filters what is SENT, never what is captured. The recorder still writes
+// every frame on the bus, because an identifier nobody has named yet is exactly
+// what the next mapping session needs. What it saves is real but second order:
+// on a bus with 34 identifiers and 8 named ones, the document drops by roughly
+// three quarters, and with it the hex conversion, the socket write, and the
+// work the phone does parsing it.
+//
+// It is NOT a fix for lost frames. Frames are lost to flash writes stalling the
+// CAN interrupt (docs/evidence/00-umum/frame-loss.md), and no amount of
+// filtering the dashboard touches that.
+enum class IdFilter : uint8_t {
+    All,     // every identifier seen, which is what a mapping session needs
+    Named,   // only identifiers that carry a note
+    Tds      // only notes tagged NOTE_TDS_TAG
+};
+
+bool buildState(JsonWriter& j, uint32_t requestsServed,
+                IdFilter filter = IdFilter::All);
 bool buildFrames(JsonWriter& j);
 bool buildNotes(JsonWriter& j);
 bool buildCaptures(JsonWriter& j);

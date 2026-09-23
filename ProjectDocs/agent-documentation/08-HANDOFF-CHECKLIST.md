@@ -14,9 +14,16 @@ sh tools/check_listen_only.sh
 pio run -e gelora-e-250k -t upload
 ```
 
-Sekalian saat alat tersambung: simpan catatan nama untuk dua pemetaan baru lewat
-`POST /api/note`, yaitu putaran motor pada `0x0CFF7902` dan kecepatan halus pada
-`0x18FFDC01`. Keduanya sudah terbukti tetapi belum pernah tersimpan di alat.
+Build yang sama juga membawa penyaring identifier tiga mode dan panel Vehicle
+(D-006). Keduanya tidak berguna sampai identifiernya punya nama, jadi begitu
+alat menyala di jaringan, pasang nama itu sekali jalan:
+
+```
+python tools/apply_notes.py --host <ip alat> docs/evidence/dfsk-gelora-e/notes.tsv
+```
+
+Delapan identifier, lima di antaranya bertanda `#tds`. Periksa dulu dengan
+`--dry-run` kalau berkasnya baru disunting.
 
 ### 2. Salin rekaman uji jalan ke luar laptop
 

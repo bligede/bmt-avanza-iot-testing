@@ -64,10 +64,21 @@ void handleIndex() {
 }
 
 // ---- documents --------------------------------------------------------------
+// GET /api/state[?ids=all|named|tds]
+//
+// Without the parameter the document carries every identifier, so every tool
+// written against this endpoint keeps working. The page asks for the mode the
+// operator picked.
 void handleState() {
     ++s_requests;
+    StateJson::IdFilter filter = StateJson::IdFilter::All;
+    if (s_server.hasArg("ids")) {
+        const String mode = s_server.arg("ids");
+        if (mode == "tds")        filter = StateJson::IdFilter::Tds;
+        else if (mode == "named") filter = StateJson::IdFilter::Named;
+    }
     JsonWriter j(s_json, sizeof(s_json));
-    sendJson(StateJson::buildState(j, s_requests), j);
+    sendJson(StateJson::buildState(j, s_requests, filter), j);
 }
 
 void handleFrames() {

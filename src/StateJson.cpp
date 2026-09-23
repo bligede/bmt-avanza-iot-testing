@@ -48,13 +48,22 @@ void appendCan(JsonWriter& j) {
 // table: bytes in hex and decimal, the ones that just changed lit up. Payload
 // is compact hex with no spaces — 16 characters instead of 23 per frame, which
 // across 128 identifiers is the difference between fitting and not.
-void appendIds(JsonWriter& j) {
+void appendIds(JsonWriter& j, StateJson::IdFilter filter) {
     j.add("\"ids\":[");
     const uint16_t n = CanManager::seenIdCount();
-    bool first = true;
+    bool     first  = true;
+    uint16_t hidden = 0;
     for (uint16_t i = 0; i < n && !j.overflow(); ++i) {
         SeenIdView v;
         if (!CanManager::seenIdSnapshot(i, &v)) continue;
+        // Filtering happens here and nowhere else: the frame was received,
+        // counted and written to the capture long before this point.
+        if (filter != StateJson::IdFilter::All) {
+            const bool keep = (filter == StateJson::IdFilter::Tds)
+                                  ? NotesStore::taggedTds(v.id, v.extended)
+                                  : NotesStore::noteFor(v.id, v.extended) != nullptr;
+            if (!keep) { ++hidden; continue; }
+        }
         char hex[17];
         for (uint8_t b = 0; b < v.dlc && b < 8; ++b) {
             static const char* digits = "0123456789ABCDEF";
@@ -67,7 +76,9 @@ void appendIds(JsonWriter& j) {
               (unsigned long)v.count, (unsigned long)v.last_ms, (unsigned)v.dlc, hex);
         first = false;
     }
-    j.add("],");
+    // The page says how many it is not showing. A filter that hides silently
+    // is how somebody concludes an ECU went quiet when it never did.
+    j.add("],\"hidden\":%u,", (unsigned)hidden);
 }
 
 void appendGps(JsonWriter& j) {
@@ -162,14 +173,14 @@ void appendSystem(JsonWriter& j, uint32_t requestsServed) {
 
 namespace StateJson {
 
-bool buildState(JsonWriter& j, uint32_t requestsServed) {
+bool buildState(JsonWriter& j, uint32_t requestsServed, IdFilter filter) {
     // now_ms lets the page age each identifier against the device's own clock,
     // not the browser's — the two drift, and the phone may sleep.
     j.add("{\"unit\":\"%s\",\"fw\":\"%s\",\"uptime_s\":%lu,\"now_ms\":%lu,",
           UNIT_ID, FW_VERSION, (unsigned long)(millis() / 1000),
           (unsigned long)millis());
     appendCan(j);
-    appendIds(j);
+    appendIds(j, filter);
     appendGps(j);
     appendThermal(j);
     appendSystem(j, requestsServed);

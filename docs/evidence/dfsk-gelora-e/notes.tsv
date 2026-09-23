@@ -1,0 +1,27 @@
+# Nama identifier untuk DFSK Gelora E, siap dipasang ke alat.
+#
+#   python tools/apply_notes.py --host <ip alat> docs/evidence/dfsk-gelora-e/notes.tsv
+#
+# Kolom: <id hex><TAB><teks catatan>. Identifier di atas 0x7FF dianggap extended.
+# Awalan #tds menandai sinyal yang benar-benar dipakai Taxi Dispatch System;
+# hanya yang bertanda itu yang muncul di panel Vehicle dan di penyaring TDS.
+#
+# Catatan adalah TAFSIRAN, bukan bukti. Ia disimpan di /notes/<UNIT_ID>/ pada
+# alat, terpisah dari berkas rekaman, dan boleh dikoreksi kapan saja.
+# Status tiap sinyal ada di README.md folder ini.
+
+# ---- terbukti, dipakai TDS ---------------------------------------------------
+0x18FFDC01	#tds Kecepatan {le16(4)/256} km/jam
+0x18FEDCD5	#tds Odometer {le16(1)} km
+0x0CFF7D03	#tds SOC {b1*0.5} %
+0x0CFF7E03	#tds Pack {le16(2)}V arus {le16(4)-1000}A t{b6-40}C
+0x0CFF7902	#tds Motor {le16(4)-12000} rpm
+
+# ---- terbukti, tidak dipakai TDS ---------------------------------------------
+# Tegangan sel dan suhu sensor berbentuk multiplex: satu byte indeks lalu tiga
+# nilai 16-bit. Rumus satu baris tidak bisa menyatakannya, jadi dinamai saja.
+0x0CFF8203	Tegangan 90 sel, multiplex, b1 indeks, 3x16 LE mV
+0x0CFF8303	Suhu 30 sensor, multiplex, b1 indeks, C = nilai-40
+
+# ---- gugur, jangan dipakai ---------------------------------------------------
+0x0CFF1601	DUGAAN suhu controller {b2} C, tidak bergerak 47 menit

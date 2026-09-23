@@ -166,6 +166,12 @@
 // One folder PER VEHICLE. Identifier numbers repeat across makes: 0x294 is the
 // HR-V odometer, and on another vehicle it is something else entirely, or
 // nothing. A shared folder would show one car's names on another car's IDs.
+// A note that starts with this tag marks an identifier the Taxi Dispatch
+// System actually consumes. It is a prefix in the note text on purpose: no
+// extra storage, no file format change, and the operator adds or removes it by
+// typing. The dashboard hides the tag when it shows the name.
+#define NOTE_TDS_TAG            "#tds"
+
 #define NOTES_MAX               128
 #define NOTE_TEXT_MAX           60      // bytes of UTF-8, not characters
 #define NOTES_ROOT              "/notes"

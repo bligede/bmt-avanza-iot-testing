@@ -18,6 +18,13 @@ Baca dua ini sampai habis, berurutan:
 Lalu [evidence/00-umum/frame-loss.md](evidence/00-umum/frame-loss.md), supaya kamu tahu
 sejauh mana rekaman yang kamu hasilkan boleh dipercaya.
 
+## Kalau kamu memakai dashboard
+
+[DASHBOARD-TDS.md](DASHBOARD-TDS.md) menjelaskan tiga mode penyaring identifier,
+panel Vehicle, dan cara menandai sebuah sinyal dengan `#tds` supaya ia muncul di
+situ. Termasuk satu hal yang mudah disalahpahami: penyaring itu **tidak**
+memperbaiki frame yang hilang, dan **tidak** menyaring perekaman.
+
 ## Kalau kamu akan memetakan sinyal
 
 Prosesnya ada di skill **`bmt-can-signal-mapping`**, dan contoh lengkap yang sudah jadi

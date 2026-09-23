@@ -145,8 +145,11 @@ const num = v => !isFinite(v) ? '?'
   : Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v))
   : String(Math.round(v * 1000) / 1000);
 
-/* Returns {text, raw} or null when the note carries no formula. */
-function renderNote(txt, bytes) {
+/* Returns {text, raw} or null when the note carries no formula.
+   `fmt` lets a caller format numbers its own way; the table wants every digit,
+   the vehicle panel wants a number readable at a glance. */
+function renderNote(txt, bytes, fmt) {
+  const shownum = fmt || num;
   const parts = parseNote(txt);
   if (!parts) return null;
   const seen = [];
@@ -154,9 +157,110 @@ function renderNote(txt, bytes) {
   for (const part of parts) {
     if (part.lit !== undefined) { out += part.lit; continue; }
     if (!part.fn) { out += '{' + part.src + '?}'; continue; }
-    try { out += num(part.fn(bytes, seen)); } catch (_) { out += '?'; }
+    try { out += shownum(part.fn(bytes, seen)); } catch (_) { out += '?'; }
   }
   return {text: out, raw: seen.join(' ')};
+}
+
+/* =============================================================================
+   Filter, and the vehicle panel it feeds
+
+   The device is asked for one of three identifier sets. This filters what is
+   SENT and DRAWN, never what is captured: the recorder still writes every frame
+   on the bus, because an identifier nobody has named yet is exactly what the
+   next mapping session needs.
+
+   It is also not a cure for lost frames. Frames are lost to flash writes
+   stalling the CAN interrupt, and the dashboard has no part in that. What this
+   does buy is a screen a person can read while a vehicle is moving, and a
+   smaller document on both ends of a phone hotspot.
+
+   TDS is the default the first time, because the tagged set is the one somebody
+   in a vehicle came to look at. It falls back on its own when nothing is tagged
+   yet, so a fresh vehicle never shows an empty table and looks broken.
+   ============================================================================= */
+const TDS_TAG = '#tds';
+
+/* A card is read at arm's length in a moving vehicle, so it drops digits the
+   table keeps. Small numbers keep their precision, because 3.979 V is a cell
+   voltage where the third decimal is the whole point, while 47.016 km/h is
+   just noise around 47. */
+const cardnum = v => !isFinite(v) ? '?'
+  : Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v))
+  : Math.abs(v) < 10 ? String(Math.round(v * 1000) / 1000)
+  : String(Math.round(v * 10) / 10);
+const stripTag = t => t.slice(TDS_TAG.length).replace(/^[\s:]+/, '');
+const isTds = t => !!t && t.slice(0, TDS_TAG.length).toLowerCase() === TDS_TAG;
+
+let FILTER = 'tds', FILTER_AUTO = true;
+try {
+  const f = localStorage.getItem('bmt.filter');
+  if (f) { FILTER = f; FILTER_AUTO = false; }
+} catch (e) {}
+
+/* A vehicle nobody has mapped yet has no notes, so TDS and Named both come back
+   empty and the table would look like a dead bus. Until the operator picks a
+   mode themselves, step down to one that has something in it. */
+const FILTER_FALLBACK = {tds: 'named', named: 'all'};
+function autoRelax(d) {
+  if (!FILTER_AUTO) return false;
+  if (d.ids.length || !d.hidden) return false;
+  const next = FILTER_FALLBACK[FILTER];
+  if (!next) return false;
+  setFilter(next, false);
+  return true;
+}
+
+function setFilter(f, remember) {
+  FILTER = f;
+  if (remember !== false) {
+    FILTER_AUTO = false;                    // an explicit choice is never undone
+    try { localStorage.setItem('bmt.filter', f); } catch (e) {}
+  }
+  const box = $('flt');
+  if (box) [...box.children].forEach(b => b.classList.toggle('on', b.dataset.f === f));
+  MON.layout = '';          // the row set changes, so the table must be rebuilt
+}
+
+/* One card per tagged note that carries a formula: the label is the text before
+   the formula, the value is the formula rendered against the bytes that just
+   arrived. Nothing here is hard-coded per vehicle. Name an identifier, tag it,
+   and it appears. */
+function vals(list) {
+  const grid = $('vgrid'), panel = $('vals');
+  const cards = [];
+  list.forEach(x => {
+    const k = keyOf(x);
+    const txt = MON.notes.get(k);
+    if (!isTds(txt)) return;
+    const body = stripTag(txt);
+    const out = renderNote(body, bytesOf(x.d), cardnum);
+    if (!out) return;                       // tagged but no formula: table only
+    const parts = parseNote(body);
+    const lead = parts && parts[0] && parts[0].lit !== undefined ? parts[0].lit.trim() : '';
+    const rest = lead ? out.text.slice(parts[0].lit.length).trim() : out.text.trim();
+    cards.push({k, label: lead || hex(x.id, x.x ? 8 : 3), value: rest || out.text,
+                stale: false});
+  });
+
+  if (!cards.length) { panel.hidden = true; return; }
+  panel.hidden = false;
+  $('vn').textContent = cards.length + (cards.length === 1 ? ' signal' : ' signals');
+
+  const sig = cards.map(c => c.k).join(',');
+  if (grid.dataset.sig !== sig) {
+    grid.dataset.sig = sig;
+    grid.textContent = '';
+    cards.forEach(c => {
+      const d = document.createElement('div');
+      d.className = 'vc';
+      const b = document.createElement('b'); b.id = 'vc-' + c.k;
+      const l = document.createElement('span'); l.textContent = c.label;
+      d.append(b, l);
+      grid.appendChild(d);
+    });
+  }
+  cards.forEach(c => { const el = $('vc-' + c.k); if (el) el.textContent = c.value; });
 }
 
 const MON = {
@@ -182,7 +286,7 @@ function monMakeRow(x) {
   const inp = document.createElement('input');
   inp.className = 'ni';
   inp.maxLength = 60;
-  inp.placeholder = MON.notesOk ? 'name this ID…  or  SOC {b1*0.5} %' : 'notes unavailable';
+  inp.placeholder = MON.notesOk ? 'name this ID…  or  #tds SOC {b1*0.5} %' : 'notes unavailable';
   inp.disabled = !MON.notesOk;
   inp.autocomplete = 'off';
   inp.spellcheck = false;
@@ -218,7 +322,9 @@ function monMakeRow(x) {
 /* Show a formula note as its result, with the operands it used, and keep the
    editable text one click away. A note without {..} stays an ordinary input. */
 function monNote(r) {
-  const txt = MON.notes.get(r.k) || '';
+  const raw = MON.notes.get(r.k) || '';
+  const tds = isTds(raw);
+  const txt = tds ? stripTag(raw) : raw;
   const out = r.bytes && txt ? renderNote(txt, r.lastBytes || []) : null;
   if (!out || document.activeElement === r.inp) {
     if (r.nv.hidden) return;
@@ -226,6 +332,14 @@ function monNote(r) {
     return;
   }
   r.nv.textContent = '';
+  if (tds) {
+    // The tag is storage, not something to read forty times down a column.
+    const tag = document.createElement('i');
+    tag.className = 'tg';
+    tag.textContent = 'TDS';
+    tag.title = 'Consumed by the Taxi Dispatch System';
+    r.nv.appendChild(tag);
+  }
   const v = document.createElement('b');
   v.textContent = out.text;
   r.nv.appendChild(v);
@@ -270,8 +384,39 @@ SPLIT_MQ.addEventListener('change', () => { MON.layout = ''; });
 
 function monPaint(d) {
   const now = Date.now();
-  if (!d.ids.length) return;          // the empty-state text stays in place
   const list = d.ids.slice().sort((a, b) => (a.x - b.x) || (a.id - b.id));
+  vals(list);
+
+  // The device already dropped what the filter excludes, but say so: a filter
+  // that hides silently is how somebody concludes an ECU went quiet.
+  const hid = $('hid');
+  const n = d.hidden || 0;
+  if (n && hid) {
+    hid.hidden = false;
+    hid.textContent = n + (n === 1 ? ' identifier is' : ' identifiers are')
+                    + ' hidden by the ' + FILTER.toUpperCase() + ' filter. They are still'
+                    + ' being received and still being recorded. Switch to All to map'
+                    + ' them: the signal probe only offers what this table shows.';
+  } else if (hid) {
+    hid.hidden = true;
+  }
+
+  const empty = $('id-empty');
+  if (!list.length) {
+    if (empty && n) {
+      empty.innerHTML = '';
+      const t = document.createElement('b');
+      t.textContent = 'Nothing matches this filter';
+      empty.appendChild(t);
+      empty.append('All ' + n + ' identifiers on the bus are hidden. '
+                 + 'Nothing is wrong with the device: switch to All, or name an '
+                 + 'identifier in the table to make it appear here.');
+    }
+    MON.layout = '';
+    const grid = $('idgrid');
+    if (grid && empty && !grid.contains(empty)) { grid.textContent = ''; grid.appendChild(empty); }
+    return;
+  }
   list.forEach(x => { if (!MON.rows.has(keyOf(x))) MON.rows.set(keyOf(x), monMakeRow(x)); });
   monLayout(list);
 
@@ -415,7 +560,21 @@ function probe(d) {
     $('pb-id').innerHTML = d.ids.slice().sort((a, b) => a.id - b.id).map(x =>
       '<option value="' + x.id + '">' + hex(x.id, x.x ? 8 : 3) + '</option>').join('');
     if (keep && d.ids.some(x => String(x.id) === keep)) $('pb-id').value = keep;
-    else pbLoad();
+    else /* The filter buttons. A mode switch rebuilds the table on the next poll rather
+   than waiting for the device, so the press feels answered. */
+(function () {
+  const box = $('flt');
+  if (!box) return;
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    setFilter(b.dataset.f);
+    tick();
+  });
+  setFilter(FILTER, false);
+})();
+
+pbLoad();
   }
   if (!d.ids.length) {
     $('pb-val').textContent = '–'; $('pb-raw').textContent = '';
@@ -730,7 +889,7 @@ function paint(d) {
 async function tick() {
   let d;
   try {
-    const r = await fetch('/api/state', {cache: 'no-store'});
+    const r = await fetch('/api/state?ids=' + FILTER, {cache: 'no-store'});
     if (!r.ok) throw new Error('HTTP ' + r.status);
     d = await r.json();
     fails = 0;
@@ -747,6 +906,7 @@ async function tick() {
   // A fault in painting is a bug in this page, not a lost connection, and must
   // not be reported as one. It once was: a JavaScript scoping error showed up as
   // "Lost contact with the device".
+  if (autoRelax(d)) { tick(); return; }
   try { paint(d); }
   catch (err) {
     $('vl').className = 'vl bad';

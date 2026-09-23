@@ -3,6 +3,26 @@
 Riwayat versi dokumen dan temuan. Terbaru di atas. Riwayat perubahan **kode** ada di
 `git log`, dan tidak diduplikasi di sini.
 
+## 2026-09-23: Dashboard menyaring tampilan, dan panel nilai kendaraan
+
+- Tiga mode penyaring identifier di dashboard: TDS, Named, All. Menyaring **apa
+  yang ditampilkan**, tidak pernah apa yang diterima atau direkam (D-006).
+- Panel Vehicle: nilai kendaraan sebagai angka besar, dibangun dari catatan
+  bertanda `#tds` yang memuat rumus. Tidak ada identifier yang ditulis di dalam
+  kode halaman.
+- Penanda `#tds` adalah awalan di teks catatan, jadi tanpa penyimpanan baru dan
+  tanpa perubahan format berkas.
+- `tools/apply_notes.py` memasang satu berkas catatan per kendaraan sekali
+  jalan, menolak berkas yang ada catatannya melewati batas, dan mencetak echo
+  dari alat bukan teks yang dikirim.
+- `docs/evidence/dfsk-gelora-e/notes.tsv`: delapan nama siap pasang, lima
+  bertanda `#tds`.
+- Diluruskan di dokumen: penyaring ini **bukan** perbaikan untuk frame yang
+  hilang. Penyebabnya interupsi CAN di flash, dan itu tidak tersentuh.
+- D-007 mencatat arah berpindah ke Orange Pi 5, berstatus PROVISIONAL, dengan
+  empat hal yang belum dijawab: daya dan kontak, waktu siap, suhu kabin, dan
+  bagaimana jaminan listen-only ditegakkan di SocketCAN.
+
 ## 2026-09-23: Skeleton ProjectDocs dibuat
 
 - `ProjectDocs/` lahir lewat `bmt-project-onboarding`, sepuluh berkas.

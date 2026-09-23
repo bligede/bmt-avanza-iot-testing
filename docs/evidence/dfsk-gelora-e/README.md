@@ -56,6 +56,16 @@ tanpa dokumen sendiri kedua sesi itu tidak bisa ditelusuri. Dicatat sebagai huta
 
 Untuk konsumen data, pakai **kecepatan halus**, bukan yang bulat.
 
+Seluruh nama di atas siap dipasang ke alat dalam satu perintah:
+
+```
+python tools/apply_notes.py --host <ip alat> docs/evidence/dfsk-gelora-e/notes.tsv
+```
+
+Berkasnya [notes.tsv](notes.tsv). Lima di antaranya bertanda `#tds`, jadi hanya
+kelima itu yang muncul di panel Vehicle dan di penyaring TDS pada dashboard.
+Lihat [../../DASHBOARD-TDS.md](../../DASHBOARD-TDS.md).
+
 ## Yang tidak ditemukan
 
 Resistansi isolasi tidak ada di seluruh 34 identifier, pada skala mana pun yang dicoba.

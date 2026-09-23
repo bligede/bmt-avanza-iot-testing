@@ -29,6 +29,15 @@
   <div class="sub" id="sub">CAN bring-up · waiting for device</div>
 </header>
 
+<!-- What a person actually came to read. Built from the identifier notes that
+     carry a formula and are tagged for the dispatch system, so it needs no
+     firmware change when a new signal is mapped: name it in the table, tag it,
+     and it appears here. Absent until at least one such note exists. -->
+<section class="vals" id="vals" hidden>
+  <div class="sh"><h2>Vehicle</h2><span class="n" id="vn"></span></div>
+  <div class="vgrid" id="vgrid"></div>
+</section>
+
 <div class="verdict">
   <p class="vh">Bus status</p>
   <p class="vl" id="vl">Contacting device…</p>
@@ -50,12 +59,18 @@
   <section class="wide">
     <div class="sh">
       <h2>Identifiers</h2>
+      <div class="flt" id="flt" role="group" aria-label="Which identifiers to show">
+        <button type="button" data-f="tds">TDS</button>
+        <button type="button" data-f="named">Named</button>
+        <button type="button" data-f="all">All</button>
+      </div>
       <span class="legend" aria-hidden="true">
         <i class="lg-chg"></i>byte changed in the last 2 s
         <i class="lg-stale"></i>identifier silent over 2 s
       </span>
       <span class="n" id="idn"></span>
     </div>
+    <p class="hid" id="hid" hidden></p>
     <div class="idgrid" id="idgrid">
       <div class="empty" id="id-empty"><b>Nothing on the bus yet</b>Every ECU broadcasts its own identifiers. Each one gets a row here, its bytes in hex with the decimal value underneath.</div>
     </div>

@@ -146,3 +146,85 @@ selesai dipetakan, atau satu tahap perangkat keras selesai diukur.
 `09-TEMUAN-EVALUASI-PROSES.md` lewat `bmt-skill-evolution` dilakukan pada milestone.
 Karena project ini internal BMT tanpa klien eksternal, laporan berarti ringkasan ke
 operator BMT. Keputusan yang sama dicatat sebagai D-009 di `project-mdt-tds`.
+
+---
+
+## D-006: Dashboard menyaring apa yang ditampilkan, bukan apa yang direkam (23 Sep 2026 WITA, sesi Claude Code)
+
+**Source:** operator BMT, sesi Claude Code
+
+> "sebelum flash, jangan tampilkan frame yang tidak digunakan atau tidak diperlukan dalam aplikasi taxi dispatch system (TDS) dan frame yang tidak berhasil kamu petakan. dengan harapan agar tidak membebani esp32 (overwork)"
+
+**Konteks:** dashboard menampilkan seluruh identifier di bus. Pada Gelora E itu
+34 baris hex, dan hampir semuanya tidak berarti apa pun bagi orang yang membaca
+layar di dalam mobil.
+
+Satu hal dalam alasan permintaan ini perlu diluruskan, dan diluruskan di dokumen
+juga: **beban dashboard bukan penyebab status Overworked.** Frame hilang karena
+interupsi CAN berada di flash, sehingga setiap penulisan flash mematikan cache
+instruksi. Terukur 14,8 % melawan 0,0 %. Menyembunyikan baris tidak menyentuh
+sebab itu sedikit pun.
+
+**Decision:** penyaring dipasang pada **apa yang dikirim dan digambar**, tidak
+pernah pada apa yang diterima atau direkam. Tiga mode: TDS, Named, All. Alat
+tetap menerima, menghitung, dan merekam seluruh frame di bus, karena identifier
+yang belum dinamai siapa pun justru itu yang dibutuhkan sesi pemetaan
+berikutnya.
+
+Penandanya awalan `#tds` di teks catatan identifier, bukan kolom baru dan bukan
+berkas baru: tidak menambah penyimpanan, tidak mengubah format, dan operator
+memasang atau mencabutnya dengan mengetik.
+
+**Implementasi:** `StateJson::IdFilter` dan parameter `/api/state?ids=`,
+`NotesStore::noteFor()` dan `taggedTds()`, penyaring tiga tombol di halaman,
+panel Vehicle yang membangun kartunya dari catatan bertanda yang memuat rumus,
+dan `tools/apply_notes.py` untuk memasang satu berkas catatan per kendaraan.
+Halaman selalu menyebutkan berapa yang disembunyikan, dan turun sendiri ke mode
+yang berisi selama pemakainya belum pernah memilih. Konvensinya di
+`docs/DASHBOARD-TDS.md`.
+
+Yang memang dihemat, dan jujur kelas dua: dokumen `/api/state` menyusut sekitar
+tiga perempat pada bus 34 identifier dengan 5 bertanda.
+
+---
+
+## D-007: Arah perangkat berpindah ke Orange Pi 5 (23 Sep 2026 WITA, sesi Claude Code), **PROVISIONAL**
+
+**Source:** operator BMT, sesi Claude Code
+
+> "sebagai informasi tambahan, kedepan kami akan menggunakan orange pi 5 sebagai pengganti esp32"
+
+**Konteks:** disampaikan sebagai informasi, bukan perintah kerja, jadi dicatat
+sebagai arah dan bukan keputusan terkunci.
+
+**Decision (arah):** perangkat perekam berpindah dari ESP32-S3 ke Orange Pi 5.
+
+**Yang selesai dengan sendirinya kalau ini jadi:**
+
+- **Frame hilang.** SocketCAN di Linux tidak punya masalah interupsi yang
+  terhenti oleh penulisan flash. Seluruh isi `00-umum/frame-loss.md` menjadi
+  sejarah, termasuk rekomendasi microSD untuk rev B.
+- **Batas 12 MB.** Berganti jadi kapasitas kartu atau SSD.
+- **Alat analisis.** Python, `cantools`, dan basis data bisa jalan di perangkat
+  itu sendiri, jadi pemetaan tidak lagi menuntut laptop ikut di mobil.
+- **Dashboard.** Halamannya HTML biasa plus satu endpoint JSON, jadi berpindah
+  apa adanya.
+
+**Yang justru menjadi lebih sulit, dan belum dijawab:**
+
+- **Daya dan kontak.** Orange Pi 5 menarik arus jauh lebih besar dan **tidak
+  boleh mati mendadak** saat kontak diputar. Butuh mematikan dengan rapi,
+  penyangga daya, atau berkas yang tahan mati listrik.
+- **Waktu siap.** ESP32 siap dalam hitungan ratusan milidetik; Linux beberapa
+  puluh detik. Untuk alat uji itu tidak masalah, untuk unit armada itu
+  menentukan.
+- **Suhu kabin.** Kabin terparkir di Bali bisa lewat 80 derajat. Batas kerja
+  Orange Pi 5 lebih sempit daripada ESP32.
+- **Jaminan listen-only.** Penegakan tiga lapis yang ada sekarang bersandar pada
+  mode controller TWAI, `#pragma GCC poison`, dan gate build. Pada SocketCAN
+  jaminan setara harus dirancang ulang, dan **tidak boleh diturunkan**.
+
+**Implementasi:** belum ada yang dikerjakan, dan belum ada yang boleh dikerjakan
+atas dasar arah ini. Yang mengunci atau membatalkannya: keputusan operator BMT
+setelah keempat hal di atas dijawab. Sampai itu terjadi, pekerjaan ESP32 tetap
+berjalan, karena pemetaan kendaraan armada tidak boleh menunggu perangkat baru.

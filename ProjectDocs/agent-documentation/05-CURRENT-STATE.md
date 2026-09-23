@@ -15,6 +15,8 @@
 | Pemetaan Wuling armada | **Belum** | belum pernah ada sesi sama sekali |
 | Rancangan papan sirkuit | **Ada, rev A** | `hardware/`, diperiksa mesin, belum pernah difabrikasi |
 | Perbaikan FrameStream terakhir | **Belum di-flash** | sudah di-build dan di-commit, belum masuk alat |
+| Penyaring identifier dan panel Vehicle | **Belum di-flash** | sudah di-build, D-006, `docs/DASHBOARD-TDS.md` |
+| Arah perangkat: Orange Pi 5 | **Arah, belum keputusan** | D-007, empat hal belum dijawab |
 | Cadangan rekaman uji jalan | **Belum** | ada arsip 8 MB di laptop, belum disalin keluar |
 
 ## Penghalang aktif
@@ -29,6 +31,13 @@ dicabut sebelum sempat.
 
 Selama itu belum dilakukan, setiap sesi mengalirkan frame masih membawa risiko yang sama.
 Butuh satu sambungan USB.
+
+Dalam build yang sama ikut menunggu: penyaring identifier tiga mode dan panel
+Vehicle (D-006). Setelah di-flash, pasang nama identifiernya sekali jalan:
+
+```
+python tools/apply_notes.py --host <ip alat> docs/evidence/dfsk-gelora-e/notes.tsv
+```
 
 ### 2. Kendaraan armada belum pernah dipetakan
 

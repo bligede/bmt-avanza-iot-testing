@@ -170,6 +170,16 @@ void writeJson(JsonWriter& j) {
     j.add("]");
 }
 
+const char* noteFor(uint32_t id, bool extended) {
+    const int at = find(id, extended);
+    return at < 0 ? nullptr : s_notes[at].text;
+}
+
+bool taggedTds(uint32_t id, bool extended) {
+    const char* t = noteFor(id, extended);
+    return t && strncasecmp(t, NOTE_TDS_TAG, strlen(NOTE_TDS_TAG)) == 0;
+}
+
 size_t count()     { return s_count; }
 bool   available() { return s_fs; }
 

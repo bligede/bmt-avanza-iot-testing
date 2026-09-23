@@ -39,6 +39,16 @@ bool set(uint32_t id, bool extended, const char* text,
 // Appends `"notes":[{"id":..,"x":..,"t":".."},...]`.
 void writeJson(JsonWriter& j);
 
+// The note for one identifier, or nullptr when it has none. The dashboard uses
+// this to hide identifiers nobody has named yet, so a screen read in a moving
+// vehicle shows meaning instead of a wall of hex.
+const char* noteFor(uint32_t id, bool extended);
+
+// True when that identifier's note is tagged for the Taxi Dispatch System.
+// The tag is the prefix NOTE_TDS_TAG at the start of the note text, so it needs
+// no extra storage and the operator can add or remove it by typing.
+bool taggedTds(uint32_t id, bool extended);
+
 size_t count();
 bool   available();     // false when the filesystem is not mounted
 
