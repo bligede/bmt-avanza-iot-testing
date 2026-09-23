@@ -234,24 +234,26 @@ Rujukan di dalam kode dan `docs/` menyebut nomor telanjang, padahal `D-006`
 berarti dua hal berbeda di dua repositori. Aturannya sudah ditulis di
 `03-DECISIONS-LOG.md`, rujukan lamanya belum diperbaiki.
 
-### B-21. Cadangan rekaman ke luar laptop · **Siap**
+### B-21. Cadangan rekaman ke luar laptop · **SELESAI 23 Sep 2026**
 
-`D:/Wahyu/BMT/gelora-004-backup-2026-09-23.zip`, 8 MB, sidik jari `102094b5…`.
-Perjalanan 47 menit itu tidak bisa diulang dengan kondisi yang sama.
+Empat rekaman diarsipkan lengkap dengan sidik jari SHA-256 per berkas, lalu
+diunggah operator BMT ke Google Drive: `gelora-002` (1,1 MB), `gelora-003`
+(1,0 MB), `gelora-004` (8,0 MB), `gelora-005` (1,1 MB).
 
-Ikut menunggu: `gelora-002`, `gelora-003`, dan `gelora-005`. Yang terakhir
-sekarang **hanya ada di laptop ini dan di flash alat**, dan flash alat harus
-dikosongkan supaya bisa merekam lagi. Jadi cadangan `gelora-005` adalah syarat
-sebelum B-24 boleh dikerjakan.
+### B-24. Kosongkan flash alat supaya bisa merekam lagi · **SELESAI 23 Sep 2026**
 
-### B-24. Kosongkan flash alat supaya bisa merekam lagi · **Menunggu keputusan**
+Flash sempat 13,2 MB dari 14,3 MB terpakai dengan anggaran rekam **0 B**,
+sehingga alat tidak bisa merekam apa pun.
 
-Flash 13,2 MB dari 14,3 MB terpakai, anggaran rekam sudah **0 B**, jadi alat
-tidak bisa merekam apa pun sampai dikosongkan. Seluruh isinya sudah ditarik ke
-`captures/gelora-005` dan terverifikasi utuh.
+Urutan yang ditempuh, dan urutan inilah yang penting: tarik seluruh isi ke
+`captures/gelora-005`, bandingkan **64 sidik jari SHA-256** satu per satu dengan
+isi alat sampai semuanya cocok, pastikan salinannya sudah ada di luar laptop,
+baru hapus. Ukuran yang sama tidak membuktikan isi yang sama, dan yang dihapus
+adalah satu-satunya pembanding yang tersisa.
 
-**Yang membukanya:** cadangan `gelora-005` ke luar laptop, B-21. Menghapus bukti
-yang salinannya baru ada di satu tempat bukan langkah yang boleh diambil sendiri.
+Sesudahnya: 0 berkas di flash, penomoran segmen kembali ke `can-000`, dan
+**delapan catatan identifier tetap utuh**, karena catatan memang disimpan
+terpisah dari rekaman.
 
 ### B-22. Pastikan token GitHub yang bocor sudah dicabut · **Siap**
 

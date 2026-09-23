@@ -1,6 +1,6 @@
 # 05: Status saat ini
 
-**Last sync:** 23 Sep 2026 WITA, setelah uji jalan DFSK Gelora E dan pembuatan `ProjectDocs/`
+**Last sync:** 23 Sep 2026 WITA, setelah firmware di-flash dan flash alat dikosongkan
 
 ## TL;DR
 
@@ -14,30 +14,24 @@
 | Pemetaan DFSK Gelora E | **Terbukti** | 23 Sep 2026, uji jalan 47 menit |
 | Pemetaan Wuling armada | **Belum** | belum pernah ada sesi sama sekali |
 | Rancangan papan sirkuit | **Ada, rev A** | `hardware/`, diperiksa mesin, belum pernah difabrikasi |
-| Perbaikan FrameStream terakhir | **Belum di-flash** | sudah di-build dan di-commit, belum masuk alat |
-| Penyaring identifier dan panel Vehicle | **Belum di-flash** | sudah di-build, D-006, `docs/DASHBOARD-TDS.md` |
+| Perbaikan FrameStream terakhir | **Terpasang** | di-flash 23 Sep 2026, hash terverifikasi |
+| Penyaring identifier dan panel Vehicle | **Terpasang, belum teruji** | D-006. Butuh kendaraan: di meja `rx = 0`, tidak ada yang bisa disaring |
+| Catatan identifier Gelora E di alat | **Terpasang** | 8 catatan, 5 bertanda `#tds` |
+| Flash alat | **Kosong dan siap** | 13,2 MB ditarik jadi `gelora-005`, diverifikasi, dicadangkan, lalu dihapus |
 | Arah perangkat: Orange Pi 5 | **Arah, belum keputusan** | D-007, empat hal belum dijawab |
 | Cadangan rekaman uji jalan | **Belum** | ada arsip 8 MB di laptop, belum disalin keluar |
 
 ## Penghalang aktif
 
-### 1. Firmware terbaru belum masuk alat
+### 1. Penyaring dan panel Vehicle belum pernah melihat bus sungguhan
 
-Commit `64cba89` memperbaiki penyebab paling mahal di sesi lapangan: aliran frame
-memperlakukan `ENOMEM` dari lwIP sebagai sambungan mati, lalu menyambung ulang 338 kali
-dalam 30 detik dan kehilangan sekitar 40 % bus. Perbaikannya sudah di-build untuk env
-`gelora-e` dan gate listen-only lolos, tetapi **belum pernah di-flash** karena USB
-dicabut sebelum sempat.
+Keduanya sudah terpasang di alat, tetapi di meja `rx = 0` karena tidak ada bus CAN
+yang tersambung, jadi tidak ada satu pun identifier untuk disaring atau ditampilkan.
+Keduanya baru terbukti bekerja saat alat menyentuh kendaraan.
 
-Selama itu belum dilakukan, setiap sesi mengalirkan frame masih membawa risiko yang sama.
-Butuh satu sambungan USB.
-
-Dalam build yang sama ikut menunggu: penyaring identifier tiga mode dan panel
-Vehicle (D-006). Setelah di-flash, pasang nama identifiernya sekali jalan:
-
-```
-python tools/apply_notes.py --host <ip alat> docs/evidence/dfsk-gelora-e/notes.tsv
-```
+Kalau ternyata ada yang salah di sana, gejalanya akan seperti ini: tabel kosong
+padahal bus ramai, atau panel Vehicle tidak muncul padahal catatan sudah bertanda.
+Obatnya sementara: pindah penyaring ke **All**.
 
 ### 2. Kendaraan armada belum pernah dipetakan
 
@@ -49,12 +43,12 @@ Ini bukan lagi pertanyaan teknis. Metodenya siap, prosedurnya tertulis di
 `docs/PROSEDUR-TEST-JALAN.md`, dan firmware tinggal ditambah satu env kendaraan. Yang
 kurang adalah akses ke kendaraannya.
 
-### 3. Rekaman uji jalan belum punya salinan di luar laptop
+### 3. Tiga rekaman 22 September belum punya dokumen bukti
 
-`captures/gelora-004` berisi 1,5 juta frame dari perjalanan 47 menit yang tidak bisa
-diulang dengan kondisi yang sama. Arsip terkompresi 8 MB sudah dibuat di
-`D:\Wahyu\BMT\gelora-004-backup-2026-09-23.zip` beserta daftar sidik jari SHA-256 per
-berkas, tetapi belum disalin ke tempat lain.
+`gelora-002`, `gelora-003`, dan `gelora-005`, seluruhnya 630 ribu frame, tersimpan
+dan sudah dicadangkan tetapi belum ada satu pun dokumen yang menelusurinya. Ketiganya
+tumpang tindih dan merupakan bahan mentah di balik angka 14,8 % lawan 0,0 % di
+`frame-loss.md`. Rinciannya di B-07 pada `../BACKLOG.md`.
 
 ## Yang sedang berjalan
 
