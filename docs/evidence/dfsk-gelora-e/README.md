@@ -27,14 +27,20 @@ di [TESTING-2026-09-22.md](TESTING-2026-09-22.md).
 Keduanya sesi aliran WiFi pertama pada 22 September malam, dan angkanya yang membuktikan
 bahwa mengalirkan lewat WiFi menghapus kehilangan frame:
 
-| Run | Mulai | Segmen | Frame |
+| Run | Cara merekam | Mulai | Frame |
 |---|---|---|---|
-| `gelora-002` | 22 Sep 2026 19:56 | 60 | 216.454 |
-| `gelora-003` | 22 Sep 2026 20:14 | 51 | 200.389 |
+| `gelora-002` | dialirkan ke laptop | 22 Sep 2026 19:56 | 216.454 |
+| `gelora-003` | dialirkan ke laptop | 22 Sep 2026 20:14 | 200.389 |
+| `gelora-005` | **ditulis ke flash alat** | 22 Sep 2026 sekitar 20:35 | 213.979 |
 
 Rekamannya tersimpan di `captures/`. Yang belum ada adalah dokumen analisisnya. Sebagian
 angkanya sudah terpakai di [../00-umum/frame-loss.md](../00-umum/frame-loss.md), tetapi
-tanpa dokumen sendiri kedua sesi itu tidak bisa ditelusuri. Dicatat sebagai hutang.
+tanpa dokumen sendiri ketiga sesi itu tidak bisa ditelusuri. Dicatat sebagai hutang B-07.
+
+`gelora-005` **baru ditarik 23 Sep 2026** dan nyaris hilang: alat melaporkan flash
+hampir penuh, dan jalan pintas yang wajar adalah mengosongkannya. Asal-usul lengkapnya
+di `captures/gelora-005/RUN-SHEET.md`. Nomor 005 dipakai walaupun isinya lebih tua
+daripada `gelora-004`, karena nomor run adalah identitas, bukan urutan waktu.
 
 ## Sinyal yang berlaku
 

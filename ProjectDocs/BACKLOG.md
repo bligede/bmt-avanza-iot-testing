@@ -107,11 +107,19 @@ dengan status Gelora E sebelum 23 Sep: cocok di atas kertas, belum terbukti.
 Bus HR-V sekitar 1.000 frame per detik, jadi kehilangan saat merekam ke flash
 mencapai 22 sampai 26 persen. Sesi berikutnya **wajib** memakai aliran WiFi.
 
-### B-07. Dokumen bukti untuk `gelora-002` dan `gelora-003` · **Siap**
+### B-07. Dokumen bukti untuk `gelora-002`, `gelora-003`, dan `gelora-005` · **Siap**
 
-Dua rekaman, 216.454 dan 200.389 frame dari 22 September malam, tersimpan di
-`captures/` tanpa dokumen bukti sama sekali. Sebagian angkanya sudah dipakai di
-`frame-loss.md`, jadi rekamannya bukan sampah, hanya tidak punya jejak.
+Tiga rekaman dari 22 September malam, 216.454 + 200.389 + 213.979 frame,
+tersimpan di `captures/` tanpa dokumen bukti sama sekali. Sebagian angkanya
+sudah dipakai di `frame-loss.md`, jadi rekamannya bukan sampah, hanya tidak
+punya jejak.
+
+Ketiganya tumpang tindih dan harus dibaca bersama: dua yang pertama dialirkan
+ke laptop, yang ketiga ditulis ke flash alat. Itulah sisi kanan dan kiri dari
+perbandingan 14,8 % lawan 0,0 %.
+
+`gelora-005` baru ditarik 23 Sep 2026 dan **nyaris hilang**, lihat
+`captures/gelora-005/RUN-SHEET.md`.
 
 ### B-08. Sinyal Gelora E yang belum selesai · **Siap**
 
@@ -226,10 +234,24 @@ Rujukan di dalam kode dan `docs/` menyebut nomor telanjang, padahal `D-006`
 berarti dua hal berbeda di dua repositori. Aturannya sudah ditulis di
 `03-DECISIONS-LOG.md`, rujukan lamanya belum diperbaiki.
 
-### B-21. Cadangan rekaman uji jalan ke luar laptop · **Siap**
+### B-21. Cadangan rekaman ke luar laptop · **Siap**
 
-`D:\Wahyu\BMT\gelora-004-backup-2026-09-23.zip`, 8 MB, sidik jari `102094b5…`.
+`D:/Wahyu/BMT/gelora-004-backup-2026-09-23.zip`, 8 MB, sidik jari `102094b5…`.
 Perjalanan 47 menit itu tidak bisa diulang dengan kondisi yang sama.
+
+Ikut menunggu: `gelora-002`, `gelora-003`, dan `gelora-005`. Yang terakhir
+sekarang **hanya ada di laptop ini dan di flash alat**, dan flash alat harus
+dikosongkan supaya bisa merekam lagi. Jadi cadangan `gelora-005` adalah syarat
+sebelum B-24 boleh dikerjakan.
+
+### B-24. Kosongkan flash alat supaya bisa merekam lagi · **Menunggu keputusan**
+
+Flash 13,2 MB dari 14,3 MB terpakai, anggaran rekam sudah **0 B**, jadi alat
+tidak bisa merekam apa pun sampai dikosongkan. Seluruh isinya sudah ditarik ke
+`captures/gelora-005` dan terverifikasi utuh.
+
+**Yang membukanya:** cadangan `gelora-005` ke luar laptop, B-21. Menghapus bukti
+yang salinannya baru ada di satu tempat bukan langkah yang boleh diambil sendiri.
 
 ### B-22. Pastikan token GitHub yang bocor sudah dicabut · **Siap**
 
