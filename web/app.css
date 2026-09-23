@@ -41,6 +41,25 @@ header{background:var(--hdr);color:var(--ink);padding:14px 18px;
 .sub a{color:var(--ink-3)}
 
 /* ---- verdict ---- */
+/* ---- recording control ----
+   Deliberately loud: it is the only switch on this page that changes whether
+   the device loses frames, and somebody reaching for it is usually standing
+   next to a running vehicle. */
+.rec{display:flex;align-items:center;gap:12px;margin:12px 0 4px;padding:11px 12px;
+  border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.rec > div{min-width:0}
+.rec b{display:block;font-size:13px;font-weight:700;letter-spacing:.02em}
+.rec b.on{color:var(--warn)}
+.rec b.off{color:var(--g)}
+.rec span{display:block;margin-top:2px;font-size:11px;line-height:1.4;color:var(--ink-3)}
+.rec button{margin-left:auto;flex:none;appearance:none;cursor:pointer;
+  border:1px solid var(--line);background:var(--card);color:var(--ink);
+  font:700 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;
+  padding:10px 13px;border-radius:6px}
+.rec button:hover{border-color:var(--ink-3)}
+.rec button.busy{opacity:.55;pointer-events:none}
+.rec button.fail{border-color:var(--bad-line);color:var(--bad)}
+
 /* ---- vehicle values ------------------------------------------------------
    The one panel a person reads instead of decoding. It sits above the tool's
    own status because the vehicle is what they came for, and it is sized to be

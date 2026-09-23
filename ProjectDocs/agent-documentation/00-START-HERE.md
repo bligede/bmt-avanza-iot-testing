@@ -28,6 +28,7 @@ dibekukan. Konsumen data ini adalah `project-mdt-tds`.
 | `05-CURRENT-STATE.md` | status aktual dan penghalang aktif | 4 menit |
 | `08-HANDOFF-CHECKLIST.md` | **langkah berikutnya, dan apa yang JANGAN dikerjakan** | 8 menit |
 | `09-TEMUAN-EVALUASI-PROSES.md` | temuan proses selama project berjalan | 6 menit |
+| `../BACKLOG.md` | semua yang tertunda, dan apa yang membukanya | 6 menit |
 
 Total sekitar 60 menit. `06-COMMUNICATION-LOG.md` kosong dan menjelaskan sendiri kenapa.
 `07-SCHEMA-MIGRATION.md` belum lahir karena project ini tidak punya basis data.

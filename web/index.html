@@ -121,6 +121,17 @@
       <div class="kv"><span>Dropped before writing</span><span id="c-qd">–</span></div>
       <div class="kv"><span>Markers written</span><span id="c-mk">–</span></div>
       <div class="kv"><span>Identifier notes</span><span id="c-nt">–</span></div>
+      <!-- The one control that actually moves the frame-loss number. Writing to
+           flash is what stalls the CAN interrupt; with the recorder off the
+           device loses nothing. Until now this existed only as an API call, so
+           the fix was reachable from a laptop and not from the vehicle. -->
+      <div class="rec">
+        <div>
+          <b id="r-state">–</b>
+          <span id="r-why">Writing to flash is what costs frames.</span>
+        </div>
+        <button id="r-btn" type="button">–</button>
+      </div>
       <div class="mkrow">
         <input id="mk-l" type="text" maxlength="48" placeholder="label, e.g. 40kmh"
                autocomplete="off" autocapitalize="characters" spellcheck="false">

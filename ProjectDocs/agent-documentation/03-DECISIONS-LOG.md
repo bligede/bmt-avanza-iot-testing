@@ -214,7 +214,7 @@ sebagai arah dan bukan keputusan terkunci.
 
 - **Daya dan kontak.** Orange Pi 5 menarik arus jauh lebih besar dan **tidak
   boleh mati mendadak** saat kontak diputar. Butuh mematikan dengan rapi,
-  penyangga daya, atau berkas yang tahan mati listrik.
+  cadangan daya sesaat (supercapacitor atau UPS kecil), atau berkas yang tahan mati listrik.
 - **Waktu siap.** ESP32 siap dalam hitungan ratusan milidetik; Linux beberapa
   puluh detik. Untuk alat uji itu tidak masalah, untuk unit armada itu
   menentukan.

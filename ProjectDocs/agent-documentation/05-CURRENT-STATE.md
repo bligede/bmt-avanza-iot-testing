@@ -62,6 +62,13 @@ Tidak ada plan aktif di `ProjectDocs/plans/`. Folder itu belum lahir, dan itu ke
 yang sah: pekerjaan sejauh ini berbentuk sesi pengujian, bukan rangkaian tugas
 terencana.
 
+## Backlog
+
+Semua yang tertunda, beserta apa yang membukanya, ada di satu tempat:
+[`../BACKLOG.md`](../BACKLOG.md). Dua puluh tiga butir, dikelompokkan per sebab,
+masing-masing dengan status Siap, Menunggu akses, Menunggu keputusan, atau
+Ditahan sengaja.
+
 ## Hutang yang sudah diketahui
 
 | Hutang | Akibat kalau dibiarkan |

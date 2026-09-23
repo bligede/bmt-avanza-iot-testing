@@ -705,8 +705,70 @@ function health(d) {
     (worst === 0 ? 'Keeping up with margin. No queue near full, no stack near its end, no frames lost.'
                  : reasons.filter(r => r[0] === worst).map(r => r[1]).join(' ')) + '</span></div>';
   const lesser = reasons.filter(r => r[0] < worst);
-  $('h-note').innerHTML = lesser.length ? note(lesser.map(r => r[1]).join(' '), 'warn') : '';
+  let extra = lesser.length ? lesser.map(r => r[1]).join(' ') : '';
+  // Naming the symptom without naming the cause sent somebody looking at the
+  // dashboard's own load, which is not where the frames go.
+  if (worst === 2 && d.cap && d.cap.sink) {
+    extra += (extra ? ' ' : '')
+          + 'Almost all of this is the recorder: the CAN interrupt lives in flash, '
+          + 'so every write to flash stops it and the controller FIFO overruns. '
+          + 'Stop the recording above and the loss goes to zero. Filtering what '
+          + 'this page shows does not change it.';
+  }
+  $('h-note').innerHTML = extra ? note(extra, 'warn') : '';
 }
+
+/* =============================================================================
+   Recording control
+
+   The only switch on this page that changes whether frames are lost. The CAN
+   interrupt lives in flash on this framework, so every flash write disables the
+   instruction cache and the interrupt cannot run; the controller FIFO then
+   overruns. Measured on a DFSK Gelora E: 14.8 % of the bus lost while recording
+   to flash, and nothing at all lost with flash idle.
+
+   So a session that only needs to WATCH the mapped values should not be
+   recording at all, and this is how somebody standing at a vehicle turns it off
+   without a laptop.
+   ============================================================================= */
+let recBusy = false;
+
+function recPaint(sink) {
+  const on = !!sink;
+  const st = $('r-state'), why = $('r-why'), btn = $('r-btn');
+  if (!st) return;
+  st.textContent = on ? 'Recording to flash' : 'Not recording';
+  st.className = on ? 'on' : 'off';
+  why.textContent = on
+    ? 'Flash writes stall the CAN interrupt: about 15 % of the bus is being lost '
+    + 'right now. Leave this on only while the recording is the point.'
+    : 'Nothing is being written, so no frames are being lost to flash. '
+    + 'The bus is still being received and the dashboard is still live.';
+  if (!recBusy) {
+    btn.textContent = on ? 'Stop' : 'Record';
+    btn.className = '';
+  }
+}
+
+(function () {
+  const btn = $('r-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    if (recBusy) return;
+    const wasOn = $('r-state').className === 'on';
+    recBusy = true;
+    btn.className = 'busy';
+    btn.textContent = '…';
+    fetch('/api/sink?mode=' + (wasOn ? 'off' : 'file'), {method: 'POST'})
+      .then(r => { if (!r || !r.ok) throw 0; })
+      .catch(() => { btn.className = 'fail'; btn.textContent = 'FAILED'; })
+      .then(() => {
+        // The next poll is the authority on what the device actually did; this
+        // only releases the button.
+        setTimeout(() => { recBusy = false; tick(); }, 600);
+      });
+  });
+})();
 
 /* =============================================================================
    Capture files
@@ -855,6 +917,7 @@ function paint(d) {
   /* ---- capture ---- */
   const sinks = ['off', 'serial', 'file', 'serial + file'];
   $('cn').innerHTML = cap.sink ? tag(sinks[cap.sink] || cap.sink, 't-ok') : tag('off', 't-idle');
+  recPaint(cap.sink);
   $('c-f').textContent = cap.frames.toLocaleString();
   $('c-b').textContent = kb(cap.bytes);
   $('c-p').textContent = cap.path || '—';
