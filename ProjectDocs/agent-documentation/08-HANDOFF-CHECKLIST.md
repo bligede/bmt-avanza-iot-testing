@@ -4,8 +4,17 @@
 
 ### 1. Flash firmware yang sudah dibangun tapi belum masuk alat
 
-Commit `64cba89` sudah lolos gate listen-only dan sudah di-build, tetapi belum pernah
-masuk perangkat. Sampai itu dilakukan, alat masih membawa firmware yang memutus
+Sejak 28 September yang menunggu di antrean flash bukan lagi satu commit melainkan
+seluruh pekerjaan dua dashboard: decoder sinyal, argometer, layar `/argo`, dan susunan
+baru panel Vehicle (D-008, D-009). Semuanya lolos gate listen-only dan sudah terbukti
+lawan `tools/fake_device.py`, tetapi **belum pernah menyentuh alat**. Alat ada di mobil
+dan port serialnya belum pernah terdeteksi di mesin ini.
+
+Saat flashing, **jangan pernah mengunggah image LittleFS**. Partisi itu menyimpan
+rekaman CAN dan image filesystem akan menghapusnya. Yang di-flash hanya aplikasi.
+
+Yang di bawah ini berlaku sejak sebelumnya dan masih berlaku. Commit `64cba89` sudah
+lolos gate listen-only dan sudah di-build, tetapi belum pernah masuk perangkat. Sampai itu dilakukan, alat masih membawa firmware yang memutus
 sambungan setiap kali lwIP kehabisan buffer, dan itu yang membuat satu sesi lapangan
 kehilangan sekitar 40 % bus.
 
@@ -94,6 +103,9 @@ difabrikasi, jadi ini bisa masuk sebelum papan pertama dibuat.
 | Apakah temuan ketidakseimbangan baterai Gelora E sudah disampaikan ke pemilik kendaraan? | operator BMT | tanggung jawab ke pemilik kendaraan uji, isi `06` |
 | Papan rev A difabrikasi apa adanya, atau langsung lompat ke rev B dengan slot microSD? | operator BMT | pengadaan perangkat keras |
 | Apakah Honda HR-V masih bisa diakses untuk satu kali uji jalan? | operator BMT | status kandidat `hrv-001` |
+| **Alamat dan protokol server BMT, dan siapa yang memegang kredensialnya?** | Direktur BMT | B-26, langkah berikutnya yang Direktur tetapkan setelah dua dashboard terbukti |
+| **Apa yang terjadi saat jaringan putus di tengah jalan, dan bolehkah pengiriman menunda tugas pembaca CAN?** | operator BMT | B-26. Ini bukan pertanyaan gaya: pembaca CAN yang tertunda adalah frame yang hilang, penyakit yang sudah pernah disembuhkan sekali di repo ini |
+| Tombol `Isi daya` di layar argo seharusnya melakukan apa? | operator BMT | tombolnya ada di layar tetapi mati; layar yang tombolnya tidak berbuat apa-apa mengajari orang bahwa tombol boleh diabaikan |
 | Apakah alat ini perlu mendukung permintaan diagnostik, bukan hanya mendengar siaran? | operator BMT | nilai seperti resistansi isolasi tidak akan pernah terlihat tanpa itu, dan itu berarti **mengirim**, yang bertabrakan langsung dengan D-001 repo ini |
 
 Pertanyaan terakhir perlu dibaca hati-hati. Menambah permintaan diagnostik berarti

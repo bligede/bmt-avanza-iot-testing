@@ -228,3 +228,95 @@ sebagai arah dan bukan keputusan terkunci.
 atas dasar arah ini. Yang mengunci atau membatalkannya: keputusan operator BMT
 setelah keempat hal di atas dijawab. Sampai itu terjadi, pekerjaan ESP32 tetap
 berjalan, karena pemetaan kendaraan armada tidak boleh menunggu perangkat baru.
+
+---
+
+## D-008: Dua dashboard dari satu alat, lokal dulu, dan argo tidak disimpan (28 Sep 2026 WITA, sesi Claude Code)
+
+**Source:** pesan Direktur BMT, diteruskan operator lewat sesi Claude Code
+
+> "esp32 menampilkan 2 dashboard secara bersamaan dan secara lokal dulu: 1. dashboard TDS (selaride yang kita buat terakhir) 2. dashboard tampilan semua data yang berhasil kamu petakan pada testing dengan dfsk gelora e) seteah berhasil, baru nanti esp32 kita coba mengirim data ke server BMT"
+
+**Konteks:** Sampai 27 September alat hanya punya satu halaman, dashboard teknis.
+Layar SELARIDE hidup di `project-mdt-tds` sebagai halaman terpisah dengan data contoh,
+dan tidak pernah tersambung ke bus. Lebih penting lagi: firmware **tidak punya decoder
+sinyal sama sekali**. Yang bernama `speed` di `src/` adalah kecepatan GPS dari NMEA,
+bukan kecepatan kendaraan dari CAN. Jadi kedua dashboard yang diminta bergantung pada
+satu komponen yang belum ada.
+
+**Decision:**
+
+1. Alat menyajikan **dua alamat**: `/` dashboard teknis, `/argo` layar SELARIDE.
+   Keduanya boleh dibuka bersamaan dari dua gawai.
+2. Nilai ter-decode datang dari tabel di firmware (`src/SignalDecoder.cpp`), berisi
+   delapan pemetaan DFSK Gelora E yang sudah berstatus **terbukti**. Yang belum terbukti
+   tidak masuk tabel.
+3. Argometer menghitung **kuantitas saja**: kilometer isi dan menit tunggu. Rupiah
+   dihitung oleh halaman, dari `tariff.js`, satu-satunya berkas di seluruh sistem tempat
+   harga ditulis. Dua tempat yang sama-sama tahu harga adalah dua tempat yang bisa
+   berselisih soal uang penumpang.
+4. Jarak diambil dari **selisih odometer**, bukan dari integral kecepatan. Odometer
+   adalah hitungan kendaraan sendiri: tidak melenceng mengikuti seberapa sering frame
+   datang, tidak menumpuk galat sepanjang shift, dan selamat dari putusnya penerimaan.
+5. **Argo tidak disimpan.** Alat reboot di tengah trip berarti tarifnya hilang dan harus
+   dipencet `Mulai` lagi. Ini disengaja: alternatifnya menulis ke filesystem yang
+   menyimpan rekaman CAN, dan tidak ada fitur tampilan yang sepadan dengan risiko itu.
+6. Pengiriman ke server BMT **belum dikerjakan sama sekali**, sesuai urutan yang diminta.
+
+**Implementasi:** commit `3302eaf`, 28 September 2026. `SignalDecoder`, `ArgoMeter`,
+`web-argo/`, rute baru di `WebDashboard.cpp`, dan `tools/embed_web.py` yang menyusun
+kedua halaman. Biaya flash 219 KB, seluruhnya aset. Partisi LittleFS **tidak disentuh**,
+karena mengunggah image filesystem akan menghapus rekaman CAN yang ada di sana.
+Prosedur ujinya di `docs/PROSEDUR-TEST-2-DASHBOARD.md`.
+
+**Yang membatalkan atau mengubahnya:** hasil uji jalan 29 September. Kalau dua gawai
+membuka dua halaman sekaligus ternyata membuat `rx_overrun` naik, urutan
+"lokal dulu, server kemudian" tetap berlaku tetapi jumlah klien yang dilayani serentak
+harus dibatasi.
+
+---
+
+## D-009: Penempatan di panel Vehicle ditentukan satuan bacaan, bukan identifier (28 Sep 2026 WITA, sesi Claude Code)
+
+**Source:** operator BMT lewat sesi Claude Code, disertai dua gambar acuan dari Direktur
+
+> "bagian ini buat visualisasi lebih menarik dan dinamis, buat seperti contoh gauge, grafik realtime, atau icon, atur agar terlihat menarik dan profesional"
+
+> "tampilan kamu kurang menarik, perlebar tampilan, buat mirip seperti di contoh"
+
+**Konteks:** Panel Vehicle dibangun dari catatan identifier, dan catatan ditulis per
+kendaraan dengan kata-kata si pemeta. Acuan yang diberikan Direktur berbentuk cluster
+kendaraan listrik dengan tiga zona tetap. Menyusun panel mengikuti gambar itu berarti
+memilih: mematok identifier mana yang masuk zona mana, atau mencari sesuatu yang berlaku
+di semua kendaraan.
+
+**Decision:** yang menentukan sebuah bacaan masuk zona mana adalah **satuannya**.
+`%` mengambil cincin di tengah, `km/jam` mengambil angka besar di kanan, `km` mengambil
+blok kiri, sisanya tetap jadi kartu. "Motor", "Kecepatan" dan "SOC" adalah teks bebas
+yang diketik seseorang; `rpm`, `km/jam` dan `%` berarti sama di setiap kendaraan.
+Karena itu pula **ikon diambil dari satuan**, dan satuan yang tidak dikenali dapat ikon
+netral, bukan ikon yang salah.
+
+Turunannya, yang sama mengikatnya:
+
+- **Skala grafik menyesuaikan diri** terhadap apa yang sudah terlihat, karena tidak ada
+  rentang yang diketahui dan mengarangnya berarti mengaku tahu sesuatu tentang kendaraan
+  itu. Karena skalanya nisbi, grafiknya sengaja tidak bersumbu.
+- **Tidak ada angka yang diwarnai karena nilainya.** Ambang adalah keputusan tentang
+  kendaraan, dan alat ini tidak berhak mengambilnya. Warna hanya ada pada skala.
+- Tanpa persen maupun kecepatan, cluster tidak dibangun sama sekali dan panel kembali
+  jadi kisi kartu. Kendaraan yang belum dipetakan tidak pernah melihat zona kosong.
+
+**Implementasi:** commit `12280c0` (riwayat 40 detik di tiap kartu) dan `2559986`
+(susunan cluster). Rincian di `docs/DASHBOARD-TDS.md`.
+
+**Yang sempat dicoba lalu ditarik:** commit `82d603c` menyusun ulang panel mengikuti
+acuan kedua, dengan dial kecepatan besar di tengah dan bacaan baterai terpecah jadi
+kartu sendiri-sendiri. Operator menolaknya:
+
+> "saya tidak suka hasil pekerjaanmu yang terbaru ini, kembalikan ke desain sebelum ini"
+
+Dikembalikan lewat `git revert` pada commit `9c8296e`, bukan dengan menghapus commit-nya,
+karena riwayat yang sudah terdorong ke remote tidak ditulis ulang. Yang ikut kembali
+termasuk `notes.tsv`: catatan pack kembali ke bentuk semula, jadi **tidak ada catatan
+yang harus dipasang ulang** karena percobaan ini.

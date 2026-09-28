@@ -3,6 +3,32 @@
 Riwayat versi dokumen dan temuan. Terbaru di atas. Riwayat perubahan **kode** ada di
 `git log`, dan tidak diduplikasi di sini.
 
+## 2026-09-28: Dua dashboard di alat, alat tiruan, dan panel Vehicle dirombak
+
+- **Decoder sinyal di firmware.** `src/SignalDecoder.cpp` memuat delapan pemetaan
+  DFSK Gelora E yang berstatus terbukti. Sebelum ini firmware tidak punya decoder
+  sama sekali: yang bernama `speed` di `src/` adalah kecepatan GPS dari NMEA, bukan
+  kecepatan kendaraan dari CAN. Sinyal yang tidak pernah datang mengeluarkan `null`,
+  bukan nol.
+- **Alat menyajikan dua alamat.** `/` dashboard teknis, `/argo` layar SELARIDE
+  (D-008). Boleh dibuka bersamaan dari dua gawai.
+- **Argometer di alat.** Menghitung kuantitas saja, kilometer isi dan menit tunggu;
+  rupiah dihitung halaman dari `tariff.js`. Jarak dari selisih odometer, bukan dari
+  integral kecepatan. Tidak disimpan: reboot di tengah trip menghilangkan tarifnya,
+  dan itu disengaja supaya filesystem berisi rekaman CAN tidak perlu ditulisi.
+- **`tools/fake_device.py`.** Alat tiruan yang menyajikan kedua halaman dan setiap
+  endpoint yang mereka minta, dengan satu kendaraan tiruan yang nilainya dikodekan
+  kembali menjadi byte CAN seperti Gelora E mengirimnya. Panel Vehicle karena itu
+  benar-benar menjalankan rumus dari `notes.tsv`, bukan menerima angka jadi.
+- **Panel Vehicle membawa riwayatnya sendiri**, empat puluh detik per kartu,
+  disimpan di halaman dan bukan di alat.
+- **Panel Vehicle jadi cluster** mengikuti gambar acuan Direktur: cincin daya di
+  tengah, odometer kiri, kecepatan kanan. Penempatan ditentukan satuan bacaan,
+  bukan identifier (D-009).
+- **Satu percobaan susunan ditarik kembali.** Acuan kedua sempat dibangun lalu
+  ditolak operator dan dikembalikan lewat `git revert`. Rinciannya di D-009.
+- Prosedur uji dua dashboard: `docs/PROSEDUR-TEST-2-DASHBOARD.md`.
+
 ## 2026-09-23: Dashboard menyaring tampilan, dan panel nilai kendaraan
 
 - Tiga mode penyaring identifier di dashboard: TDS, Named, All. Menyaring **apa

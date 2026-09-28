@@ -1,6 +1,6 @@
 # PROGRESS: Alat Diagnostik CAN BMT
 
-**Last updated:** 23 Sep 2026 WITA
+**Last updated:** 28 Sep 2026 WITA
 
 Status yang dipakai: `Belum` · `Jalan` · `Selesai` · `Terhalang` · `Batal`
 
@@ -55,3 +55,21 @@ Status yang dipakai: `Belum` · `Jalan` · `Selesai` · `Terhalang` · `Batal`
 | Batasan rancangan untuk perangkat armada | Selesai | 23 Sep 2026 | delapan butir, di `project-mdt-tds` berkas `08` |
 | Skeleton `ProjectDocs/` | Selesai | 23 Sep 2026 | berkas ini dan `agent-documentation/` |
 | Profil sinyal armada siap pakai | **Terhalang** | - | menunggu Phase 2 |
+
+## Phase 5: Dua dashboard di alat, lalu kirim ke server
+
+Urutan ditetapkan Direktur BMT 28 September: dua dashboard dulu dan lokal dulu,
+pengiriman ke server sesudahnya (D-008).
+
+| Task | Status | Tanggal | Catatan |
+|---|---|---|---|
+| Decoder sinyal di firmware | Selesai | 28 Sep 2026 | 8 pemetaan terbukti, `src/SignalDecoder.cpp` |
+| Argometer di alat | Selesai | 28 Sep 2026 | kuantitas saja, jarak dari selisih odometer |
+| Layar SELARIDE di `/argo` | Selesai | 28 Sep 2026 | salinan `mdt-ui`, tombol trip dipencet manual |
+| Panel Vehicle: riwayat dan susunan cluster | Selesai | 28 Sep 2026 | D-009 |
+| Alat tiruan untuk pratinjau tanpa alat | Selesai | 28 Sep 2026 | `tools/fake_device.py` |
+| Flash firmware dua dashboard ke alat | **Terhalang** | - | alat ada di mobil, port serial belum terdeteksi |
+| Pasang ulang catatan identifier ke alat | **Belum** | - | `apply_notes.py`, wajib sebelum uji jalan |
+| Uji jalan dua dashboard, DFSK Gelora E | **Belum** | 29 Sep 2026 | `docs/PROSEDUR-TEST-2-DASHBOARD.md` |
+| Kirim data ke server BMT | **Belum** | - | menunggu uji jalan di atas berhasil |
+

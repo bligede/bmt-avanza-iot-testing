@@ -1,6 +1,6 @@
 # BACKLOG: Alat Diagnostik CAN BMT
 
-**Last updated:** 23 Sep 2026 WITA
+**Last updated:** 28 Sep 2026 WITA
 
 Semua yang **belum bisa** atau **belum layak** dikerjakan sekarang, beserta apa
 yang membukanya. Satu tempat, supaya tidak ada yang hilang di sela catatan.
@@ -354,6 +354,35 @@ Kalau naik, yang diturunkan dulu adalah laju polling, bukan isi layarnya.
 Kirim ke server BMT adalah fase berikutnya dan sudah punya tempatnya: arsitektur dua aliran
 (D-008) dan pemilihan transport (T-13 di `project-mdt-tds`). Urutan yang diminta Direktur,
 lokal dulu baru kirim, memang urutan yang benar: tanpa decoder, tidak ada yang layak dikirim.
+
+### B-26. Kirim data alat ke server BMT · **Menunggu uji jalan**
+
+Langkah yang Direktur tetapkan **setelah** dua dashboard terbukti jalan lokal (D-008):
+alat mengirim data ke server BMT. Belum dikerjakan sama sekali, dan itu disengaja.
+
+Yang membukanya: uji jalan 29 September lolos, artinya kedua halaman hidup di kendaraan
+bergerak dan angkanya cocok dengan bukti.
+
+Yang harus diputuskan sebelum satu baris pun ditulis, dan belum ada satu pun jawabannya:
+alamat dan protokol server, siapa yang memegang kredensialnya, apa yang terjadi saat
+jaringan putus di tengah jalan, dan apakah pengiriman boleh menunda tugas pembaca CAN.
+Yang terakhir bukan pertanyaan gaya: pembaca CAN yang tertunda adalah frame yang hilang,
+dan itu persis penyakit yang sudah pernah disembuhkan sekali di repo ini.
+
+**Batas yang sudah pasti:** kunci server milik gerbang pembayaran tidak pernah boleh ada
+di perangkat kendaraan.
+
+### B-27. Flash firmware dua dashboard ke alat · **Menunggu akses**
+
+Semuanya sudah dibangun dan lolos gate listen-only, tetapi belum pernah menyentuh alat.
+Alat ada di mobil dan port serialnya belum pernah terdeteksi di mesin ini.
+
+Saat flashing, **jangan pernah mengunggah image LittleFS**. Partisi itu menyimpan rekaman
+CAN, dan mengunggah image filesystem akan menghapusnya. Yang di-flash hanya aplikasi.
+
+Setelah flash, pasang ulang catatan identifier:
+`python tools/apply_notes.py --host <ip alat> docs/evidence/dfsk-gelora-e/notes.tsv`.
+Tanpa itu panel Vehicle kosong, karena rumusnya tinggal di alat, bukan di firmware.
 
 ### B-22. Pastikan token GitHub yang bocor sudah dicabut · **Siap**
 

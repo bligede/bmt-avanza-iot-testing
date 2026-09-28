@@ -1,6 +1,6 @@
 # 05: Status saat ini
 
-**Last sync:** 23 Sep 2026 WITA, setelah firmware di-flash dan flash alat dikosongkan
+**Last sync:** 28 Sep 2026 WITA, setelah dua dashboard dibangun dan diuji lawan alat tiruan
 
 ## TL;DR
 
@@ -20,6 +20,12 @@
 | Flash alat | **Kosong dan siap** | 13,2 MB ditarik jadi `gelora-005`, diverifikasi, dicadangkan, lalu dihapus |
 | Arah perangkat: Orange Pi 5 | **Arah, belum keputusan** | D-007, empat hal belum dijawab |
 | Cadangan rekaman uji jalan | **Belum** | ada arsip 8 MB di laptop, belum disalin keluar |
+| Decoder sinyal di firmware | **Terbangun, belum di-flash** | 8 pemetaan terbukti, D-008 |
+| Argometer di alat | **Terbangun, belum di-flash** | kuantitas saja, tidak disimpan saat reboot |
+| Layar SELARIDE di `/argo` | **Terbangun, belum di-flash** | tombol trip dipencet manual |
+| Panel Vehicle susunan cluster | **Terbangun, belum di-flash** | D-009, penempatan dari satuan |
+| Alat tiruan `tools/fake_device.py` | **Jalan** | kedua halaman terbukti di meja, tanpa alat |
+| Kirim data ke server BMT | **Belum dimulai** | sengaja, urutannya setelah uji jalan (D-008) |
 
 ## Penghalang aktif
 
@@ -43,7 +49,28 @@ Ini bukan lagi pertanyaan teknis. Metodenya siap, prosedurnya tertulis di
 `docs/PROSEDUR-TEST-JALAN.md`, dan firmware tinggal ditambah satu env kendaraan. Yang
 kurang adalah akses ke kendaraannya.
 
-### 3. Tiga rekaman 22 September belum punya dokumen bukti
+### 3. Firmware dua dashboard belum pernah menyentuh alat
+
+Semuanya dibangun dan diperiksa lawan `tools/fake_device.py`, yang mengkodekan nilai
+tiruannya kembali menjadi byte CAN persis seperti Gelora E mengirimnya. Jadi aritmetika
+tarif, pemecahan rumus di panel Vehicle, dan kedua halaman sudah terbukti **di meja**.
+
+Yang belum terbukti sama sekali: beban CPU alat, `rx_overrun` saat dua gawai memoll dua
+halaman serentak, dan bagaimana ponsel berlaku di kendaraan bergerak. Tidak ada satu pun
+dari itu yang bisa diukur tanpa alat dan tanpa bus.
+
+Alat sedang ada di mobil dan port serialnya belum pernah terdeteksi di mesin ini
+(`pio device list` kosong), jadi flashing belum bisa dijadwalkan.
+
+### 4. Dua sumber rumus yang harus diawasi di jalan
+
+Nilai di **panel Vehicle** dihitung dari rumus di catatan identifier, di dalam alat, dan
+bisa diubah siapa pun dari halaman itu. Nilai di **layar argo** dihitung tabel di
+`src/SignalDecoder.cpp`, yang hanya berubah lewat build baru. Keduanya berasal dari bukti
+yang sama, jadi seharusnya selalu sama. Kalau berbeda di jalan: catat keduanya, jangan
+diperbaiki di tempat.
+
+### 5. Tiga rekaman 22 September belum punya dokumen bukti
 
 `gelora-002`, `gelora-003`, dan `gelora-005`, seluruhnya 630 ribu frame, tersimpan
 dan sudah dicadangkan tetapi belum ada satu pun dokumen yang menelusurinya. Ketiganya
