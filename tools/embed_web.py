@@ -1,90 +1,159 @@
 """
-embed_web.py — turn web/ into src/generated/WebAssets.h before every build.
+embed_web.py: turn web/ and web-argo/ into src/generated/WebAssets.h.
 
-PlatformIO runs this as a pre-script (see platformio.ini). The page is authored
-as ordinary files:
+PlatformIO runs this as a pre-script (see platformio.ini). Both pages are
+authored as ordinary files and shipped as ONE gzipped response each, because
+inlining keeps a page to a single request, which matters on a single-threaded
+ESP32 web server over a phone hotspot.
 
-    web/index.html   markup; references app.css and app.js
-    web/app.css      styles
-    web/app.js       behaviour
+    web/            the engineering dashboard, served at /
+        index.html  markup; references app.css and app.js
+        app.css
+        app.js
 
-and shipped as ONE gzipped response. Inlining keeps it to a single request, which
-matters on a single-threaded ESP32 web server over a phone hotspot; gzip cuts it
-to roughly a third.
+    web-argo/       the SELARIDE argo screen, served at /argo (28 Sep 2026)
+        index.html  markup; references app.css and app.js
+        app.css
+        tariff.js   VERBATIM copy from project-mdt-tds/mdt-ui
+        profile.js  VERBATIM copy from project-mdt-tds/mdt-ui
+        app.js      the device version of the feed
+        assets/     driver.jpg, car.jpg, mark.png, mono.woff2
+
+WHY THE ARGO SCRIPTS ARE CONCATENATED RATHER THAN IMPORTED. In the MDT repo they
+are ES modules that import each other. Inlined into one <script> there is no
+module resolution, so this script strips the `export ` keyword and concatenates
+them in dependency order. The alternative, shipping them as separate requests,
+costs three more round trips on a device that answers them one at a time.
+
+WHY THE BINARY ASSETS ARE NOT BASE64 IN THE PAGE. A JPEG is already compressed:
+base64 makes it a third larger and gzip cannot win that back. They go into flash
+as raw bytes behind their own routes, which also lets the browser cache them
+while the page itself stays no-store.
 
 Two details that are easy to get wrong:
 
 * gzip is called with mtime=0. Otherwise the gzip header embeds the build time,
-  every build changes the firmware image, and two builds of identical source
-  can never be compared byte for byte.
+  every build changes the firmware image, and two builds of identical source can
+  never be compared byte for byte.
 * The header is rewritten only when its content changes, so an unchanged page
   does not force a recompile of everything that includes it.
 
-It also writes web/dist/index.html — the same page, uncompressed — for local
-preview and for the design checks, which need to read it as HTML.
+It also writes web/dist/index.html and web-argo/dist/index.html, the same pages
+uncompressed, for local preview and for the design checks.
 """
 
 import gzip
 import pathlib
 
 try:
-    Import("env")  # noqa: F821 — provided by PlatformIO/SCons
+    Import("env")  # noqa: F821, provided by PlatformIO/SCons
     PROJECT_DIR = pathlib.Path(env.subst("$PROJECT_DIR"))  # noqa: F821
 except NameError:  # run by hand: python tools/embed_web.py
     PROJECT_DIR = pathlib.Path(__file__).resolve().parent.parent
 
 WEB = PROJECT_DIR / "web"
+ARGO = PROJECT_DIR / "web-argo"
 OUT_HEADER = PROJECT_DIR / "src" / "generated" / "WebAssets.h"
-OUT_PREVIEW = WEB / "dist" / "index.html"
 
 CSS_TAG = '<link rel="stylesheet" href="app.css">'
 JS_TAG = '<script src="app.js"></script>'
 
+# name in C++, file under web-argo/assets/
+BINARIES = [
+    ("DRIVER_JPG", "driver.jpg"),
+    ("CAR_JPG", "car.jpg"),
+    ("MARK_PNG", "mark.png"),
+    ("MONO_WOFF2", "mono.woff2"),
+]
 
-def build_page() -> str:
-    html = (WEB / "index.html").read_text(encoding="utf-8")
-    css = (WEB / "app.css").read_text(encoding="utf-8")
-    js = (WEB / "app.js").read_text(encoding="utf-8")
+
+def inline(html: str, css: str, js: str, where: str) -> str:
     for tag in (CSS_TAG, JS_TAG):
         if html.count(tag) != 1:
-            raise SystemExit(f"embed_web: expected exactly one {tag!r} in web/index.html")
+            raise SystemExit(f"embed_web: expected exactly one {tag!r} in {where}/index.html")
     if "</script" in js:
-        raise SystemExit("embed_web: app.js contains '</script' and would end the inline block early")
+        raise SystemExit(f"embed_web: {where} script contains '</script' and would end the block early")
     html = html.replace(CSS_TAG, "<style>\n" + css + "</style>")
     html = html.replace(JS_TAG, "<script>\n" + js + "</script>")
     return html
 
 
-def to_header(gz: bytes, raw_len: int) -> str:
+def build_dashboard() -> str:
+    return inline(
+        (WEB / "index.html").read_text(encoding="utf-8"),
+        (WEB / "app.css").read_text(encoding="utf-8"),
+        (WEB / "app.js").read_text(encoding="utf-8"),
+        "web",
+    )
+
+
+def build_argo() -> str:
+    # Dependency order: tariff and profile define what app.js reads.
+    parts = []
+    for name in ("tariff.js", "profile.js", "app.js"):
+        src = (ARGO / name).read_text(encoding="utf-8")
+        # `export const X` -> `const X`, `export function f` -> `function f`.
+        src = src.replace("\nexport ", "\n")
+        if src.startswith("export "):
+            src = src[len("export "):]
+        parts.append(f"/* ---- {name} ---- */\n" + src)
+    return inline(
+        (ARGO / "index.html").read_text(encoding="utf-8"),
+        (ARGO / "app.css").read_text(encoding="utf-8"),
+        "\n".join(parts),
+        "web-argo",
+    )
+
+
+def gz_array(name: str, data: bytes, note: str) -> str:
     lines = []
-    for i in range(0, len(gz), 16):
-        lines.append("    " + ", ".join(f"0x{b:02X}" for b in gz[i:i + 16]) + ",")
+    for i in range(0, len(data), 16):
+        lines.append("    " + ", ".join(f"0x{b:02X}" for b in data[i:i + 16]) + ",")
     return (
-        "// GENERATED by tools/embed_web.py from web/ - do not edit, edit web/ instead.\n"
-        "#pragma once\n"
-        "#include <Arduino.h>\n\n"
-        f"// {raw_len} bytes of HTML, gzipped to {len(gz)}.\n"
-        f"static const size_t INDEX_HTML_GZ_LEN = {len(gz)};\n"
-        "static const uint8_t INDEX_HTML_GZ[] PROGMEM = {\n"
+        f"\n// {note}\n"
+        f"static const size_t {name}_LEN = {len(data)};\n"
+        f"static const uint8_t {name}[] PROGMEM = {{\n"
         + "\n".join(lines) + "\n};\n"
     )
 
 
 def main() -> None:
-    page = build_page()
-    raw = page.encode("utf-8")
-    gz = gzip.compress(raw, compresslevel=9, mtime=0)
+    out = [
+        "// GENERATED by tools/embed_web.py from web/ and web-argo/ - do not edit,\n"
+        "// edit those instead.\n"
+        "#pragma once\n"
+        "#include <Arduino.h>\n"
+    ]
+    total = 0
+    report = []
 
-    OUT_PREVIEW.parent.mkdir(parents=True, exist_ok=True)
-    OUT_PREVIEW.write_text(page, encoding="utf-8", newline="\n")
+    for label, builder, folder, symbol in (
+        ("dashboard", build_dashboard, WEB, "INDEX_HTML_GZ"),
+        ("argo", build_argo, ARGO, "ARGO_HTML_GZ"),
+    ):
+        page = builder()
+        raw = page.encode("utf-8")
+        gz = gzip.compress(raw, compresslevel=9, mtime=0)
+        preview = folder / "dist" / "index.html"
+        preview.parent.mkdir(parents=True, exist_ok=True)
+        preview.write_text(page, encoding="utf-8", newline="\n")
+        out.append(gz_array(symbol, gz, f"{len(raw)} bytes of HTML, gzipped to {len(gz)}."))
+        total += len(gz)
+        report.append(f"{label} {len(raw)}->{len(gz)}")
 
-    header = to_header(gz, len(raw))
+    for symbol, filename in BINARIES:
+        data = (ARGO / "assets" / filename).read_bytes()
+        out.append(gz_array(symbol, data, f"{filename}, {len(data)} bytes, served as-is."))
+        total += len(data)
+        report.append(f"{filename} {len(data)}")
+
+    header = "".join(out)
     OUT_HEADER.parent.mkdir(parents=True, exist_ok=True)
     if not OUT_HEADER.exists() or OUT_HEADER.read_text(encoding="utf-8") != header:
         OUT_HEADER.write_text(header, encoding="utf-8", newline="\n")
-        print(f"embed_web: page {len(raw)} B -> {len(gz)} B gzipped, header updated")
+        print(f"embed_web: {' | '.join(report)} | {total} B of flash, header updated")
     else:
-        print(f"embed_web: page unchanged ({len(gz)} B gzipped)")
+        print(f"embed_web: unchanged, {total} B of flash")
 
 
 main()

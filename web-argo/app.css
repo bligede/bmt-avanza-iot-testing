@@ -1,0 +1,628 @@
+/* =============================================================================
+   SELARIDE MDT
+
+   One screen, landscape, never scrolled, read at a glance by someone who is
+   driving, and read over their shoulder by the passenger paying the fare. Every
+   dimension derives from --u, a unit tied to the 16:9 box, so the composition
+   is identical on a 7-inch panel and a 15-inch tablet instead of reflowing into
+   something nobody designed.
+
+   THIS BUILD FOLLOWS THE DIREKTUR'S DESIGN, on the operator's instruction to
+   make it as close as possible: the daylight ground, the SELARIDE mark, the
+   driver card with its portrait and its credentials, the fare taking the top of
+   the working column, three measure cards, the action row, the bottom dock.
+
+   Three things are ours rather than the design's, and each is a working
+   requirement rather than a preference:
+
+     - The ground and the vehicle illustration are DRAWN, not photographed. No
+       image asset exists in this repo, a stock image cannot be versioned or
+       recoloured with the theme, and one token has to be able to step the whole
+       scene back if daylight ever needs it to.
+     - ONE FACE, AND IT IS LIGHT. A night class was built and then removed on
+       the Direktur's instruction. The glare question is recorded where the
+       night class used to be, because it is real and it will come up in the
+       vehicle, but it is answered by a brightness control and not by a second
+       theme the client did not ask for.
+     - Every control is marked inert, because none of them is wired to anything
+       yet. That includes SOS and "Akhiri trip", which are the two on this
+       screen that would cost the most to fake.
+
+   Colour means one thing each: TEAL is the brand and money in motion, BLUE is
+   time, GREEN is the vehicle's own health, AMBER marks a charge nobody has
+   approved, RED is alarm. Nothing else is coloured.
+   ============================================================================= */
+
+/* The numerals are the design on this screen, so the face that draws them is
+   self-hosted rather than whatever the host happens to own. On the platform
+   stack this build resolved to Consolas on Windows and would resolve to Roboto
+   Mono inside the Android WebView the product notes name: one build, two
+   numeric voices, on a screen read at a glance.
+
+   JetBrains Mono, variable 400 to 800, latin subset, 31 kB. Chosen for the
+   digits: a tall x-height, a dotted zero that cannot be read as an O, and a 1
+   with a base serif that separates it from l and I at a glance and at an angle.
+   Licensed under the SIL Open Font License 1.1; the licence travels with the
+   file, at font/OFL.txt, as that licence requires. */
+@font-face{
+  font-family:'JetBrains Mono';
+  src:url('/font/mono.woff2') format('woff2');
+  font-weight:400 800;
+  font-style:normal;
+  font-display:swap;
+}
+
+:root{
+  --u: min(1vw, 1.7778vh);          /* the 16:9 unit everything is built from */
+
+  --teal:#0E9B8A; --teal-2:#14A08C; --teal-soft:#E2F2EF;
+  --blue:#2F73D0; --blue-soft:#E7F0FD;
+  --green:#2E9E6B; --green-soft:#E6F4EC;
+  --amber:#E0A32A; --red:#E5342A;
+  --g:#04FB2D;                       /* BMT green, kept for the maker's mark */
+
+  --bg1:#E9F1FB; --bg2:#F6FAFD;
+  --card:#FFFFFF; --card-2:#F3F8FC; --sunk:#EEF4FA;
+  --line:#E2EBF4; --line-2:#CFDEEC;
+
+  /* Measured on white: --ink 12.4:1, --ink-2 4.9:1, --ink-3 5.0:1. --ink-3 is
+     the label layer and the provenance line, so it has to clear the floor on
+     the light ground too, not only on a card. */
+  --ink:#14304F; --ink-2:#5C7590; --ink-3:#64798F;
+
+  --shadow:0 calc(.5*var(--u)) calc(1.6*var(--u)) rgba(22,68,120,.09);
+  --shadow-2:0 calc(.25*var(--u)) calc(.8*var(--u)) rgba(22,68,120,.07);
+  --r:calc(1.5*var(--u));
+
+  /* One padding scale for every card, and one gap between every row. Before
+     this the cards carried 1.4, 0.9, 1.1 and 0.6 units of padding and nothing
+     lined up with anything: each had been tuned on its own, which is how a
+     screen ends up looking assembled rather than composed. */
+  --pad:calc(1.2*var(--u));
+  --pad-x:calc(1.4*var(--u));
+  --gap:calc(1*var(--u));
+
+  --mono:'JetBrains Mono',ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+}
+
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{
+  background:var(--bg2); color:var(--ink);
+  font-family:var(--sans); font-variant-numeric:tabular-nums;
+  overflow:hidden;              /* a working screen never scrolls */
+  -webkit-font-smoothing:antialiased;
+}
+.defs{position:absolute;width:0;height:0}
+.scene{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+::selection{background:var(--teal);color:#fff}
+:focus-visible{outline:calc(.25*var(--u)) solid var(--teal);outline-offset:calc(.3*var(--u));border-radius:calc(.5*var(--u))}
+
+/* ---- the frame ------------------------------------------------------------ */
+/* bar, stale, body, dock, provenance.
+
+   The single column is minmax(0,1fr), not the implicit `auto`. An `auto` grid
+   column is sized by its widest child's MIN-CONTENT, so one unbreakable row in
+   the status bar makes every row on the screen wider than the viewport and
+   hangs the whole layout off the right edge. */
+.cluster{
+  position:relative; z-index:1;
+  /* Colour is set here rather than on `body`, inside the scope that owns the
+     tokens. When a second theme redefined `--ink` on this element, everything
+     inheriting from body kept the first theme's value and went nearly
+     invisible. The theme is gone; the discipline stays. */
+  color:var(--ink);
+  height:100dvh; width:100vw;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto minmax(0,1fr) auto auto;
+  /* Row spacing is a MARGIN on each row, not a grid `gap`.
+
+     A hidden element is not a grid item, but its TRACK still exists and a gap
+     sits on both sides of it: the stale banner was costing two gaps of dead
+     space above the body at all times, which is most of why the header looked
+     adrift from the cards. A margin on a row that is not there costs nothing. */
+  row-gap:0;
+  padding:var(--pad) var(--pad-x) calc(.8*var(--u));
+}
+.bar,.stale,.main{margin-bottom:var(--gap)}
+.dock{margin-bottom:calc(.55*var(--u))}
+/* Every row placed by hand, and this is not pedantry.
+
+   A `display:none` element is not a grid item, so while the stale banner was
+   hidden every row below it slid up one: the BODY got the `auto` row and the
+   DOCK got the `minmax(0,1fr)`. The dock grew to fill the screen, the body was
+   squeezed to its minimum, and the status bar was crushed to 18 px. The banner
+   appearing then slid everything back, which is why the two states never looked
+   like the same layout. Explicit placement means the rows mean what they say
+   whether or not the banner is up. */
+.bar{grid-row:1}
+.stale{grid-row:2}
+.main{grid-row:3}
+.dock{grid-row:4}
+.prov{grid-row:5}
+
+/* ---- top bar ---------------------------------------------------------------- */
+.bar{display:flex;align-items:center;gap:calc(1.3*var(--u))}
+.brand{display:flex;align-items:center;gap:calc(.8*var(--u));flex:none}
+/* The mark's own proportion, 27 by 56, so it is never squashed into a square it
+   was not drawn for. */
+.mark{width:auto;height:calc(4.2*var(--u));flex:none;display:block}
+/* The brand navy sampled from the logo file itself, not the screen's ink token:
+   this is someone else's colour and it does not move when the interface palette
+   does. */
+.wordmark{font-size:calc(2.3*var(--u));font-weight:800;letter-spacing:.06em;line-height:1;color:#0B1B30}
+
+.clock{margin-left:calc(1.4*var(--u));padding-left:calc(1.4*var(--u));border-left:1px solid var(--line-2);line-height:1.1}
+.clock b{font-family:var(--mono);font-size:calc(1.8*var(--u));font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+.clock span{display:block;font-size:calc(.86*var(--u));color:var(--ink-3);white-space:nowrap}
+
+.stat{
+  display:grid;grid-template-columns:calc(1.6*var(--u)) auto;align-items:center;
+  column-gap:calc(.6*var(--u));row-gap:0;
+}
+/* By id, not by `:first-of-type`. The bar's first element of type `div` is the
+   brand block, not a stat, so `.stat:first-of-type` matched nothing and the
+   whole right-hand group sat wherever the content happened to end. */
+#st-dispatch{margin-left:auto}
+/* The controls go hard right, as designed, with the status readouts floating
+   between them and the clock. */
+.btn.sos{margin-left:auto}
+.stat svg{width:calc(1.6*var(--u));height:calc(1.6*var(--u));grid-row:span 2;color:var(--ink-2)}
+.stat .dot{
+  grid-row:span 2;width:calc(.8*var(--u));height:calc(.8*var(--u));border-radius:50%;
+  background:var(--green);justify-self:center;
+  box-shadow:0 0 0 calc(.3*var(--u)) rgba(46,158,107,.18);
+}
+/* nowrap, because the dispatch state changes length when a passenger gets in.
+   Wrapped, its second line ran under the clock and the status dot ended up
+   beside a word it did not belong to. */
+.stat b{font-size:calc(1.06*var(--u));font-weight:700;white-space:nowrap}
+.stat span{font-size:calc(.86*var(--u));color:var(--ink-3);white-space:nowrap}
+#st-dispatch b{color:var(--green)}
+.stat.weak b,.stat.weak svg{color:var(--amber)}
+
+.btn{
+  display:flex;align-items:center;gap:calc(.5*var(--u));flex:none;
+  height:calc(3.4*var(--u));padding:0 calc(1.2*var(--u));
+  border-radius:calc(.9*var(--u));
+  background:var(--card);box-shadow:var(--shadow-2);
+  font-size:calc(1.08*var(--u));font-weight:800;letter-spacing:.04em;color:var(--ink);
+}
+.btn svg{width:calc(1.7*var(--u));height:calc(1.7*var(--u))}
+.btn.sos{background:var(--red);color:#fff;box-shadow:0 calc(.3*var(--u)) calc(1*var(--u)) rgba(229,52,42,.35)}
+
+/* Inert means drawn, visible, and honestly dead. Nothing behind these yet. */
+.inert{cursor:default;opacity:.72}
+.btn.inert{opacity:.85}
+
+/* ---- stale banner (D-004) ---------------------------------------------------- */
+.stale[hidden]{display:none}   /* an author `display` beats the UA rule for
+                                  [hidden]; without this the banner shipped
+                                  visible on a perfectly healthy feed */
+.stale{
+  display:flex;align-items:baseline;gap:calc(.8*var(--u));
+  background:#FDECEA;border:1px solid #F3B7B1;border-radius:calc(.9*var(--u));
+  padding:calc(.5*var(--u)) calc(1.2*var(--u));
+  font-size:calc(1.06*var(--u));color:#8A251E;
+}
+.stale b{color:var(--red);font-size:calc(1.26*var(--u))}
+.stale i{font-style:normal;font-family:var(--mono);color:#6E1A15}
+
+/* ---- body -------------------------------------------------------------------- */
+.main{display:grid;grid-template-columns:1fr 2.42fr;gap:var(--gap);min-height:0}
+.right{display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:var(--gap);min-height:0}
+.card{
+  background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);
+  min-width:0;min-height:0;
+}
+
+/* ---- driver ------------------------------------------------------------------ */
+.who{
+  display:flex;flex-direction:column;align-items:center;
+  padding:var(--pad) var(--pad-x) 0;
+  overflow:hidden;text-align:center;
+}
+.face-wrap{position:relative;flex:none}
+/* Initials, not a portrait. The ring is the design's, and a real photograph
+   drops into the same circle without moving anything. */
+.face{
+  width:calc(10*var(--u));height:calc(10*var(--u));border-radius:50%;
+  display:grid;place-items:center;overflow:hidden;
+  background:linear-gradient(160deg,var(--teal-soft),var(--blue-soft));
+  border:calc(.3*var(--u)) solid #fff;
+  box-shadow:0 0 0 calc(.18*var(--u)) var(--line-2), var(--shadow-2);
+}
+/* The portrait fills the circle, whether it is the drawn stand-in or a real
+   photograph dropped into img/driver.jpg. */
+.face>*{width:100%;height:100%;object-fit:cover;display:block}
+.verified{
+  position:absolute;right:calc(.2*var(--u));bottom:calc(.4*var(--u));
+  width:calc(2.6*var(--u));height:calc(2.6*var(--u));border-radius:50%;
+  display:grid;place-items:center;background:var(--teal);color:#fff;
+  border:calc(.22*var(--u)) solid #fff;
+}
+.verified svg{width:calc(1.3*var(--u));height:calc(1.3*var(--u))}
+
+.who-name{
+  margin-top:calc(.8*var(--u));
+  font-size:calc(2*var(--u));font-weight:800;letter-spacing:.02em;
+  text-transform:uppercase;line-height:1.15;
+  max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.who-rate{display:flex;align-items:center;gap:calc(.8*var(--u));margin-top:calc(.7*var(--u))}
+.who-rate .pill{
+  display:flex;align-items:center;gap:calc(.35*var(--u));
+  background:var(--teal);color:#fff;border-radius:99px;
+  padding:calc(.3*var(--u)) calc(.85*var(--u));
+  font-size:calc(1.02*var(--u));font-weight:800;
+}
+.who-rate .pill svg{width:calc(1.15*var(--u));height:calc(1.15*var(--u))}
+.who-rate i{width:1px;height:calc(1.5*var(--u));background:var(--line-2)}
+.who-rate .trips{font-size:calc(1.02*var(--u));color:var(--ink-2)}
+.who-rate .trips b{font-weight:700;color:var(--ink)}
+
+.who-list{
+  width:100%;margin-top:calc(1*var(--u));padding-top:calc(1*var(--u));
+  border-top:1px solid var(--line);
+  display:grid;row-gap:calc(.7*var(--u));text-align:left;
+}
+.who-list div{display:grid;grid-template-columns:calc(2.2*var(--u)) minmax(0,1fr);align-items:center;column-gap:calc(.7*var(--u))}
+.who-list dt{display:grid;place-items:center}
+.who-list dt svg{width:calc(1.7*var(--u));height:calc(1.7*var(--u));color:var(--teal)}
+.who-list dd{
+  margin:0;font-size:calc(1.2*var(--u));color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#who-plate{font-family:var(--mono);font-weight:700;letter-spacing:.04em}
+
+/* The photograph takes whatever height is left and is CROPPED by the card, never
+   squashed: a car with the wrong proportions is worse than no car.
+
+   The top edge is masked into the card because the studio background is a pale
+   blue-grey and the card is white, and a hard horizontal seam between the two
+   reads as a mistake rather than as a photograph. */
+.who-art{
+  width:calc(100% + 2*var(--pad-x));margin:auto calc(-1*var(--pad-x)) 0;
+  min-height:0;flex:1;object-fit:cover;object-position:center 58%;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 15%);
+          mask-image:linear-gradient(180deg,transparent 0,#000 15%);
+}
+
+/* ---- the meter ---------------------------------------------------------------- */
+/* THE CARD IS A CONTAINER, and the fare sizes itself against it.
+
+   This used to be hand-tuned: measure the overflow at 1600x900, shave a few
+   tenths of a unit off the figure, measure again. That works at exactly one
+   aspect ratio. On a 2.24 wide panel the rows divide differently, the card is
+   shorter, and the first thing the overflow eats is the padding at the top,
+   which is how the heading ended up sitting on the card's own edge.
+
+   The fix is structural: the figure lives in a box that takes the card's
+   LEFTOVER height (`.amount-wrap`, `flex: 1`), and sizes itself against that box
+   with `container-type: size` and `cqh`. The heading keeps its margin, the
+   receipt keeps its size, and the fare is whatever fits between them, at any
+   panel shape and with or without the stale banner.
+
+   No `overflow:hidden`: the line box is deliberately tighter than the glyphs,
+   so a clip would turn a rounding error into a shaved digit. */
+.fare{
+  padding:var(--pad) calc(1.6*var(--u));
+  display:flex;flex-direction:column;justify-content:center;
+  position:relative;
+}
+.f-head{display:flex;align-items:center;gap:calc(.9*var(--u))}
+.f-head b{font-size:calc(1.35*var(--u));font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.hire-pill{
+  display:flex;align-items:center;gap:calc(.4*var(--u));margin-left:auto;
+  border:1px solid var(--teal);border-radius:99px;background:var(--teal-soft);
+  padding:calc(.35*var(--u)) calc(.9*var(--u));
+  font:800 calc(.98*var(--u))/1 var(--sans);letter-spacing:.09em;
+  text-transform:uppercase;color:var(--teal);
+}
+.hire-pill svg{width:calc(1.2*var(--u));height:calc(1.2*var(--u))}
+.hire-pill i{font-style:normal}
+.cluster.empty .hire-pill{color:var(--ink-3);border-color:var(--line-2);background:var(--sunk)}
+
+/* The largest thing on the glass, and deliberately so. "Rp" LEADS the figure,
+   which is how rupiah is written and how a passenger reads it. */
+.amount{
+  display:flex;align-items:baseline;justify-content:center;gap:calc(.8*var(--u));
+  margin:calc(.4*var(--u)) 0 calc(.3*var(--u));line-height:.95;
+}
+/* The box that owns the slack, and the container the figure measures itself
+   against. `min-height: 0` so it can actually give way; without it a flex item
+   refuses to shrink below its content and we are back to overflow. */
+.amount-wrap{
+  flex:1;min-height:0;container-type:size;
+  display:flex;align-items:center;justify-content:center;
+}
+/* 92 % of the box it sits in, capped at 5.9 units so it cannot grow absurd on a
+   tall panel. The cap is taste; the percentage is what makes it safe, and the
+   percentage has to be high or the fare stops out-ranking the measures beside
+   it, which is the whole point of the card. */
+.amount b{
+  font-family:var(--mono);font-weight:800;
+  font-size:min(calc(5.9*var(--u)),92cqh);
+  letter-spacing:-.055em;color:var(--ink);white-space:nowrap;
+}
+.amount span{font-size:min(calc(2.3*var(--u)),34cqh);font-weight:800;color:var(--ink-3)}
+.rule{
+  display:block;height:calc(.28*var(--u));border-radius:99px;
+  width:52%;margin:0 auto;
+  background:linear-gradient(90deg,var(--teal),var(--blue));
+}
+
+/* THE RECEIPT. It used to be one grey line at 1,04u under the figure, and the
+   operator was right that it was too small: this is the passenger's only way to
+   check what they are being charged, and on a screen about a regulated meter
+   that is not a footnote.
+
+   It is a panel of its own now, on the sunk field so it reads as a printed slip
+   rather than as a caption, with the money right-aligned in its own column so
+   the lines add up down a single edge. */
+.receipt{
+  margin-top:calc(.7*var(--u));
+  background:var(--sunk);border-radius:calc(1*var(--u));
+  padding:calc(.6*var(--u)) calc(1.2*var(--u));
+  display:grid;row-gap:calc(.34*var(--u));
+}
+/* A tight line box on purpose. These rows carry mono figures with no
+   descenders to speak of, and the default 1,2 leading was costing the card
+   nearly a fifth of its height, which came straight out of the fare. */
+.r-row{
+  display:grid;grid-template-columns:auto minmax(0,1fr);
+  align-items:baseline;column-gap:calc(1.2*var(--u));line-height:1.12;
+}
+.r-row dt{
+  display:flex;align-items:center;gap:calc(.5*var(--u));
+  font-size:calc(1.2*var(--u));font-weight:700;letter-spacing:.04em;color:var(--ink-2);
+  white-space:nowrap;
+}
+.r-row dt svg{width:calc(1.5*var(--u));height:calc(1.5*var(--u));color:var(--teal);flex:none}
+/* The measurement is the whole right-hand column now, so it takes the weight the
+   money used to have: right-aligned, so the two rows read down one edge. */
+.r-row .qty{
+  margin:0;font-size:calc(1.2*var(--u));color:var(--ink-3);
+  text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.r-row .qty b{font-family:var(--mono);font-size:calc(2.05*var(--u));font-weight:800;color:var(--ink);letter-spacing:-.03em}
+/* A charge nobody has signed off does not get to look settled. It is shown,
+   because the driver will be charging it, and it is marked, because the
+   SELARIDE documentation has no waiting tariff in it and the tariff rule puts
+   that in the Direktur's hands. */
+.chip{
+  background:#FBEFD6;color:#7A5410;border:1px solid #EBD3A3;
+  border-radius:calc(.4*var(--u));padding:calc(.15*var(--u)) calc(.45*var(--u));
+  font-size:calc(.84*var(--u));font-weight:700;letter-spacing:.03em;
+}
+.chip[hidden]{display:none}
+/* Waiting running is a state the driver must notice without hunting for it: it
+   earns money, and it is the line a passenger queries. */
+.cluster.waiting #r-wait dt,
+.cluster.waiting #r-wait dt svg{color:var(--blue)}
+.cluster.waiting #r-wait .qty b{color:var(--blue)}
+
+/* Whether the meter is running, in words. A fare that is not moving looks
+   identical to a fare that is, and that difference is the whole of what
+   "kilometer isi" means. */
+.f-state{margin-top:calc(.3*var(--u));text-align:center;font-size:calc(1.02*var(--u));color:var(--ink-3)}
+.f-state b{color:var(--teal);font-weight:800}
+.cluster.empty .f-state b{color:var(--ink-2)}
+
+/* ---- measures ------------------------------------------------------------------ */
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap)}
+.metric{
+  padding:var(--pad) var(--pad-x);
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+}
+.ic{
+  display:grid;place-items:center;
+  width:calc(3.9*var(--u));height:calc(3.9*var(--u));border-radius:50%;
+}
+.ic svg{width:calc(2.1*var(--u));height:calc(2.1*var(--u))}
+.ic.teal{background:var(--teal-soft);color:var(--teal)}
+.ic.blue{background:var(--blue-soft);color:var(--blue)}
+.ic.green{background:var(--green-soft);color:var(--green)}
+.metric h3{
+  margin-top:calc(.7*var(--u));
+  font-size:calc(1.02*var(--u));font-weight:700;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--ink-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+}
+.metric .v{display:flex;align-items:baseline;gap:calc(.4*var(--u));margin-top:calc(.35*var(--u))}
+/* A step below the fare, deliberately. These are what the fare was measured
+   from; the fare is what the passenger pays. */
+.metric .v b{font-family:var(--mono);font-size:calc(3.2*var(--u));font-weight:800;letter-spacing:-.05em;color:var(--ink)}
+.metric .v span{font-size:calc(1.1*var(--u));font-weight:700;color:var(--ink-3);text-transform:uppercase}
+.metric .v.dur b{font-size:calc(2.7*var(--u))}
+.metric .v.dur em{font-style:normal;font-family:var(--mono);font-size:calc(2.3*var(--u));color:var(--ink-3);margin:0 calc(-.05*var(--u))}
+.dur-lab{display:flex;justify-content:space-between;width:calc(11*var(--u));max-width:100%;margin-top:calc(.1*var(--u))}
+.dur-lab span{font-size:calc(.86*var(--u));color:var(--ink-3)}
+ /* `.pbar`, not `.bar`. The first name collided with the status bar at the top
+    of the screen, and since this rule comes later it won: the header became a
+    5,6 px tall block that stacked its own children down the page. A generic
+    name is worth exactly nothing compared to the hour that costs. */
+.pbar{
+  display:block;width:60%;height:calc(.35*var(--u));margin-top:calc(.8*var(--u));
+  background:var(--sunk);border-radius:99px;overflow:hidden;
+}
+.pbar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--teal),var(--blue));
+  transition:width .42s cubic-bezier(.16,1,.3,1)}
+#m-speed .pbar i{background:var(--green)}
+
+/* ---- actions --------------------------------------------------------------------- */
+.actions{display:grid;grid-template-columns:1fr auto 1.35fr;gap:var(--gap);align-items:stretch}
+.act{
+  display:flex;align-items:center;justify-content:center;gap:calc(.7*var(--u));
+  height:calc(5.7*var(--u));border-radius:calc(1.3*var(--u));
+  font-size:calc(1.35*var(--u));font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.act svg{width:calc(2*var(--u));height:calc(2*var(--u))}
+.act.soft{background:var(--teal-soft);color:var(--teal)}
+.act.round{width:calc(5.7*var(--u));background:var(--card);color:var(--ink-2);box-shadow:var(--shadow-2);border-radius:50%}
+.act.primary{
+  background:linear-gradient(90deg,var(--teal) 0%,var(--blue) 100%);color:#fff;
+  box-shadow:0 calc(.4*var(--u)) calc(1.2*var(--u)) rgba(28,110,190,.3);
+}
+/* The battery. An INDICATOR, not a control: it is the one thing in this row that
+   is live, so it is not dimmed and carries no `inert` mark. */
+/* ---- battery, in the status bar ------------------------------------------------ */
+/* It reads as a state among the other states up here, and it keeps the upright
+   drawing: a level that rises reads as a level.
+
+   Selected as `.stat .batt-ic`, not `.batt-ic`, because `.stat svg` sizes every
+   other icon in the bar and (0,1,1) beats (0,1,0) whichever is written last.
+   The same trap cost an hour when this thing lived in the action row. */
+.batt-stat{color:var(--green)}
+.stat .batt-ic{width:calc(1.5*var(--u));height:calc(2.75*var(--u));grid-row:span 2;justify-self:center}
+.batt-fill{fill:var(--green);
+  transition:height .5s cubic-bezier(.16,1,.3,1),y .5s cubic-bezier(.16,1,.3,1),fill .4s linear}
+.batt-stat b{color:var(--ink)}
+.batt-stat b span{font-family:var(--mono);letter-spacing:-.02em}
+/* Below a quarter it stops being green, on the same thresholds the rest of the
+   system uses. A battery still drawn green at 8 % is decoration. */
+#c-batt.warn,#c-batt.warn b{color:var(--amber)}
+#c-batt.warn .batt-fill{fill:var(--amber)}
+#c-batt.low,#c-batt.low b{color:var(--red)}
+#c-batt.low .batt-fill{fill:var(--red)}
+
+/* ---- dock ------------------------------------------------------------------------ */
+.dock{
+  display:flex;align-items:center;justify-content:space-around;
+  background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);
+  padding:calc(.85*var(--u)) var(--pad-x);
+}
+.dock .sep{width:1px;height:calc(2.6*var(--u));background:var(--line)}
+.tab{
+  position:relative;display:flex;align-items:center;gap:calc(.7*var(--u));
+  padding:calc(.4*var(--u)) calc(.8*var(--u));
+  font-size:calc(1.06*var(--u));font-weight:700;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ink-2);
+}
+.tab svg{width:calc(2.2*var(--u));height:calc(2.2*var(--u));color:var(--ink-2)}
+.badge2{
+  position:absolute;left:calc(1.6*var(--u));top:calc(-.1*var(--u));
+  min-width:calc(1.5*var(--u));height:calc(1.5*var(--u));border-radius:99px;
+  background:var(--blue);color:#fff;border:calc(.15*var(--u)) solid #fff;
+  font:800 calc(.8*var(--u))/calc(1.5*var(--u)) var(--sans);font-style:normal;text-align:center;
+}
+.tab .plus{
+  display:grid;place-items:center;
+  width:calc(3.4*var(--u));height:calc(3.4*var(--u));border-radius:50%;
+  background:var(--card);box-shadow:0 calc(.2*var(--u)) calc(.8*var(--u)) rgba(22,68,120,.18);
+  color:var(--ink);
+}
+.tab .plus svg{width:calc(1.8*var(--u));height:calc(1.8*var(--u))}
+
+/* ---- provenance -------------------------------------------------------------------- */
+/* Flowing text, not a flex row. As a flex row each clause was an item that could
+   be squeezed, and "DFSK Gelora E" broke across two lines inside its own phrase. */
+.prov{font-size:calc(.84*var(--u));color:var(--ink-3);letter-spacing:.03em;line-height:1.4;text-align:center}
+.prov b{color:var(--ink-2);font-weight:700}
+
+/* ---- one face, and it is the light one -------------------------------------------- */
+/* A night class was built here and REMOVED on the Direktur's instruction: the design is a
+   daylight face and it ships as one, at every hour.
+
+   The reason it existed is on the record rather than in the code, because it is a real
+   thing and it will come up in the vehicle: a white panel at 2 a.m. is bright in the
+   driver's eyes and reflects in the windscreen. If that turns out to matter on the road,
+   the cheapest answer is a brightness control behind Pengaturan, not a second theme
+   nobody asked for. The tokens are all in `:root`, so a dark set is an afternoon's work
+   whenever somebody decides they want one. */
+
+/* ---- stale ------------------------------------------------------------------------ */
+/* Stale dims EVERY value, not only one card. Dimming half the screen while the
+   rest stayed bright said the rest was still live.
+
+   The drop is a COLOUR, not an opacity. An earlier build used opacity .32 and
+   put the whole stale readout at 2.71:1, under the floor for text a driver is
+   being asked to read and then disregard. */
+.cluster.stale-on .amount b,
+.cluster.stale-on .metric .v b,
+.cluster.stale-on .metric .v em,
+.cluster.stale-on .r-row .qty b,
+.cluster.stale-on .batt-stat b{color:var(--ink-3)}
+.cluster.stale-on .batt-fill{fill:var(--line-2)}
+.cluster.stale-on .pbar i{background:var(--line-2)}
+.cluster.stale-on .rule{background:var(--line-2)}
+/* The meter is not live when the feed is not: what it counts is distance off
+   the bus, and the bus has stopped reporting. */
+.cluster.stale-on .f-state b{color:var(--ink-2)}
+/* The banner is a row that appears, and the fare card pays for all of it: the
+   measures and the action row are `auto`, so the whole of it comes out of the
+   one row that can give.
+
+   There is nothing to tune here any more. The figure is a fraction of the card,
+   so a shorter card is a smaller figure, automatically and at every aspect
+   ratio. The nine hand-set sizes that used to live in this block were nine
+   places to be wrong. */
+.cluster.stale-on .stale{margin-bottom:calc(.6*var(--u))}
+/* The one thing still tuned by hand, and it is the receipt rather than the
+   figure: without it the leftover box gets so thin that the fare shrinks past
+   the point of being the headline. */
+.cluster.stale-on .receipt{padding:calc(.45*var(--u)) calc(1.2*var(--u));row-gap:calc(.2*var(--u))}
+.cluster.stale-on .r-row .qty b{font-size:calc(1.7*var(--u))}
+
+/* The one authored motion moment: the fare rises into place once, the way a
+   meter settles. */
+@keyframes rise{from{opacity:0;transform:translateY(calc(.8*var(--u)))}to{opacity:1;transform:none}}
+.booting .amount b,.booting .metric .v{animation:rise .5s .15s ease-out both}
+@media (prefers-reduced-motion:reduce){
+  .booting .amount b,.booting .metric .v{animation:none}
+  .bar i{transition:none}
+}
+
+/* A panel narrower than it is tall is not the shipping frame, but a technician
+   will open this on a phone. Stack rather than crush. */
+@media (max-aspect-ratio:1/1){
+  /* --u comes off the WIDTH here, because width is what constrains a stacked
+     card. Taking it off height made every card wider than the phone. */
+  :root{--u:3.2vw}
+  body{overflow:auto}
+  .cluster{
+    height:auto;min-height:100dvh;overflow:visible;
+    grid-template-rows:none;grid-auto-rows:auto;
+    padding-bottom:calc(2.4*var(--u));
+  }
+  .bar{flex-wrap:wrap;row-gap:calc(.8*var(--u))}
+  .pbar{width:75%}
+  .clock{margin-left:0;padding-left:0;border-left:0;order:-1;width:100%}
+  #st-dispatch{margin-left:0}
+  .btn.sos{margin-left:0}
+
+  .main{grid-template-columns:minmax(0,1fr);row-gap:calc(1*var(--u))}
+  .right{grid-template-rows:none;grid-auto-rows:auto}
+  .who-art{height:calc(22*var(--u))}
+  /* Arithmetic, not taste: about 26 units of inner width, less 3 for the
+     currency word and its gap, over seven mono characters at 0.6 em. */
+  .amount b{font-size:calc(5.4*var(--u))}
+  .amount span{font-size:calc(1.6*var(--u))}
+  .f-head b{font-size:calc(1.5*var(--u))}
+  /* Two columns on a phone: the quantity moves under its own label, and the
+     money keeps its right edge. Three columns at 430 px put the rate and the
+     amount in a fight neither wins. */
+  .r-row dt,.r-row .qty{font-size:calc(1.35*var(--u))}
+  .r-row .qty b{font-size:calc(2.2*var(--u))}
+  .f-state{font-size:calc(1.3*var(--u))}
+  /* A name gets to wrap on a phone rather than lose its own ending. */
+  .who-name{font-size:calc(2.6*var(--u));white-space:normal}
+  .who-list dd{font-size:calc(1.7*var(--u))}
+  .metrics{grid-template-columns:minmax(0,1fr)}
+  .metric h3{font-size:calc(1.4*var(--u))}
+  .metric .v b{font-size:calc(4.6*var(--u))}
+  .metric .v.dur b{font-size:calc(4*var(--u))}
+  .dur-lab{width:calc(15*var(--u))}
+  .dur-lab span{font-size:calc(1.2*var(--u))}
+  .actions{grid-template-columns:1fr auto}
+  .act.primary{grid-column:1/-1}
+  .act{font-size:calc(1.5*var(--u));height:calc(6.4*var(--u))}
+  .dock{flex-wrap:wrap;justify-content:center;gap:calc(.6*var(--u))}
+  .dock .sep{display:none}
+  .tab{font-size:calc(1.3*var(--u))}
+  .prov{font-size:calc(1.15*var(--u))}
+}

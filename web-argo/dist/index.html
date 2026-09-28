@@ -1,0 +1,1609 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#EAF2FB">
+<title>SELARIDE · MDT</title>
+<style>
+/* =============================================================================
+   SELARIDE MDT
+
+   One screen, landscape, never scrolled, read at a glance by someone who is
+   driving, and read over their shoulder by the passenger paying the fare. Every
+   dimension derives from --u, a unit tied to the 16:9 box, so the composition
+   is identical on a 7-inch panel and a 15-inch tablet instead of reflowing into
+   something nobody designed.
+
+   THIS BUILD FOLLOWS THE DIREKTUR'S DESIGN, on the operator's instruction to
+   make it as close as possible: the daylight ground, the SELARIDE mark, the
+   driver card with its portrait and its credentials, the fare taking the top of
+   the working column, three measure cards, the action row, the bottom dock.
+
+   Three things are ours rather than the design's, and each is a working
+   requirement rather than a preference:
+
+     - The ground and the vehicle illustration are DRAWN, not photographed. No
+       image asset exists in this repo, a stock image cannot be versioned or
+       recoloured with the theme, and one token has to be able to step the whole
+       scene back if daylight ever needs it to.
+     - ONE FACE, AND IT IS LIGHT. A night class was built and then removed on
+       the Direktur's instruction. The glare question is recorded where the
+       night class used to be, because it is real and it will come up in the
+       vehicle, but it is answered by a brightness control and not by a second
+       theme the client did not ask for.
+     - Every control is marked inert, because none of them is wired to anything
+       yet. That includes SOS and "Akhiri trip", which are the two on this
+       screen that would cost the most to fake.
+
+   Colour means one thing each: TEAL is the brand and money in motion, BLUE is
+   time, GREEN is the vehicle's own health, AMBER marks a charge nobody has
+   approved, RED is alarm. Nothing else is coloured.
+   ============================================================================= */
+
+/* The numerals are the design on this screen, so the face that draws them is
+   self-hosted rather than whatever the host happens to own. On the platform
+   stack this build resolved to Consolas on Windows and would resolve to Roboto
+   Mono inside the Android WebView the product notes name: one build, two
+   numeric voices, on a screen read at a glance.
+
+   JetBrains Mono, variable 400 to 800, latin subset, 31 kB. Chosen for the
+   digits: a tall x-height, a dotted zero that cannot be read as an O, and a 1
+   with a base serif that separates it from l and I at a glance and at an angle.
+   Licensed under the SIL Open Font License 1.1; the licence travels with the
+   file, at font/OFL.txt, as that licence requires. */
+@font-face{
+  font-family:'JetBrains Mono';
+  src:url('/font/mono.woff2') format('woff2');
+  font-weight:400 800;
+  font-style:normal;
+  font-display:swap;
+}
+
+:root{
+  --u: min(1vw, 1.7778vh);          /* the 16:9 unit everything is built from */
+
+  --teal:#0E9B8A; --teal-2:#14A08C; --teal-soft:#E2F2EF;
+  --blue:#2F73D0; --blue-soft:#E7F0FD;
+  --green:#2E9E6B; --green-soft:#E6F4EC;
+  --amber:#E0A32A; --red:#E5342A;
+  --g:#04FB2D;                       /* BMT green, kept for the maker's mark */
+
+  --bg1:#E9F1FB; --bg2:#F6FAFD;
+  --card:#FFFFFF; --card-2:#F3F8FC; --sunk:#EEF4FA;
+  --line:#E2EBF4; --line-2:#CFDEEC;
+
+  /* Measured on white: --ink 12.4:1, --ink-2 4.9:1, --ink-3 5.0:1. --ink-3 is
+     the label layer and the provenance line, so it has to clear the floor on
+     the light ground too, not only on a card. */
+  --ink:#14304F; --ink-2:#5C7590; --ink-3:#64798F;
+
+  --shadow:0 calc(.5*var(--u)) calc(1.6*var(--u)) rgba(22,68,120,.09);
+  --shadow-2:0 calc(.25*var(--u)) calc(.8*var(--u)) rgba(22,68,120,.07);
+  --r:calc(1.5*var(--u));
+
+  /* One padding scale for every card, and one gap between every row. Before
+     this the cards carried 1.4, 0.9, 1.1 and 0.6 units of padding and nothing
+     lined up with anything: each had been tuned on its own, which is how a
+     screen ends up looking assembled rather than composed. */
+  --pad:calc(1.2*var(--u));
+  --pad-x:calc(1.4*var(--u));
+  --gap:calc(1*var(--u));
+
+  --mono:'JetBrains Mono',ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+}
+
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{
+  background:var(--bg2); color:var(--ink);
+  font-family:var(--sans); font-variant-numeric:tabular-nums;
+  overflow:hidden;              /* a working screen never scrolls */
+  -webkit-font-smoothing:antialiased;
+}
+.defs{position:absolute;width:0;height:0}
+.scene{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+::selection{background:var(--teal);color:#fff}
+:focus-visible{outline:calc(.25*var(--u)) solid var(--teal);outline-offset:calc(.3*var(--u));border-radius:calc(.5*var(--u))}
+
+/* ---- the frame ------------------------------------------------------------ */
+/* bar, stale, body, dock, provenance.
+
+   The single column is minmax(0,1fr), not the implicit `auto`. An `auto` grid
+   column is sized by its widest child's MIN-CONTENT, so one unbreakable row in
+   the status bar makes every row on the screen wider than the viewport and
+   hangs the whole layout off the right edge. */
+.cluster{
+  position:relative; z-index:1;
+  /* Colour is set here rather than on `body`, inside the scope that owns the
+     tokens. When a second theme redefined `--ink` on this element, everything
+     inheriting from body kept the first theme's value and went nearly
+     invisible. The theme is gone; the discipline stays. */
+  color:var(--ink);
+  height:100dvh; width:100vw;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto minmax(0,1fr) auto auto;
+  /* Row spacing is a MARGIN on each row, not a grid `gap`.
+
+     A hidden element is not a grid item, but its TRACK still exists and a gap
+     sits on both sides of it: the stale banner was costing two gaps of dead
+     space above the body at all times, which is most of why the header looked
+     adrift from the cards. A margin on a row that is not there costs nothing. */
+  row-gap:0;
+  padding:var(--pad) var(--pad-x) calc(.8*var(--u));
+}
+.bar,.stale,.main{margin-bottom:var(--gap)}
+.dock{margin-bottom:calc(.55*var(--u))}
+/* Every row placed by hand, and this is not pedantry.
+
+   A `display:none` element is not a grid item, so while the stale banner was
+   hidden every row below it slid up one: the BODY got the `auto` row and the
+   DOCK got the `minmax(0,1fr)`. The dock grew to fill the screen, the body was
+   squeezed to its minimum, and the status bar was crushed to 18 px. The banner
+   appearing then slid everything back, which is why the two states never looked
+   like the same layout. Explicit placement means the rows mean what they say
+   whether or not the banner is up. */
+.bar{grid-row:1}
+.stale{grid-row:2}
+.main{grid-row:3}
+.dock{grid-row:4}
+.prov{grid-row:5}
+
+/* ---- top bar ---------------------------------------------------------------- */
+.bar{display:flex;align-items:center;gap:calc(1.3*var(--u))}
+.brand{display:flex;align-items:center;gap:calc(.8*var(--u));flex:none}
+/* The mark's own proportion, 27 by 56, so it is never squashed into a square it
+   was not drawn for. */
+.mark{width:auto;height:calc(4.2*var(--u));flex:none;display:block}
+/* The brand navy sampled from the logo file itself, not the screen's ink token:
+   this is someone else's colour and it does not move when the interface palette
+   does. */
+.wordmark{font-size:calc(2.3*var(--u));font-weight:800;letter-spacing:.06em;line-height:1;color:#0B1B30}
+
+.clock{margin-left:calc(1.4*var(--u));padding-left:calc(1.4*var(--u));border-left:1px solid var(--line-2);line-height:1.1}
+.clock b{font-family:var(--mono);font-size:calc(1.8*var(--u));font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+.clock span{display:block;font-size:calc(.86*var(--u));color:var(--ink-3);white-space:nowrap}
+
+.stat{
+  display:grid;grid-template-columns:calc(1.6*var(--u)) auto;align-items:center;
+  column-gap:calc(.6*var(--u));row-gap:0;
+}
+/* By id, not by `:first-of-type`. The bar's first element of type `div` is the
+   brand block, not a stat, so `.stat:first-of-type` matched nothing and the
+   whole right-hand group sat wherever the content happened to end. */
+#st-dispatch{margin-left:auto}
+/* The controls go hard right, as designed, with the status readouts floating
+   between them and the clock. */
+.btn.sos{margin-left:auto}
+.stat svg{width:calc(1.6*var(--u));height:calc(1.6*var(--u));grid-row:span 2;color:var(--ink-2)}
+.stat .dot{
+  grid-row:span 2;width:calc(.8*var(--u));height:calc(.8*var(--u));border-radius:50%;
+  background:var(--green);justify-self:center;
+  box-shadow:0 0 0 calc(.3*var(--u)) rgba(46,158,107,.18);
+}
+/* nowrap, because the dispatch state changes length when a passenger gets in.
+   Wrapped, its second line ran under the clock and the status dot ended up
+   beside a word it did not belong to. */
+.stat b{font-size:calc(1.06*var(--u));font-weight:700;white-space:nowrap}
+.stat span{font-size:calc(.86*var(--u));color:var(--ink-3);white-space:nowrap}
+#st-dispatch b{color:var(--green)}
+.stat.weak b,.stat.weak svg{color:var(--amber)}
+
+.btn{
+  display:flex;align-items:center;gap:calc(.5*var(--u));flex:none;
+  height:calc(3.4*var(--u));padding:0 calc(1.2*var(--u));
+  border-radius:calc(.9*var(--u));
+  background:var(--card);box-shadow:var(--shadow-2);
+  font-size:calc(1.08*var(--u));font-weight:800;letter-spacing:.04em;color:var(--ink);
+}
+.btn svg{width:calc(1.7*var(--u));height:calc(1.7*var(--u))}
+.btn.sos{background:var(--red);color:#fff;box-shadow:0 calc(.3*var(--u)) calc(1*var(--u)) rgba(229,52,42,.35)}
+
+/* Inert means drawn, visible, and honestly dead. Nothing behind these yet. */
+.inert{cursor:default;opacity:.72}
+.btn.inert{opacity:.85}
+
+/* ---- stale banner (D-004) ---------------------------------------------------- */
+.stale[hidden]{display:none}   /* an author `display` beats the UA rule for
+                                  [hidden]; without this the banner shipped
+                                  visible on a perfectly healthy feed */
+.stale{
+  display:flex;align-items:baseline;gap:calc(.8*var(--u));
+  background:#FDECEA;border:1px solid #F3B7B1;border-radius:calc(.9*var(--u));
+  padding:calc(.5*var(--u)) calc(1.2*var(--u));
+  font-size:calc(1.06*var(--u));color:#8A251E;
+}
+.stale b{color:var(--red);font-size:calc(1.26*var(--u))}
+.stale i{font-style:normal;font-family:var(--mono);color:#6E1A15}
+
+/* ---- body -------------------------------------------------------------------- */
+.main{display:grid;grid-template-columns:1fr 2.42fr;gap:var(--gap);min-height:0}
+.right{display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:var(--gap);min-height:0}
+.card{
+  background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);
+  min-width:0;min-height:0;
+}
+
+/* ---- driver ------------------------------------------------------------------ */
+.who{
+  display:flex;flex-direction:column;align-items:center;
+  padding:var(--pad) var(--pad-x) 0;
+  overflow:hidden;text-align:center;
+}
+.face-wrap{position:relative;flex:none}
+/* Initials, not a portrait. The ring is the design's, and a real photograph
+   drops into the same circle without moving anything. */
+.face{
+  width:calc(10*var(--u));height:calc(10*var(--u));border-radius:50%;
+  display:grid;place-items:center;overflow:hidden;
+  background:linear-gradient(160deg,var(--teal-soft),var(--blue-soft));
+  border:calc(.3*var(--u)) solid #fff;
+  box-shadow:0 0 0 calc(.18*var(--u)) var(--line-2), var(--shadow-2);
+}
+/* The portrait fills the circle, whether it is the drawn stand-in or a real
+   photograph dropped into img/driver.jpg. */
+.face>*{width:100%;height:100%;object-fit:cover;display:block}
+.verified{
+  position:absolute;right:calc(.2*var(--u));bottom:calc(.4*var(--u));
+  width:calc(2.6*var(--u));height:calc(2.6*var(--u));border-radius:50%;
+  display:grid;place-items:center;background:var(--teal);color:#fff;
+  border:calc(.22*var(--u)) solid #fff;
+}
+.verified svg{width:calc(1.3*var(--u));height:calc(1.3*var(--u))}
+
+.who-name{
+  margin-top:calc(.8*var(--u));
+  font-size:calc(2*var(--u));font-weight:800;letter-spacing:.02em;
+  text-transform:uppercase;line-height:1.15;
+  max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.who-rate{display:flex;align-items:center;gap:calc(.8*var(--u));margin-top:calc(.7*var(--u))}
+.who-rate .pill{
+  display:flex;align-items:center;gap:calc(.35*var(--u));
+  background:var(--teal);color:#fff;border-radius:99px;
+  padding:calc(.3*var(--u)) calc(.85*var(--u));
+  font-size:calc(1.02*var(--u));font-weight:800;
+}
+.who-rate .pill svg{width:calc(1.15*var(--u));height:calc(1.15*var(--u))}
+.who-rate i{width:1px;height:calc(1.5*var(--u));background:var(--line-2)}
+.who-rate .trips{font-size:calc(1.02*var(--u));color:var(--ink-2)}
+.who-rate .trips b{font-weight:700;color:var(--ink)}
+
+.who-list{
+  width:100%;margin-top:calc(1*var(--u));padding-top:calc(1*var(--u));
+  border-top:1px solid var(--line);
+  display:grid;row-gap:calc(.7*var(--u));text-align:left;
+}
+.who-list div{display:grid;grid-template-columns:calc(2.2*var(--u)) minmax(0,1fr);align-items:center;column-gap:calc(.7*var(--u))}
+.who-list dt{display:grid;place-items:center}
+.who-list dt svg{width:calc(1.7*var(--u));height:calc(1.7*var(--u));color:var(--teal)}
+.who-list dd{
+  margin:0;font-size:calc(1.2*var(--u));color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#who-plate{font-family:var(--mono);font-weight:700;letter-spacing:.04em}
+
+/* The photograph takes whatever height is left and is CROPPED by the card, never
+   squashed: a car with the wrong proportions is worse than no car.
+
+   The top edge is masked into the card because the studio background is a pale
+   blue-grey and the card is white, and a hard horizontal seam between the two
+   reads as a mistake rather than as a photograph. */
+.who-art{
+  width:calc(100% + 2*var(--pad-x));margin:auto calc(-1*var(--pad-x)) 0;
+  min-height:0;flex:1;object-fit:cover;object-position:center 58%;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 15%);
+          mask-image:linear-gradient(180deg,transparent 0,#000 15%);
+}
+
+/* ---- the meter ---------------------------------------------------------------- */
+/* THE CARD IS A CONTAINER, and the fare sizes itself against it.
+
+   This used to be hand-tuned: measure the overflow at 1600x900, shave a few
+   tenths of a unit off the figure, measure again. That works at exactly one
+   aspect ratio. On a 2.24 wide panel the rows divide differently, the card is
+   shorter, and the first thing the overflow eats is the padding at the top,
+   which is how the heading ended up sitting on the card's own edge.
+
+   The fix is structural: the figure lives in a box that takes the card's
+   LEFTOVER height (`.amount-wrap`, `flex: 1`), and sizes itself against that box
+   with `container-type: size` and `cqh`. The heading keeps its margin, the
+   receipt keeps its size, and the fare is whatever fits between them, at any
+   panel shape and with or without the stale banner.
+
+   No `overflow:hidden`: the line box is deliberately tighter than the glyphs,
+   so a clip would turn a rounding error into a shaved digit. */
+.fare{
+  padding:var(--pad) calc(1.6*var(--u));
+  display:flex;flex-direction:column;justify-content:center;
+  position:relative;
+}
+.f-head{display:flex;align-items:center;gap:calc(.9*var(--u))}
+.f-head b{font-size:calc(1.35*var(--u));font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.hire-pill{
+  display:flex;align-items:center;gap:calc(.4*var(--u));margin-left:auto;
+  border:1px solid var(--teal);border-radius:99px;background:var(--teal-soft);
+  padding:calc(.35*var(--u)) calc(.9*var(--u));
+  font:800 calc(.98*var(--u))/1 var(--sans);letter-spacing:.09em;
+  text-transform:uppercase;color:var(--teal);
+}
+.hire-pill svg{width:calc(1.2*var(--u));height:calc(1.2*var(--u))}
+.hire-pill i{font-style:normal}
+.cluster.empty .hire-pill{color:var(--ink-3);border-color:var(--line-2);background:var(--sunk)}
+
+/* The largest thing on the glass, and deliberately so. "Rp" LEADS the figure,
+   which is how rupiah is written and how a passenger reads it. */
+.amount{
+  display:flex;align-items:baseline;justify-content:center;gap:calc(.8*var(--u));
+  margin:calc(.4*var(--u)) 0 calc(.3*var(--u));line-height:.95;
+}
+/* The box that owns the slack, and the container the figure measures itself
+   against. `min-height: 0` so it can actually give way; without it a flex item
+   refuses to shrink below its content and we are back to overflow. */
+.amount-wrap{
+  flex:1;min-height:0;container-type:size;
+  display:flex;align-items:center;justify-content:center;
+}
+/* 92 % of the box it sits in, capped at 5.9 units so it cannot grow absurd on a
+   tall panel. The cap is taste; the percentage is what makes it safe, and the
+   percentage has to be high or the fare stops out-ranking the measures beside
+   it, which is the whole point of the card. */
+.amount b{
+  font-family:var(--mono);font-weight:800;
+  font-size:min(calc(5.9*var(--u)),92cqh);
+  letter-spacing:-.055em;color:var(--ink);white-space:nowrap;
+}
+.amount span{font-size:min(calc(2.3*var(--u)),34cqh);font-weight:800;color:var(--ink-3)}
+.rule{
+  display:block;height:calc(.28*var(--u));border-radius:99px;
+  width:52%;margin:0 auto;
+  background:linear-gradient(90deg,var(--teal),var(--blue));
+}
+
+/* THE RECEIPT. It used to be one grey line at 1,04u under the figure, and the
+   operator was right that it was too small: this is the passenger's only way to
+   check what they are being charged, and on a screen about a regulated meter
+   that is not a footnote.
+
+   It is a panel of its own now, on the sunk field so it reads as a printed slip
+   rather than as a caption, with the money right-aligned in its own column so
+   the lines add up down a single edge. */
+.receipt{
+  margin-top:calc(.7*var(--u));
+  background:var(--sunk);border-radius:calc(1*var(--u));
+  padding:calc(.6*var(--u)) calc(1.2*var(--u));
+  display:grid;row-gap:calc(.34*var(--u));
+}
+/* A tight line box on purpose. These rows carry mono figures with no
+   descenders to speak of, and the default 1,2 leading was costing the card
+   nearly a fifth of its height, which came straight out of the fare. */
+.r-row{
+  display:grid;grid-template-columns:auto minmax(0,1fr);
+  align-items:baseline;column-gap:calc(1.2*var(--u));line-height:1.12;
+}
+.r-row dt{
+  display:flex;align-items:center;gap:calc(.5*var(--u));
+  font-size:calc(1.2*var(--u));font-weight:700;letter-spacing:.04em;color:var(--ink-2);
+  white-space:nowrap;
+}
+.r-row dt svg{width:calc(1.5*var(--u));height:calc(1.5*var(--u));color:var(--teal);flex:none}
+/* The measurement is the whole right-hand column now, so it takes the weight the
+   money used to have: right-aligned, so the two rows read down one edge. */
+.r-row .qty{
+  margin:0;font-size:calc(1.2*var(--u));color:var(--ink-3);
+  text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.r-row .qty b{font-family:var(--mono);font-size:calc(2.05*var(--u));font-weight:800;color:var(--ink);letter-spacing:-.03em}
+/* A charge nobody has signed off does not get to look settled. It is shown,
+   because the driver will be charging it, and it is marked, because the
+   SELARIDE documentation has no waiting tariff in it and the tariff rule puts
+   that in the Direktur's hands. */
+.chip{
+  background:#FBEFD6;color:#7A5410;border:1px solid #EBD3A3;
+  border-radius:calc(.4*var(--u));padding:calc(.15*var(--u)) calc(.45*var(--u));
+  font-size:calc(.84*var(--u));font-weight:700;letter-spacing:.03em;
+}
+.chip[hidden]{display:none}
+/* Waiting running is a state the driver must notice without hunting for it: it
+   earns money, and it is the line a passenger queries. */
+.cluster.waiting #r-wait dt,
+.cluster.waiting #r-wait dt svg{color:var(--blue)}
+.cluster.waiting #r-wait .qty b{color:var(--blue)}
+
+/* Whether the meter is running, in words. A fare that is not moving looks
+   identical to a fare that is, and that difference is the whole of what
+   "kilometer isi" means. */
+.f-state{margin-top:calc(.3*var(--u));text-align:center;font-size:calc(1.02*var(--u));color:var(--ink-3)}
+.f-state b{color:var(--teal);font-weight:800}
+.cluster.empty .f-state b{color:var(--ink-2)}
+
+/* ---- measures ------------------------------------------------------------------ */
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap)}
+.metric{
+  padding:var(--pad) var(--pad-x);
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+}
+.ic{
+  display:grid;place-items:center;
+  width:calc(3.9*var(--u));height:calc(3.9*var(--u));border-radius:50%;
+}
+.ic svg{width:calc(2.1*var(--u));height:calc(2.1*var(--u))}
+.ic.teal{background:var(--teal-soft);color:var(--teal)}
+.ic.blue{background:var(--blue-soft);color:var(--blue)}
+.ic.green{background:var(--green-soft);color:var(--green)}
+.metric h3{
+  margin-top:calc(.7*var(--u));
+  font-size:calc(1.02*var(--u));font-weight:700;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--ink-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+}
+.metric .v{display:flex;align-items:baseline;gap:calc(.4*var(--u));margin-top:calc(.35*var(--u))}
+/* A step below the fare, deliberately. These are what the fare was measured
+   from; the fare is what the passenger pays. */
+.metric .v b{font-family:var(--mono);font-size:calc(3.2*var(--u));font-weight:800;letter-spacing:-.05em;color:var(--ink)}
+.metric .v span{font-size:calc(1.1*var(--u));font-weight:700;color:var(--ink-3);text-transform:uppercase}
+.metric .v.dur b{font-size:calc(2.7*var(--u))}
+.metric .v.dur em{font-style:normal;font-family:var(--mono);font-size:calc(2.3*var(--u));color:var(--ink-3);margin:0 calc(-.05*var(--u))}
+.dur-lab{display:flex;justify-content:space-between;width:calc(11*var(--u));max-width:100%;margin-top:calc(.1*var(--u))}
+.dur-lab span{font-size:calc(.86*var(--u));color:var(--ink-3)}
+ /* `.pbar`, not `.bar`. The first name collided with the status bar at the top
+    of the screen, and since this rule comes later it won: the header became a
+    5,6 px tall block that stacked its own children down the page. A generic
+    name is worth exactly nothing compared to the hour that costs. */
+.pbar{
+  display:block;width:60%;height:calc(.35*var(--u));margin-top:calc(.8*var(--u));
+  background:var(--sunk);border-radius:99px;overflow:hidden;
+}
+.pbar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--teal),var(--blue));
+  transition:width .42s cubic-bezier(.16,1,.3,1)}
+#m-speed .pbar i{background:var(--green)}
+
+/* ---- actions --------------------------------------------------------------------- */
+.actions{display:grid;grid-template-columns:1fr auto 1.35fr;gap:var(--gap);align-items:stretch}
+.act{
+  display:flex;align-items:center;justify-content:center;gap:calc(.7*var(--u));
+  height:calc(5.7*var(--u));border-radius:calc(1.3*var(--u));
+  font-size:calc(1.35*var(--u));font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.act svg{width:calc(2*var(--u));height:calc(2*var(--u))}
+.act.soft{background:var(--teal-soft);color:var(--teal)}
+.act.round{width:calc(5.7*var(--u));background:var(--card);color:var(--ink-2);box-shadow:var(--shadow-2);border-radius:50%}
+.act.primary{
+  background:linear-gradient(90deg,var(--teal) 0%,var(--blue) 100%);color:#fff;
+  box-shadow:0 calc(.4*var(--u)) calc(1.2*var(--u)) rgba(28,110,190,.3);
+}
+/* The battery. An INDICATOR, not a control: it is the one thing in this row that
+   is live, so it is not dimmed and carries no `inert` mark. */
+/* ---- battery, in the status bar ------------------------------------------------ */
+/* It reads as a state among the other states up here, and it keeps the upright
+   drawing: a level that rises reads as a level.
+
+   Selected as `.stat .batt-ic`, not `.batt-ic`, because `.stat svg` sizes every
+   other icon in the bar and (0,1,1) beats (0,1,0) whichever is written last.
+   The same trap cost an hour when this thing lived in the action row. */
+.batt-stat{color:var(--green)}
+.stat .batt-ic{width:calc(1.5*var(--u));height:calc(2.75*var(--u));grid-row:span 2;justify-self:center}
+.batt-fill{fill:var(--green);
+  transition:height .5s cubic-bezier(.16,1,.3,1),y .5s cubic-bezier(.16,1,.3,1),fill .4s linear}
+.batt-stat b{color:var(--ink)}
+.batt-stat b span{font-family:var(--mono);letter-spacing:-.02em}
+/* Below a quarter it stops being green, on the same thresholds the rest of the
+   system uses. A battery still drawn green at 8 % is decoration. */
+#c-batt.warn,#c-batt.warn b{color:var(--amber)}
+#c-batt.warn .batt-fill{fill:var(--amber)}
+#c-batt.low,#c-batt.low b{color:var(--red)}
+#c-batt.low .batt-fill{fill:var(--red)}
+
+/* ---- dock ------------------------------------------------------------------------ */
+.dock{
+  display:flex;align-items:center;justify-content:space-around;
+  background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);
+  padding:calc(.85*var(--u)) var(--pad-x);
+}
+.dock .sep{width:1px;height:calc(2.6*var(--u));background:var(--line)}
+.tab{
+  position:relative;display:flex;align-items:center;gap:calc(.7*var(--u));
+  padding:calc(.4*var(--u)) calc(.8*var(--u));
+  font-size:calc(1.06*var(--u));font-weight:700;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ink-2);
+}
+.tab svg{width:calc(2.2*var(--u));height:calc(2.2*var(--u));color:var(--ink-2)}
+.badge2{
+  position:absolute;left:calc(1.6*var(--u));top:calc(-.1*var(--u));
+  min-width:calc(1.5*var(--u));height:calc(1.5*var(--u));border-radius:99px;
+  background:var(--blue);color:#fff;border:calc(.15*var(--u)) solid #fff;
+  font:800 calc(.8*var(--u))/calc(1.5*var(--u)) var(--sans);font-style:normal;text-align:center;
+}
+.tab .plus{
+  display:grid;place-items:center;
+  width:calc(3.4*var(--u));height:calc(3.4*var(--u));border-radius:50%;
+  background:var(--card);box-shadow:0 calc(.2*var(--u)) calc(.8*var(--u)) rgba(22,68,120,.18);
+  color:var(--ink);
+}
+.tab .plus svg{width:calc(1.8*var(--u));height:calc(1.8*var(--u))}
+
+/* ---- provenance -------------------------------------------------------------------- */
+/* Flowing text, not a flex row. As a flex row each clause was an item that could
+   be squeezed, and "DFSK Gelora E" broke across two lines inside its own phrase. */
+.prov{font-size:calc(.84*var(--u));color:var(--ink-3);letter-spacing:.03em;line-height:1.4;text-align:center}
+.prov b{color:var(--ink-2);font-weight:700}
+
+/* ---- one face, and it is the light one -------------------------------------------- */
+/* A night class was built here and REMOVED on the Direktur's instruction: the design is a
+   daylight face and it ships as one, at every hour.
+
+   The reason it existed is on the record rather than in the code, because it is a real
+   thing and it will come up in the vehicle: a white panel at 2 a.m. is bright in the
+   driver's eyes and reflects in the windscreen. If that turns out to matter on the road,
+   the cheapest answer is a brightness control behind Pengaturan, not a second theme
+   nobody asked for. The tokens are all in `:root`, so a dark set is an afternoon's work
+   whenever somebody decides they want one. */
+
+/* ---- stale ------------------------------------------------------------------------ */
+/* Stale dims EVERY value, not only one card. Dimming half the screen while the
+   rest stayed bright said the rest was still live.
+
+   The drop is a COLOUR, not an opacity. An earlier build used opacity .32 and
+   put the whole stale readout at 2.71:1, under the floor for text a driver is
+   being asked to read and then disregard. */
+.cluster.stale-on .amount b,
+.cluster.stale-on .metric .v b,
+.cluster.stale-on .metric .v em,
+.cluster.stale-on .r-row .qty b,
+.cluster.stale-on .batt-stat b{color:var(--ink-3)}
+.cluster.stale-on .batt-fill{fill:var(--line-2)}
+.cluster.stale-on .pbar i{background:var(--line-2)}
+.cluster.stale-on .rule{background:var(--line-2)}
+/* The meter is not live when the feed is not: what it counts is distance off
+   the bus, and the bus has stopped reporting. */
+.cluster.stale-on .f-state b{color:var(--ink-2)}
+/* The banner is a row that appears, and the fare card pays for all of it: the
+   measures and the action row are `auto`, so the whole of it comes out of the
+   one row that can give.
+
+   There is nothing to tune here any more. The figure is a fraction of the card,
+   so a shorter card is a smaller figure, automatically and at every aspect
+   ratio. The nine hand-set sizes that used to live in this block were nine
+   places to be wrong. */
+.cluster.stale-on .stale{margin-bottom:calc(.6*var(--u))}
+/* The one thing still tuned by hand, and it is the receipt rather than the
+   figure: without it the leftover box gets so thin that the fare shrinks past
+   the point of being the headline. */
+.cluster.stale-on .receipt{padding:calc(.45*var(--u)) calc(1.2*var(--u));row-gap:calc(.2*var(--u))}
+.cluster.stale-on .r-row .qty b{font-size:calc(1.7*var(--u))}
+
+/* The one authored motion moment: the fare rises into place once, the way a
+   meter settles. */
+@keyframes rise{from{opacity:0;transform:translateY(calc(.8*var(--u)))}to{opacity:1;transform:none}}
+.booting .amount b,.booting .metric .v{animation:rise .5s .15s ease-out both}
+@media (prefers-reduced-motion:reduce){
+  .booting .amount b,.booting .metric .v{animation:none}
+  .bar i{transition:none}
+}
+
+/* A panel narrower than it is tall is not the shipping frame, but a technician
+   will open this on a phone. Stack rather than crush. */
+@media (max-aspect-ratio:1/1){
+  /* --u comes off the WIDTH here, because width is what constrains a stacked
+     card. Taking it off height made every card wider than the phone. */
+  :root{--u:3.2vw}
+  body{overflow:auto}
+  .cluster{
+    height:auto;min-height:100dvh;overflow:visible;
+    grid-template-rows:none;grid-auto-rows:auto;
+    padding-bottom:calc(2.4*var(--u));
+  }
+  .bar{flex-wrap:wrap;row-gap:calc(.8*var(--u))}
+  .pbar{width:75%}
+  .clock{margin-left:0;padding-left:0;border-left:0;order:-1;width:100%}
+  #st-dispatch{margin-left:0}
+  .btn.sos{margin-left:0}
+
+  .main{grid-template-columns:minmax(0,1fr);row-gap:calc(1*var(--u))}
+  .right{grid-template-rows:none;grid-auto-rows:auto}
+  .who-art{height:calc(22*var(--u))}
+  /* Arithmetic, not taste: about 26 units of inner width, less 3 for the
+     currency word and its gap, over seven mono characters at 0.6 em. */
+  .amount b{font-size:calc(5.4*var(--u))}
+  .amount span{font-size:calc(1.6*var(--u))}
+  .f-head b{font-size:calc(1.5*var(--u))}
+  /* Two columns on a phone: the quantity moves under its own label, and the
+     money keeps its right edge. Three columns at 430 px put the rate and the
+     amount in a fight neither wins. */
+  .r-row dt,.r-row .qty{font-size:calc(1.35*var(--u))}
+  .r-row .qty b{font-size:calc(2.2*var(--u))}
+  .f-state{font-size:calc(1.3*var(--u))}
+  /* A name gets to wrap on a phone rather than lose its own ending. */
+  .who-name{font-size:calc(2.6*var(--u));white-space:normal}
+  .who-list dd{font-size:calc(1.7*var(--u))}
+  .metrics{grid-template-columns:minmax(0,1fr)}
+  .metric h3{font-size:calc(1.4*var(--u))}
+  .metric .v b{font-size:calc(4.6*var(--u))}
+  .metric .v.dur b{font-size:calc(4*var(--u))}
+  .dur-lab{width:calc(15*var(--u))}
+  .dur-lab span{font-size:calc(1.2*var(--u))}
+  .actions{grid-template-columns:1fr auto}
+  .act.primary{grid-column:1/-1}
+  .act{font-size:calc(1.5*var(--u));height:calc(6.4*var(--u))}
+  .dock{flex-wrap:wrap;justify-content:center;gap:calc(.6*var(--u))}
+  .dock .sep{display:none}
+  .tab{font-size:calc(1.3*var(--u))}
+  .prov{font-size:calc(1.15*var(--u))}
+}
+</style></head>
+<body>
+
+<!-- THE GROUND.
+
+     The Direktur's design puts a soft daylight landscape behind the cards:
+     waves, hills, a turbine, a city. Drawn in SVG rather than placed as a
+     photograph, for the same three reasons the night build used: there is no
+     image asset in this repo, a stock image cannot be versioned or recoloured
+     with the theme, and the night class has to be able to step the whole thing
+     back by one token. Geometry does all three and costs a few kilobytes. -->
+<svg class="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#E9F1FB"/>
+      <stop offset="55%" stop-color="#F4F8FD"/>
+      <stop offset="100%" stop-color="#E4EEF9"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C9DCF0"/>
+      <stop offset="100%" stop-color="#C9DCF0" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="hill2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D8E7F6"/>
+      <stop offset="100%" stop-color="#D8E7F6" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#sky)"/>
+
+  <!-- Wave lines, top right. The design's one piece of pure decoration, and it
+       stays at the weight it was drawn: a texture you notice second. -->
+  <g fill="none" stroke="#BFD6EE" stroke-width="1.6" opacity=".55">
+    <path d="M980 40c140-60 300-40 420 20s190 40 200 20"/>
+    <path d="M960 80c150-60 310-36 430 26s180 34 200 14"/>
+    <path d="M950 122c160-58 320-30 440 32s170 28 200 8"/>
+    <path d="M950 166c170-56 330-24 450 38s160 22 200 2"/>
+  </g>
+  <!-- The dot field the design puts beside the fare. -->
+  <g fill="#C3D8EE" opacity=".8">
+    <g id="dots"></g>
+  </g>
+
+  <path d="M0 640c180-70 300-40 430 10s260 60 420 10 320-80 480-30 270 70 270 70v200H0z" fill="url(#hill2)" opacity=".8"/>
+  <path d="M0 720c220-60 340-20 470 26s280 50 430 6 300-64 460-20 240 58 240 58v110H0z" fill="url(#hill)" opacity=".7"/>
+
+  <!-- A turbine, because the design has one and this is an electric fleet. -->
+  <g stroke="#B7CFE8" stroke-width="5" stroke-linecap="round" fill="none" opacity=".85">
+    <path d="M1246 760V636"/>
+    <path d="M1246 634 1196 556"/><path d="M1246 634 1330 604"/><path d="M1246 634 1232 726"/>
+  </g>
+  <g fill="#C4D9EF" opacity=".75">
+    <rect x="80" y="690" width="34" height="80"/><rect x="124" y="712" width="26" height="58"/>
+    <rect x="160" y="672" width="30" height="98"/><rect x="200" y="716" width="22" height="54"/>
+  </g>
+</svg>
+
+<!-- Icon geometry, defined once and used by reference. Drawn, not typed: a
+     glyph borrowed from a font is a different stroke weight from everything
+     beside it, and at this size the mismatch is the first thing that reads as
+     assembled rather than built. One weight, 1.8, across the set. -->
+<svg class="defs" aria-hidden="true"><defs>
+  <g id="i-alert" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 4.2 21 19.5H3z"/><path d="M12 10v4"/><path d="M12 16.6h.01"/>
+  </g>
+  <g id="i-receipt" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3.5h12v17l-2.2-1.6-2.4 1.6-2.4-1.6-2.4 1.6L6 20.5z"/><path d="M9.2 8.4h5.6"/><path d="M9.2 12.2h5.6"/>
+  </g>
+  <g id="i-phone" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.4 3.8h3l1.6 4-2 1.4a12 12 0 0 0 5.8 5.8l1.4-2 4 1.6v3a2 2 0 0 1-2.2 2A17.6 17.6 0 0 1 4.4 6a2 2 0 0 1 2-2.2z"/>
+  </g>
+  <g id="i-bank" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 9.5 12 4.5l8.5 5"/><path d="M5.5 9.5v9"/><path d="M9.5 9.5v9"/><path d="M14.5 9.5v9"/><path d="M18.5 9.5v9"/><path d="M3.5 19.5h17"/>
+  </g>
+  <g id="i-car" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 16.2v-2.6l1.7-3.8A2 2 0 0 1 7.5 8.6h9a2 2 0 0 1 1.8 1.2l1.7 3.8v2.6"/>
+    <path d="M4 16.2h16"/><circle cx="8" cy="16.2" r="1.5"/><circle cx="16" cy="16.2" r="1.5"/>
+  </g>
+  <g id="i-star" fill="currentColor"><path d="m12 3.6 2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.9l6-.8z"/></g>
+  <g id="i-check" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m5.5 12.4 4.2 4.2 8.8-9"/>
+  </g>
+  <g id="i-pin" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 20.5s5.6-5.4 5.6-9.6a5.6 5.6 0 1 0-11.2 0c0 4.2 5.6 9.6 5.6 9.6z"/><circle cx="12" cy="10.6" r="2"/>
+    <path d="M6.4 18.4c-1.8.5-2.9 1.2-2.9 2 0 1.4 3.8 2.6 8.5 2.6s8.5-1.2 8.5-2.6c0-.8-1.1-1.5-2.9-2" stroke-dasharray="2.6 2.6"/>
+  </g>
+  <g id="i-clock" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.4"/><path d="M12 7.2V12l3.2 2.2"/>
+  </g>
+  <g id="i-speed" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.4 17.2a8.6 8.6 0 1 1 15.2 0"/><path d="m12 12.6 3.8-3.4"/><circle cx="12" cy="13.6" r="1.3"/>
+  </g>
+  <g id="i-leaf" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19.5 4.5c0 8-4.4 12.4-10.4 12.4A5 5 0 0 1 4 12.2C4 7.4 9.4 4.9 19.5 4.5z"/><path d="M14.8 8.6 5 19.5"/>
+  </g>
+  <g id="i-flag" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5.5 21V4"/><path d="M5.5 5.2h13l-2.6 4 2.6 4h-13"/>
+  </g>
+  <g id="i-dots" fill="currentColor"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></g>
+  <g id="i-person" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>
+  </g>
+  <g id="i-plus" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></g>
+  <!-- A gear, not a sun. Long thin spokes on a small hub read as rays; a wide
+       hub with short teeth reads as a cog. -->
+  <g id="i-gear" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="6.6"/>
+    <path d="M12 3.4v2M12 18.6v2M20.6 12h-2M5.4 12h-2M18.1 5.9l-1.4 1.4M7.3 16.7l-1.4 1.4M18.1 18.1l-1.4-1.4M7.3 7.3 5.9 5.9"/>
+  </g>
+  <g id="i-bolt" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 3 5.5 13.5H12l-1 7.5 7.5-10.5H12z"/>
+  </g>
+  <g id="i-sat" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3a9 9 0 0 1 9 9"/><path d="M12 8a4 4 0 0 1 4 4"/><circle cx="6.5" cy="17.5" r="2.5"/><path d="M8.3 15.7 13 11"/>
+  </g>
+</defs></svg>
+
+<div class="cluster" id="cluster">
+
+  <header class="bar">
+    <!-- SELARIDE is the operator's product and this screen belongs to it, so
+         the mark at the top left is theirs. BMT's own mark is in the credit
+         line at the foot, where a maker's name belongs. -->
+    <div class="brand">
+      <!-- The real SELARIDE mark, from the logo file the operator sent on
+           27 September. It used to be a drawing of mine that resembled it, and a
+           brand mark should never be an approximation by the person using it.
+
+           Cropped to the mark, lifted off the light blue field it arrived on,
+           and stored at four times its source size. The wordmark stays LIVE TEXT
+           rather than part of the image: the source is 205 px wide and its
+           letters are 20 px tall, and blowing that up to the size this header
+           needs would put a soft logo beside sharp numbers. -->
+      <img class="mark" src="/img/mark.png" alt="SELARIDE">
+      <p class="wordmark">SELARIDE</p>
+    </div>
+
+    <p class="clock"><b id="clock">--:--</b><span id="date">&nbsp;</span></p>
+
+    <div class="stat" id="st-dispatch"><span class="dot"></span><b id="disp-b">Siap</b><span id="disp-s">terima order</span></div>
+    <div class="stat"><svg viewBox="0 0 24 24"><use href="#i-sat"/></svg><b id="gps-b">GPS</b><span id="gps-s">mencari</span></div>
+
+    <!-- Battery, moved up here on the team's note. It belongs with the other
+         standing conditions of the vehicle rather than in the row of things you
+         press: it is a state, not an action, and it never stops being true. -->
+    <div class="stat batt-stat" id="c-batt">
+      <svg class="batt-ic" viewBox="0 0 24 44" aria-hidden="true">
+        <rect x="8.4" y="0.8" width="7.2" height="3.6" rx="1.6" fill="currentColor"/>
+        <rect x="1.3" y="4.6" width="21.4" height="38.2" rx="4.6" fill="none" stroke="currentColor" stroke-width="2.4"/>
+        <rect class="batt-fill" id="batt-fill" x="4.6" y="39.8" width="14.8" height="0" rx="2.2"/>
+      </svg>
+      <b><span data-v="soc">0</span>%</b><span>baterai</span>
+    </div>
+
+    <!-- Drawn because the design has them, marked inert because nothing is
+         behind them yet. A control that looks live and does nothing is a lie
+         told in one pixel, and SOS is the worst one in the set to fake.
+
+         The design's third control, a plain "Rp" pill, is gone: nobody could
+         say what it would do, and a button whose purpose has to be guessed is
+         one nobody will press. The struk icon stays because its meaning is at
+         least legible; it is still not wired to anything. -->
+    <span class="btn sos inert" aria-disabled="true" title="Belum aktif">
+      <svg viewBox="0 0 24 24"><use href="#i-alert"/></svg>SOS</span>
+    <span class="btn inert" aria-disabled="true" title="Belum aktif">
+      <svg viewBox="0 0 24 24"><use href="#i-receipt"/></svg></span>
+  </header>
+
+  <!-- D-004: the screen has to be able to say its data is stale. Hidden until
+       it is true, and when it is true it is the loudest thing on the glass,
+       because a plausible old number is worse than no number. -->
+  <p class="stale" id="stale" hidden role="status">
+    <b>Data berhenti</b> Angka di layar ini terakhir diperbarui <i id="stale-age">0</i> detik lalu.
+    Jangan dipakai.
+  </p>
+
+  <div class="main">
+
+    <!-- WHO IS DRIVING. A taxi screen faces the public: the passenger behind it
+         is the one who needs these facts, and they are the first thing anyone
+         asks for when something goes wrong. -->
+    <section class="card who">
+      <div class="face-wrap">
+        <!-- A DRAWN stand-in, not a photograph and not initials.
+
+             A photograph was asked for, and the two ways to get one are both
+             refused here: a stranger's face off the web would put a real person
+             on a fake ID beside a fake name, a fake NIP and a fake plate, and
+             the image generator on this account has no credits, whose free
+             allowance is the operator's to spend and not mine.
+
+             So the slot is built instead. Drop any portrait at
+             `img/driver.jpg` and it replaces this drawing on the next reload,
+             with no code change: `profile.js` names the path and the script
+             falls back to the drawing if the file is not there. -->
+        <div class="face" id="who-face">
+          <svg viewBox="0 0 100 100" role="img" aria-label="Foto pengemudi, contoh">
+            <rect width="100" height="100" fill="#DCEAF7"/>
+            <circle cx="50" cy="104" r="42" fill="#2F73D0"/>
+            <path d="M31 96c0-9 8.5-14 19-14s19 5 19 14v14H31z" fill="#EAF2FB"/>
+            <path d="M50 84c-6 0-11-2-11-2l-4 8 15 8 15-8-4-8s-5 2-11 2z" fill="#F4F8FC"/>
+            <rect x="41" y="62" width="18" height="22" rx="9" fill="#C08B66"/>
+            <ellipse cx="50" cy="52" rx="20" ry="23" fill="#CE9770"/>
+            <path d="M30 50c0-14 9-22 20-22s20 8 20 22c0 3-1 6-1 6 0-8-3-12-6-13-4-1-9 1-13 1s-9-1-12 1c-3 2-7 5-7 11 0 0-1-3-1-6z" fill="#2E2621"/>
+            <ellipse cx="42" cy="52" rx="2.4" ry="2.8" fill="#2E2621"/>
+            <ellipse cx="58" cy="52" rx="2.4" ry="2.8" fill="#2E2621"/>
+            <path d="M37.5 45.5c2-1.6 5-1.6 7 0M55.5 45.5c2-1.6 5-1.6 7 0" stroke="#2E2621" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <path d="M44 63.5c2 1.8 10 1.8 12 0" stroke="#8C5A42" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <path d="M50 54v4.5" stroke="#B07C58" stroke-width="2" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <span class="verified" title="Terverifikasi"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></span>
+      </div>
+
+      <p class="who-name" id="who-name">&nbsp;</p>
+
+      <p class="who-rate">
+        <span class="pill"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg><b id="who-star">–</b></span>
+        <i></i>
+        <span class="trips"><b id="who-trips">–</b> Trip</span>
+      </p>
+
+      <dl class="who-list">
+        <div><dt><svg viewBox="0 0 24 24"><use href="#i-phone"/></svg></dt><dd id="who-phone">&nbsp;</dd></div>
+        <div><dt><svg viewBox="0 0 24 24"><use href="#i-bank"/></svg></dt><dd id="who-org">&nbsp;</dd></div>
+        <div><dt><svg viewBox="0 0 24 24"><use href="#i-car"/></svg></dt><dd id="who-plate">&nbsp;</dd></div>
+      </dl>
+
+      <!-- The fleet vehicle itself, supplied by the operator on 26 September.
+           It replaced a drawn illustration, and the reason the illustration
+           existed in the first place is gone: there was no image asset, and now
+           there is one, of the actual car in its actual livery.
+
+           Cropped to the car and re-encoded to 900 px wide, 70 kB, because the
+           source was a 2 MB studio PNG and this strip renders about 450 px
+           across. Decorative: the plate, the operator and the signal profile
+           are all stated in text, so nothing here is only in the picture. -->
+      <img class="who-art" src="/img/car.jpg" alt="" aria-hidden="true">
+    </section>
+
+    <div class="right">
+
+      <!-- THE METER. The Direktur's design gives the fare the whole top of the
+           working column, and the SELARIDE documentation says the same thing
+           about this device: "MDT berfungsi sebagai argometer". -->
+      <section class="card fare" id="c-fare">
+        <p class="f-head">
+          <b>Total tarif</b>
+          <span class="hire-pill" id="hire-pill"><svg viewBox="0 0 24 24"><use href="#i-person"/></svg><i id="hire-text">Kosong</i></span>
+        </p>
+
+        <!-- The figure sits in a box that takes whatever height the card has
+             left over, and sizes itself against THAT box. So the heading keeps
+             its margin, the receipt keeps its size, and the fare is whatever
+             fits between them, at any panel shape and with or without the
+             stale banner. -->
+        <div class="amount-wrap">
+          <p class="amount"><span>Rp</span><b id="fare">0</b></p>
+        </div>
+        <span class="rule"></span>
+
+        <!-- WHAT THE FARE WAS MEASURED FROM: a distance and a time, and no
+             second price anywhere near them.
+
+             It carried five rupiah figures for a day (the total, two rates and
+             two sub-totals) and the Direktur called it: too many prices, easy to
+             confuse. One price on the screen now, and it is the one the
+             passenger pays. This is also how a real argometer works, which is
+             the better argument for it: the meter shows kilometres, waiting time
+             and the fare, and the tariff itself lives on a sticker in the car.
+
+             The quantities are still the BILLED ones, not the travelled ones:
+             the meter ticks every 100 m and every 0,1 minute. -->
+        <dl class="receipt">
+          <div class="r-row" id="r-km">
+            <dt><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg>Argometer</dt>
+            <dd class="qty"><b id="fare-km">0,0</b> km isi</dd>
+          </div>
+          <div class="r-row" id="r-wait">
+            <dt><svg viewBox="0 0 24 24"><use href="#i-clock"/></svg>Waktu tunggu<span class="chip" id="wait-unapproved">belum disahkan</span></dt>
+            <dd class="qty"><b id="fare-wait">0,0</b> menit</dd>
+          </div>
+        </dl>
+
+        <p class="f-state">Argo <b id="m-state-b">&nbsp;</b><span id="m-state-c"></span></p>
+      </section>
+
+      <!-- Three measures, as designed. Every one of them is either proven on
+           the bus or taken from the device's own clock; nothing here is
+           inferred. -->
+      <div class="metrics">
+        <section class="card metric" id="m-km">
+          <span class="ic teal"><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg></span>
+          <h3>Jarak</h3>
+          <p class="v"><b data-v="tripKm">0,0</b><span>km</span></p>
+          <span class="pbar"><i id="bar-km"></i></span>
+        </section>
+
+        <section class="card metric" id="m-dur">
+          <span class="ic blue"><svg viewBox="0 0 24 24"><use href="#i-clock"/></svg></span>
+          <h3>Durasi perjalanan</h3>
+          <p class="v dur"><b id="dur-h">00</b><em>:</em><b id="dur-m">00</b><em>:</em><b id="dur-s">00</b></p>
+          <p class="dur-lab"><span>jam</span><span>menit</span><span>detik</span></p>
+        </section>
+
+        <section class="card metric" id="m-speed">
+          <span class="ic green"><svg viewBox="0 0 24 24"><use href="#i-speed"/></svg></span>
+          <h3>Kecepatan</h3>
+          <p class="v"><b data-v="speed">0</b><span>km/jam</span></p>
+          <span class="pbar"><i id="bar-speed"></i></span>
+        </section>
+      </div>
+
+      <!-- The design's action row. Every one of these is drawn and marked
+           inert: none of them is wired to anything yet, and "Akhiri trip" is
+           the single most expensive button on this screen to fake. -->
+      <div class="actions">
+        <!-- The slot the battery left. "Isi daya" is the action the Direktur's
+             design put here, so it is the one that came back rather than
+             something invented to fill the space. Inert like the rest of the
+             row: nothing is behind it yet, and what it should DO (find a
+             charger? open a map of chargers? log a charging stop?) is a
+             question for the team, not an assumption for the builder. -->
+        <span class="act soft inert" aria-disabled="true" title="Belum aktif">
+          <svg viewBox="0 0 24 24"><use href="#i-leaf"/></svg>Isi daya</span>
+        <span class="act round inert" aria-disabled="true" title="Belum aktif">
+          <svg viewBox="0 0 24 24"><use href="#i-dots"/></svg></span>
+        <button class="act primary" id="btn-argo" type="button">
+          <svg viewBox="0 0 24 24"><use href="#i-flag"/></svg><b id="btn-argo-text">Mulai trip</b></button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="dock" aria-label="Navigasi">
+    <span class="tab inert" aria-disabled="true">
+      <svg viewBox="0 0 24 24"><use href="#i-person"/></svg>Penumpang<i class="badge2">2</i></span>
+    <span class="sep"></span>
+    <span class="tab inert" aria-disabled="true"><svg viewBox="0 0 24 24"><use href="#i-receipt"/></svg>Rekap</span>
+    <span class="sep"></span>
+    <span class="tab add inert" aria-disabled="true"><span class="plus"><svg viewBox="0 0 24 24"><use href="#i-plus"/></svg></span>Tambah</span>
+    <span class="sep"></span>
+    <span class="tab inert" aria-disabled="true"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg>Pengaturan</span>
+  </nav>
+
+  <!-- Every screen that shows numbers owes the reader their provenance. -->
+  <!-- On the device this line has to say something different from the one in
+       the MDT frame, because here the numbers are NOT mock: they come off the
+       bus, and one control on this screen really does something. A provenance
+       line that is out of date is worse than none. -->
+  <p class="prov" id="prov">
+    Alat uji CAN · data <b>langsung dari bus</b> · identitas pengemudi contoh ·
+    hanya tombol trip yang aktif · tarif dari dokumentasi SELARIDE ·
+    profil sinyal <b>DFSK Gelora E</b> (kendaraan uji)
+    <span id="prov-hidden"></span>
+  </p>
+</div>
+
+<script>
+/* ---- tariff.js ---- */
+/* =============================================================================
+   Tariff
+
+   SALINAN VERBATIM dari project-mdt-tds/mdt-ui/tariff.js.
+
+   Ini satu-satunya duplikasi angka rupiah di seluruh sistem, dan ia disengaja:
+   alat ini tidak bisa mengambil berkas dari repo lain saat build. Kalau tarif
+   berubah, ubah di repo itu dulu, baru salin ke sini. Jangan pernah mengetik
+   ulang angkanya di sini.
+
+   The fare the passenger pays. Kept in its own file, and deliberately small,
+   because this is the one part of the screen that is about MONEY and it will be
+   edited by somebody who is not reading the rest of the code.
+
+   EVERY NUMBER HERE HAS A SOURCE, AND THE SOURCE IS NAMED.
+
+   The authority is the SELARIDE documentation for PT Baswara Trans Selaras, on
+   the operator's Drive, and specifically the answer sheet
+   "Pertanyaan-untuk-Baswara_SELARIDE_v3.9_2026-09-02.docx", whose tariff rows
+   were answered by Baswara on 25 August 2026 and confirmed on 26 August with
+   the word "Betul". Where a number here does NOT come from there, it says so.
+
+   Tariff changes are not a developer's call. The same sheet records the rule:
+   "Distribusi tarif diinput menurut ketentuan yang disetujui Direktur dan
+   Direktur Utama". Editing a figure in this file without that approval puts a
+   number on a passenger's screen that nobody authorised.
+
+   The fare is NOT an ECU value and the confidence rule in profile.js does not
+   govern it. What it is computed FROM is: trip distance and speed, from signals
+   proven on the bus. So the fare is only as good as those signals, and it goes
+   stale when they do.
+   ============================================================================= */
+
+const TARIFF = {
+  /* Rupiah per kilometre. Confirmed by Baswara.
+
+     26 August 2026: "Betul, yang 8,500 itu hanya dummy testing sebelumnya".
+     Worth knowing, because Rp 8.500 reached this build anyway: it was the first
+     figure given here on 26 September before being revised the same day. The
+     documentation had settled it a month earlier. */
+  perKm: 8200,
+
+  /* The billing basis, and the rule this build had wrong before the
+     documentation was read.
+
+     Baswara, 26 August 2026, on what the billing basis is: "Kilometer isi,
+     yaitu kilometer berbayar", LOADED kilometres. Confirmed "Betul".
+
+     So the meter charges only while a passenger is aboard. Distance driven to
+     reach a passenger, or back to the pool, is kilometer kosong and is not
+     billed. The first version of this meter charged every kilometre once it
+     started, which would have overcharged every trip.
+
+     The same sheet applies the same idea to working hours: "Yang kita
+     kategorikan jam mengemudi adalah ketika isi penumpang". */
+  billOnlyWhenOnHire: true,
+
+  /* No opening charge. Inferred, and the arithmetic is the evidence.
+
+     The daily target is recorded as "85 kilometer, setara Rp 697.000", and
+     85 x 8.200 = 697.000 exactly. A flag-fall would have made the target larger
+     than distance alone accounts for.
+
+     One residual assumption: that target may be an aggregate over several
+     trips, in which case a per-trip flag-fall could still exist and simply not
+     show up in the figure. Nobody has been asked directly. Zero is a reasoned
+     position, not a confirmed one, and it is in the open questions. */
+  flagFall: 0,
+
+  /* The distance meter ticks every 100 m rather than billing a continuous
+     distance and then rounding the money.
+
+     Not a detail. Billing raw distance and rounding rupiah made the screen
+     contradict itself: it printed one distance beside a rate, and a passenger
+     doing that multiplication got a different number from the meter. Ticking
+     removes it at the source, and one tick is a whole number of rupiah
+     (0,1 km x Rp 8.200 = Rp 820), so no rounding rule needs inventing.
+
+     Check this whenever the price changes: a rate that is not a multiple of ten
+     would put fractions of a rupiah back into the total. */
+  kmStep: 0.1,
+
+  /* ---- NOT IN THE DOCUMENTATION -------------------------------------------
+
+     Waiting time, rupiah per minute, and the speed below which it runs.
+
+     Source: Surya Wirasdyartha, WhatsApp, 26 September 2026 at 13.02:
+       "Waktu tunggu pakai dl 5k permenit"
+       "Jika kexepatan di bawah 5 km/h saat argo aktif, waktu tunggu idup"
+
+     Implemented as given. Three things about it belong in front of whoever
+     signs it off, because none of them is visible from the numbers alone:
+
+     1. NO WAITING TARIFF APPEARS ANYWHERE IN THE SELARIDE DOCUMENTATION. The
+        confirmed basis is distance alone. This is a new charge, so it needs the
+        Direktur and Direktur Utama approval the tariff rule requires.
+
+     2. Rp 5.000 per minute is Rp 300.000 per hour, and at Rp 8.200 per km that
+        is what the meter earns driving 36,6 km/jam. A vehicle stuck in traffic
+        bills roughly what a vehicle moving at city speed bills.
+
+     3. The meter is subject to TERA, legal metrology sealing. Baswara Finance
+        carries a role called "Pengendali Tarif dan Tera", and the permit regime
+        is a taxi permit under PM 117/2018. Adding a time component changes what
+        the sealed instrument computes, which is a question for the metrology
+        authority and not only a commercial one.
+
+     Until it is approved, the screen marks this line as awaiting approval
+     rather than presenting it as settled. */
+  perMinute: 5000,
+  waitBelowKmh: 5,
+  waitStepMin: 0.1,
+  waitApproved: false,
+
+  currency: 'Rp'
+};
+
+/* A running meter.
+
+   Stateful on purpose: what a fare owes depends on how the trip was spent, not
+   only on where it ended. Two kilometres driven loaded and two driven empty are
+   different fares, and no function of total distance can tell them apart.
+
+   Fed a reading each frame, it splits the trip into distance charged and time
+   charged, and never charges both for the same second.
+
+   `onHire` is the passenger being aboard. On the real device that comes from
+   the dispatch flow, which the documentation places in the Driver App:
+   "Seluruh order lewat Driver App; MDT berfungsi sebagai argometer". This
+   screen IS the argometer. It is told; it does not decide. */
+function createMeter() {
+  let billedKm = 0;
+  let waitSec  = 0;
+  let prevKm   = null;
+  let waiting  = false;
+  let onHire   = false;
+
+  return {
+    update(speed, tripKm, dt, hired) {
+      if (prevKm === null) prevKm = tripKm;
+      const dKm = Math.max(0, tripKm - prevKm);
+      prevKm = tripKm;
+
+      const was = onHire;
+      onHire = !!hired;
+      if (!was && onHire) { billedKm = 0; waitSec = 0; }   // a new trip starts at zero
+
+      // Kilometer kosong: the vehicle moves, the meter does not.
+      if (TARIFF.billOnlyWhenOnHire && !onHire) {
+        waiting = false;
+        return this.read();
+      }
+
+      waiting = speed < TARIFF.waitBelowKmh;
+      if (waiting) waitSec += dt;
+      else billedKm += dKm;
+      return this.read();
+    },
+
+    read() {
+      const kmStep  = TARIFF.kmStep > 0 ? TARIFF.kmStep : 0.1;
+      const minStep = TARIFF.waitStepMin > 0 ? TARIFF.waitStepMin : 0.1;
+      const km      = Math.floor(billedKm / kmStep + 1e-9) * kmStep;
+      const waitMin = Math.floor((waitSec / 60) / minStep + 1e-9) * minStep;
+      const kmAmount   = Math.round(km * TARIFF.perKm);
+      const waitAmount = Math.round(waitMin * TARIFF.perMinute);
+      return {
+        onHire, waiting,
+        km, waitMin,
+        kmAmount, waitAmount,
+        base: TARIFF.flagFall,
+        total: TARIFF.flagFall + kmAmount + waitAmount
+      };
+    }
+  };
+}
+
+/* "Rp 12.700". Indonesian grouping, no decimals: rupiah has no subunit in use.
+   The space is non-breaking: a currency word that wraps away from its amount is
+   a different number. */
+function rupiah(amount) {
+  return TARIFF.currency + ' ' + grouped(amount);
+}
+
+/* The same figure without the currency word, for the hero amount, where the
+   markup sets "Rp" at its own size beside the digits. Using rupiah() there
+   printed the currency twice, which at that size was not subtle. */
+function grouped(amount) {
+  return Math.round(amount).toLocaleString('id-ID');
+}
+
+/* The line that lets a passenger check the arithmetic, naming the basis the
+   documentation settled. */
+function rateLabel() {
+  return rupiah(TARIFF.perKm) + ' per kilometer isi';
+}
+
+/* The rule that switched the meter, printed beside the charge it produced. */
+function waitRuleLabel() {
+  return 'waktu tunggu ' + rupiah(TARIFF.perMinute) + ' per menit, di bawah '
+       + TARIFF.waitBelowKmh + ' km/jam';
+}
+
+/* ---- profile.js ---- */
+/* =============================================================================
+   Signal profile
+
+   The screen renders THIS, not a hard-coded layout. Every value the driver sees
+   is declared here with its status, and the renderer draws nothing whose status
+   is not "terbukti".
+
+   That is the point. The house rule says an ECU number may never appear without
+   a confidence marker, and a rule enforced by discipline is a rule that survives
+   until the first hurried afternoon. Enforced by the data instead, a signal
+   nobody has proven cannot reach the glass even if somebody writes markup for
+   it.
+
+   Status ladder, from bmt-can-signal-mapping:
+
+     dugaan    the number is plausible, never tested against anything
+     kandidat  matches the vehicle's own screen, but only while parked
+     terbukti  the value MOVED with the vehicle and survived a proof
+     gugur     was raised, then withdrawn by later evidence
+
+   Kandidat is not half-proven. It is not proven at all: any field holding the
+   right number while standing still looks exactly as convincing as a correct
+   mapping.
+
+   THE IDENTIFIERS BELOW BELONG TO A DFSK GELORA E, the test vehicle. The fleet
+   runs Wuling and has never been mapped. They are here as the SHAPE of a
+   profile, never as fleet truth, and copying them into a fleet profile is the
+   fastest way to make the system display a confident wrong number.
+   ============================================================================= */
+
+const VEHICLE = {
+  slug: 'dfsk-gelora-e',
+  label: 'DFSK Gelora E',
+  note: 'kendaraan uji, bukan kendaraan armada',
+  bitrate: 250000,
+  evidence: 'bmt-avanza-iot-testing/docs/evidence/dfsk-gelora-e/gelora-004.md'
+};
+
+/* Who is driving, and in what.
+
+   NOT an ECU value and not a reading of any kind. On the real device this
+   arrives at sign-on, from the dispatch server by way of the Driver App, which
+   is where the SELARIDE documentation puts the whole order flow: "Seluruh order
+   lewat Driver App; MDT berfungsi sebagai argometer".
+
+   It is on the glass because a taxi screen is a public-facing object. The
+   passenger sitting behind it is the one who needs to know who is driving and
+   which vehicle they are in, and it is the first thing they look for when
+   something goes wrong. The reference the operator supplied puts the same three
+   facts in the same place.
+
+   THESE VALUES ARE PLACEHOLDERS. No driver has been enrolled, no fleet plate
+   has been issued to this build, and nothing here came from an operator record.
+   The screen says so in its provenance line. */
+const DRIVER = {
+  name:   'I Made Suardana',
+  nip:    '2026-0142',
+  taxi:   'SR-017',
+  plate:  'DK 1234 AB',
+  phone:  '0812 3456 7890',
+  org:    'Koperasi Baswara',
+  /* Rating and trip count are dispatch values like the rest of this object, and
+     like the rest of it they are EXAMPLES. Nobody has driven a trip on this
+     system yet, so a 4,9 on the glass is a shape, not a score. */
+  rating: 4.9,
+  trips:  128,
+  /* The portrait at mdt-ui/img/driver.jpg. Supplied by the operator on
+     27 September and AI-GENERATED, which is the point: it is a painted sample
+     of nobody, so no real person's face sits on a card carrying a made-up name,
+     NIP and plate. Replace the file to change the face; the screen falls back
+     to a drawn stand-in if it is ever missing. */
+  photo:  '/img/driver.jpg'
+};
+
+/* A signal the screen may draw.
+
+   `source` is documentation, not code: the MDT never decodes a byte (D-006). It
+   is carried so that anyone reading this file can find the evidence behind the
+   number without leaving it.
+
+   `range` is the instrument's span, not the signal's. A speedometer that ends
+   at the fastest value ever recorded is a speedometer that redraws itself. */
+const SIGNALS = [
+  {
+    id: 'speed',
+    label: 'Kecepatan',
+    unit: 'km/jam',
+    status: 'terbukti',
+    decimals: 0,
+    range: [0, 120],
+    source: {
+      can: '0x18FFDC01', bytes: 'b4-b5 LE', formula: 'km/jam = nilai / 256',
+      proof: 'integrasi kecepatan 4,031 km melawan odometer naik 4 km di bus yang sama'
+    }
+  },
+  {
+    id: 'rpm',
+    label: 'Putaran motor',
+    unit: 'rpm',
+    status: 'terbukti',
+    decimals: 0,
+    range: [0, 6000],
+    source: {
+      can: '0x0CFF7902', bytes: 'b4-b5 LE', formula: 'rpm = nilai - 12000',
+      proof: 'regresi 11.765 pasangan terhadap kecepatan; meleset 1 rpm dari panel'
+    }
+  },
+  {
+    id: 'soc',
+    label: 'Daya baterai',
+    unit: '%',
+    status: 'terbukti',
+    decimals: 0,
+    range: [0, 100],
+    source: {
+      can: '0x0CFF7D03', bytes: 'b1', formula: '% = nilai x 0,5',
+      proof: 'turun 74,0 ke 71,0 % sepanjang uji jalan 47 menit'
+    }
+  },
+  {
+    id: 'odometer',
+    label: 'Odometer',
+    unit: 'km',
+    status: 'terbukti',
+    decimals: 0,
+    source: {
+      can: '0x18FEDCD5', bytes: 'b1-b2 LE', formula: 'km apa adanya',
+      proof: 'naik 30423 ke 30427 selama uji jalan'
+    }
+  },
+  {
+    id: 'pack',
+    label: 'Tegangan pack',
+    unit: 'V',
+    status: 'terbukti',
+    decimals: 1,
+    source: {
+      can: '0x0CFF7E03', bytes: 'b2-b3 LE', formula: 'volt apa adanya',
+      proof: 'melorot ke 333 V saat arus memuncak lalu pulih'
+    }
+  },
+  {
+    id: 'current',
+    label: 'Arus',
+    unit: 'A',
+    status: 'terbukti',
+    decimals: 0,
+    signed: true,
+    range: [-60, 150],
+    source: {
+      can: '0x0CFF7E03', bytes: 'b4-b5 LE', formula: 'A = nilai - 1000',
+      proof: '+133 A lalu -36 A dalam satu detik saat pedal dilepas di 46 km/jam'
+    }
+  },
+  {
+    id: 'battTempMax',
+    label: 'Suhu baterai tertinggi',
+    unit: '°C',
+    status: 'terbukti',
+    decimals: 0,
+    source: {
+      can: '0x0CFF7E03', bytes: 'b6', formula: '°C = nilai - 40',
+      proof: 'naik 31 ke 32 °C setelah pemakaian'
+    }
+  },
+  {
+    id: 'battTempMin',
+    label: 'Suhu baterai terendah',
+    unit: '°C',
+    status: 'terbukti',
+    decimals: 0,
+    source: {
+      can: '0x0CFF7E03', bytes: 'b7', formula: '°C = nilai - 40',
+      proof: 'bergerak bersama b6 sepanjang uji jalan'
+    }
+  },
+
+  /* Below this line: declared so the gap is visible in the profile rather than
+     invisible in the markup. The renderer skips every one of them.
+
+     These are exactly the tiles the reference image showed and this build does
+     not: eco mode, gear position, headlights, parking brake. None has a proven
+     signal. Showing them would have meant inventing four numbers on a screen
+     whose whole argument is that it does not. */
+  { id: 'gear',      label: 'Posisi gigi',   status: 'belum-dipetakan' },
+  { id: 'ecoMode',   label: 'Mode eco',      status: 'belum-dipetakan' },
+  { id: 'headlight', label: 'Lampu utama',   status: 'belum-dipetakan' },
+  { id: 'parking',   label: 'Rem parkir',    status: 'belum-dipetakan' },
+  { id: 'soh',       label: 'SOH baterai',   status: 'kandidat',
+    note: 'tidak pernah berubah selama pengamatan, jadi belum teruji sama sekali' },
+  { id: 'ctrlTemp',  label: 'Suhu controller', status: 'gugur',
+    note: 'tidak bergerak sedetik pun dalam 47 menit berkendara, termasuk saat arus 133 A' }
+];
+
+const byId = Object.fromEntries(SIGNALS.map(s => [s.id, s]));
+
+/* The only question the renderer asks before drawing anything. */
+const isProven = id => byId[id] ? byId[id].status === 'terbukti' : false;
+
+/* Values the screen shows that are NOT ECU readings: they come from the device
+   and from the dispatch server, so the confidence rule does not govern them.
+   Kept in one list so nobody has to guess which column a value came from. */
+const NON_ECU = ['clock', 'dispatch', 'driver', 'gps', 'network', 'nav',
+                        'trip', 'tripKm', 'tripSec', 'fare'];
+
+/* `fare` deserves a note. It is not an ECU value and the status rule above does
+   not govern it, but it is COMPUTED FROM one: trip distance, which comes from
+   the speed signal proven on the bus. So the fare inherits that signal's
+   trustworthiness exactly, and it goes stale when the feed does. Its commercial
+   parameters live in tariff.js, never here. */
+
+/* ---- app.js ---- */
+/* =============================================================================
+   SELARIDE argo, the version that runs ON THE DEVICE.
+
+   The frame in project-mdt-tds drives itself from a mock vehicle. This one has
+   a real bus underneath, so the mock is gone and every number comes from
+   /api/signals: the values the firmware decodes from the proven DFSK mappings,
+   plus the meter's two billed quantities.
+
+   THE SPLIT, and it is deliberate. The DEVICE counts quantities: billed
+   kilometres from the odometer, waiting minutes from the speed frames. This
+   PAGE turns them into rupiah, using tariff.js, which stays the one file in the
+   system where a price is written down. Two places that both know the price are
+   two places that can disagree about a passenger's money.
+
+   The confidence rule still holds: a value whose signal is not `terbukti` in
+   profile.js is removed from the DOM, not dimmed.
+   ============================================================================= */
+
+const $  = id => document.getElementById(id);
+const nf = (v, d) => v.toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
+const id2 = n => String(Math.floor(Math.max(0, n))).padStart(2, '0');
+
+/* ---- the confidence rule, enforced on the DOM ------------------------------ */
+(function pruneUnproven() {
+  document.querySelectorAll('[data-v]').forEach(el => {
+    const id = el.dataset.v;
+    // `tripKm` is the meter's billed distance, not a signal in the profile.
+    if (id === 'tripKm' || isProven(id)) return;
+    (el.closest('.metric, .act, .fact, .stat') || el).remove();
+  });
+  const notYet = SIGNALS.filter(s => s.status !== 'terbukti');
+  const el = $('prov-hidden');
+  if (el && notYet.length) {
+    el.textContent = ` · ${notYet.length} sinyal belum dipetakan: `
+      + notYet.map(s => s.label.toLowerCase()).join(', ');
+  }
+})();
+
+/* The GPS readout belongs to the engineering dashboard, which has the GNSS fix,
+   the satellite count and the HDOP. This screen would be repeating a word
+   without the numbers behind it. */
+document.querySelectorAll('.stat').forEach(el => {
+  if (el.querySelector('#gps-b')) el.remove();
+});
+
+/* The distance bar measured progress toward a destination. This device has no
+   destination: it has a meter. A bar with no real maximum is decoration
+   wearing a measurement's clothes, so it goes. */
+document.querySelector('#m-km .pbar')?.remove();
+
+/* ---- identity --------------------------------------------------------------- */
+(function driver() {
+  if (DRIVER.photo) {
+    const img = new Image();
+    img.onload = () => { const f = $('who-face'); f.textContent = ''; f.appendChild(img); };
+    img.alt = '';
+    img.src = DRIVER.photo;
+  }
+  $('who-name').textContent  = DRIVER.name;
+  $('who-star').textContent  = nf(DRIVER.rating, 1);
+  $('who-trips').textContent = nf(DRIVER.trips, 0);
+  $('who-phone').textContent = DRIVER.phone;
+  $('who-org').textContent   = DRIVER.org;
+  $('who-plate').textContent = DRIVER.plate;
+})();
+
+const cluster = $('cluster');
+cluster.classList.add('booting');
+setTimeout(() => cluster.classList.remove('booting'), 900);
+
+/* ---- the button, which is the one live control on this screen --------------- */
+/* On the product this flag comes from dispatch: the SELARIDE documentation puts
+   the whole order flow in the Driver App and this screen is the argometer. On
+   the test vehicle there is no dispatch, so a person presses it and acts as the
+   passenger. Who sets it in production is an open question in
+   project-mdt-tds `08`. */
+let busy = false;
+const btn = $('btn-argo');
+btn.addEventListener('click', async () => {
+  if (busy) return;
+  busy = true;
+  btn.disabled = true;
+  try {
+    const action = running ? 'stop' : 'start';
+    const r = await fetch('/api/argo?action=' + action, { method: 'POST' });
+    if (r.ok) paint(await r.json());
+  } catch (e) {
+    // The next poll will correct the screen; a failed press must not leave the
+    // button stuck.
+  } finally {
+    busy = false;
+    btn.disabled = false;
+  }
+});
+
+/* ---- the feed ---------------------------------------------------------------- */
+let running  = false;
+let lastOk   = 0;      // when the device last answered
+let everOk   = false;
+
+const val = (s, fallback) => (s && typeof s.v === 'number') ? s.v : fallback;
+
+function paint(d) {
+  const sig = d.signals || {};
+  const a   = d.argo || {};
+  running = !!a.running;
+
+  // ---- the vehicle, straight off the bus
+  const speed = val(sig.speed, 0);
+  const soc   = val(sig.soc, 0);
+  $('m-speed').querySelector('b').textContent = nf(speed, 0);
+  $('bar-speed').style.width = (Math.max(0, Math.min(1, speed / 120)) * 100).toFixed(1) + '%';
+
+  const bf = $('batt-fill'), bc = $('c-batt');
+  if (bf && sig.soc) {
+    const h = Math.max(0, Math.min(100, soc)) / 100 * 32.6;
+    bf.setAttribute('height', h.toFixed(2));
+    bf.setAttribute('y', (39.8 - h).toFixed(2));
+    bc.classList.toggle('warn', soc < 25 && soc >= 12);
+    bc.classList.toggle('low', soc < 12);
+    bc.querySelector('b span').textContent = nf(soc, 0);
+  }
+
+  // ---- the meter, in quantities the device counted
+  const km   = a.km_isi   || 0;
+  const wait = a.wait_min || 0;
+  $('fare-km').textContent   = nf(km, 1);
+  $('fare-wait').textContent = nf(wait, 1);
+  $('m-km').querySelector('b').textContent = nf(km, 1);
+
+  const secs = a.elapsed_s || 0;
+  $('dur-h').textContent = id2(secs / 3600);
+  $('dur-m').textContent = id2((secs % 3600) / 60);
+  $('dur-s').textContent = id2(secs % 60);
+
+  // ---- and the money, computed here, from the one file that holds a price
+  const total = TARIFF.flagFall
+              + Math.round(km * TARIFF.perKm)
+              + Math.round(wait * TARIFF.perMinute);
+  $('fare').textContent = grouped(total);
+
+  // ---- states
+  cluster.classList.toggle('empty', !running);
+  cluster.classList.toggle('waiting', !!a.waiting);
+  $('hire-text').textContent = running ? 'Terisi' : 'Kosong';
+  $('disp-b').textContent    = running ? 'Isi' : 'Siap';
+  $('disp-s').textContent    = running ? 'penumpang' : 'terima order';
+  $('btn-argo-text').textContent = running ? 'Akhiri trip' : 'Mulai trip';
+  btn.classList.toggle('stop', running);
+
+  $('m-state-b').textContent = running ? 'jalan' : 'berhenti';
+  $('m-state-c').textContent = running
+    ? (a.waiting ? ', menghitung waktu tunggu'
+                 : (a.anchored ? ', menghitung kilometer isi'
+                               : ', menunggu odometer dari bus'))
+    : ', kilometer kosong tidak ditagih';
+
+  lastOk = Date.now();
+  everOk = true;
+}
+
+/* D-004: a number that stopped arriving looks exactly like a number that
+   stopped changing. The only difference the driver can act on is this banner,
+   and here it covers both halves: the device not answering, and the device
+   answering with readings that have gone quiet. */
+function checkStale(sig) {
+  const ageDevice = everOk ? (Date.now() - lastOk) / 1000 : 999;
+  const ageSignal = sig && sig.speed ? (sig.speed.age_ms || 0) / 1000 : 999;
+  const bad = ageDevice > 10 || ageSignal > 30;
+  $('stale').hidden = !bad;
+  if (bad) $('stale-age').textContent = Math.round(Math.max(ageDevice, ageSignal));
+  cluster.classList.toggle('stale-on', bad);
+}
+
+let lastSignals = null;
+async function tick() {
+  try {
+    const r = await fetch('/api/signals', { cache: 'no-store' });
+    if (r.ok) { const d = await r.json(); lastSignals = d.signals; paint(d); }
+  } catch (e) {
+    // Left to checkStale: one failed poll on a moving vehicle is normal, a
+    // minute of them is not.
+  }
+  checkStale(lastSignals);
+}
+tick();
+setInterval(tick, 500);
+
+function tickClock() {
+  const now = new Date();
+  $('clock').textContent = id2(now.getHours()) + ':' + id2(now.getMinutes());
+  $('date').textContent = now.toLocaleDateString('id-ID',
+    { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+tickClock();
+setInterval(tickClock, 10000);
+
+$('wait-unapproved').hidden = TARIFF.waitApproved;
+</script>
+</body></html>

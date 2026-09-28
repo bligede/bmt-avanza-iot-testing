@@ -38,6 +38,7 @@
 #include "Config.h"
 #include "Logger.h"
 #include "CanManager.h"
+#include "SignalDecoder.h"
 #include "RawCanLogger.h"
 #include "WifiManager.h"
 #include "WebDashboard.h"
@@ -78,6 +79,12 @@ static void taskCanReader(void*) {
         if (!CanManager::receive(&frame, 50)) continue;
 
         CanManager::survey(frame);
+
+        // Named values off the bus, for both dashboards. A table lookup and at
+        // most four stores; it runs here rather than on core 1 so the reading
+        // is stamped with the frame's own arrival time and never waits behind
+        // a filesystem write.
+        SignalDecoder::feed(frame);
 
         // Best-effort hand-off to core 1. Losing a line from the capture file
         // is acceptable; the bus itself is unaffected and `rx` on the dashboard

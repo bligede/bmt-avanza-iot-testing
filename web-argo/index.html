@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#EAF2FB">
+<title>SELARIDE · MDT</title>
+<link rel="stylesheet" href="app.css"></head>
+<body>
+
+<!-- THE GROUND.
+
+     The Direktur's design puts a soft daylight landscape behind the cards:
+     waves, hills, a turbine, a city. Drawn in SVG rather than placed as a
+     photograph, for the same three reasons the night build used: there is no
+     image asset in this repo, a stock image cannot be versioned or recoloured
+     with the theme, and the night class has to be able to step the whole thing
+     back by one token. Geometry does all three and costs a few kilobytes. -->
+<svg class="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#E9F1FB"/>
+      <stop offset="55%" stop-color="#F4F8FD"/>
+      <stop offset="100%" stop-color="#E4EEF9"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C9DCF0"/>
+      <stop offset="100%" stop-color="#C9DCF0" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="hill2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D8E7F6"/>
+      <stop offset="100%" stop-color="#D8E7F6" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#sky)"/>
+
+  <!-- Wave lines, top right. The design's one piece of pure decoration, and it
+       stays at the weight it was drawn: a texture you notice second. -->
+  <g fill="none" stroke="#BFD6EE" stroke-width="1.6" opacity=".55">
+    <path d="M980 40c140-60 300-40 420 20s190 40 200 20"/>
+    <path d="M960 80c150-60 310-36 430 26s180 34 200 14"/>
+    <path d="M950 122c160-58 320-30 440 32s170 28 200 8"/>
+    <path d="M950 166c170-56 330-24 450 38s160 22 200 2"/>
+  </g>
+  <!-- The dot field the design puts beside the fare. -->
+  <g fill="#C3D8EE" opacity=".8">
+    <g id="dots"></g>
+  </g>
+
+  <path d="M0 640c180-70 300-40 430 10s260 60 420 10 320-80 480-30 270 70 270 70v200H0z" fill="url(#hill2)" opacity=".8"/>
+  <path d="M0 720c220-60 340-20 470 26s280 50 430 6 300-64 460-20 240 58 240 58v110H0z" fill="url(#hill)" opacity=".7"/>
+
+  <!-- A turbine, because the design has one and this is an electric fleet. -->
+  <g stroke="#B7CFE8" stroke-width="5" stroke-linecap="round" fill="none" opacity=".85">
+    <path d="M1246 760V636"/>
+    <path d="M1246 634 1196 556"/><path d="M1246 634 1330 604"/><path d="M1246 634 1232 726"/>
+  </g>
+  <g fill="#C4D9EF" opacity=".75">
+    <rect x="80" y="690" width="34" height="80"/><rect x="124" y="712" width="26" height="58"/>
+    <rect x="160" y="672" width="30" height="98"/><rect x="200" y="716" width="22" height="54"/>
+  </g>
+</svg>
+
+<!-- Icon geometry, defined once and used by reference. Drawn, not typed: a
+     glyph borrowed from a font is a different stroke weight from everything
+     beside it, and at this size the mismatch is the first thing that reads as
+     assembled rather than built. One weight, 1.8, across the set. -->
+<svg class="defs" aria-hidden="true"><defs>
+  <g id="i-alert" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 4.2 21 19.5H3z"/><path d="M12 10v4"/><path d="M12 16.6h.01"/>
+  </g>
+  <g id="i-receipt" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3.5h12v17l-2.2-1.6-2.4 1.6-2.4-1.6-2.4 1.6L6 20.5z"/><path d="M9.2 8.4h5.6"/><path d="M9.2 12.2h5.6"/>
+  </g>
+  <g id="i-phone" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.4 3.8h3l1.6 4-2 1.4a12 12 0 0 0 5.8 5.8l1.4-2 4 1.6v3a2 2 0 0 1-2.2 2A17.6 17.6 0 0 1 4.4 6a2 2 0 0 1 2-2.2z"/>
+  </g>
+  <g id="i-bank" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 9.5 12 4.5l8.5 5"/><path d="M5.5 9.5v9"/><path d="M9.5 9.5v9"/><path d="M14.5 9.5v9"/><path d="M18.5 9.5v9"/><path d="M3.5 19.5h17"/>
+  </g>
+  <g id="i-car" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 16.2v-2.6l1.7-3.8A2 2 0 0 1 7.5 8.6h9a2 2 0 0 1 1.8 1.2l1.7 3.8v2.6"/>
+    <path d="M4 16.2h16"/><circle cx="8" cy="16.2" r="1.5"/><circle cx="16" cy="16.2" r="1.5"/>
+  </g>
+  <g id="i-star" fill="currentColor"><path d="m12 3.6 2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.9l6-.8z"/></g>
+  <g id="i-check" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m5.5 12.4 4.2 4.2 8.8-9"/>
+  </g>
+  <g id="i-pin" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 20.5s5.6-5.4 5.6-9.6a5.6 5.6 0 1 0-11.2 0c0 4.2 5.6 9.6 5.6 9.6z"/><circle cx="12" cy="10.6" r="2"/>
+    <path d="M6.4 18.4c-1.8.5-2.9 1.2-2.9 2 0 1.4 3.8 2.6 8.5 2.6s8.5-1.2 8.5-2.6c0-.8-1.1-1.5-2.9-2" stroke-dasharray="2.6 2.6"/>
+  </g>
+  <g id="i-clock" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.4"/><path d="M12 7.2V12l3.2 2.2"/>
+  </g>
+  <g id="i-speed" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.4 17.2a8.6 8.6 0 1 1 15.2 0"/><path d="m12 12.6 3.8-3.4"/><circle cx="12" cy="13.6" r="1.3"/>
+  </g>
+  <g id="i-leaf" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19.5 4.5c0 8-4.4 12.4-10.4 12.4A5 5 0 0 1 4 12.2C4 7.4 9.4 4.9 19.5 4.5z"/><path d="M14.8 8.6 5 19.5"/>
+  </g>
+  <g id="i-flag" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5.5 21V4"/><path d="M5.5 5.2h13l-2.6 4 2.6 4h-13"/>
+  </g>
+  <g id="i-dots" fill="currentColor"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></g>
+  <g id="i-person" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>
+  </g>
+  <g id="i-plus" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></g>
+  <!-- A gear, not a sun. Long thin spokes on a small hub read as rays; a wide
+       hub with short teeth reads as a cog. -->
+  <g id="i-gear" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="6.6"/>
+    <path d="M12 3.4v2M12 18.6v2M20.6 12h-2M5.4 12h-2M18.1 5.9l-1.4 1.4M7.3 16.7l-1.4 1.4M18.1 18.1l-1.4-1.4M7.3 7.3 5.9 5.9"/>
+  </g>
+  <g id="i-bolt" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 3 5.5 13.5H12l-1 7.5 7.5-10.5H12z"/>
+  </g>
+  <g id="i-sat" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3a9 9 0 0 1 9 9"/><path d="M12 8a4 4 0 0 1 4 4"/><circle cx="6.5" cy="17.5" r="2.5"/><path d="M8.3 15.7 13 11"/>
+  </g>
+</defs></svg>
+
+<div class="cluster" id="cluster">
+
+  <header class="bar">
+    <!-- SELARIDE is the operator's product and this screen belongs to it, so
+         the mark at the top left is theirs. BMT's own mark is in the credit
+         line at the foot, where a maker's name belongs. -->
+    <div class="brand">
+      <!-- The real SELARIDE mark, from the logo file the operator sent on
+           27 September. It used to be a drawing of mine that resembled it, and a
+           brand mark should never be an approximation by the person using it.
+
+           Cropped to the mark, lifted off the light blue field it arrived on,
+           and stored at four times its source size. The wordmark stays LIVE TEXT
+           rather than part of the image: the source is 205 px wide and its
+           letters are 20 px tall, and blowing that up to the size this header
+           needs would put a soft logo beside sharp numbers. -->
+      <img class="mark" src="/img/mark.png" alt="SELARIDE">
+      <p class="wordmark">SELARIDE</p>
+    </div>
+
+    <p class="clock"><b id="clock">--:--</b><span id="date">&nbsp;</span></p>
+
+    <div class="stat" id="st-dispatch"><span class="dot"></span><b id="disp-b">Siap</b><span id="disp-s">terima order</span></div>
+    <div class="stat"><svg viewBox="0 0 24 24"><use href="#i-sat"/></svg><b id="gps-b">GPS</b><span id="gps-s">mencari</span></div>
+
+    <!-- Battery, moved up here on the team's note. It belongs with the other
+         standing conditions of the vehicle rather than in the row of things you
+         press: it is a state, not an action, and it never stops being true. -->
+    <div class="stat batt-stat" id="c-batt">
+      <svg class="batt-ic" viewBox="0 0 24 44" aria-hidden="true">
+        <rect x="8.4" y="0.8" width="7.2" height="3.6" rx="1.6" fill="currentColor"/>
+        <rect x="1.3" y="4.6" width="21.4" height="38.2" rx="4.6" fill="none" stroke="currentColor" stroke-width="2.4"/>
+        <rect class="batt-fill" id="batt-fill" x="4.6" y="39.8" width="14.8" height="0" rx="2.2"/>
+      </svg>
+      <b><span data-v="soc">0</span>%</b><span>baterai</span>
+    </div>
+
+    <!-- Drawn because the design has them, marked inert because nothing is
+         behind them yet. A control that looks live and does nothing is a lie
+         told in one pixel, and SOS is the worst one in the set to fake.
+
+         The design's third control, a plain "Rp" pill, is gone: nobody could
+         say what it would do, and a button whose purpose has to be guessed is
+         one nobody will press. The struk icon stays because its meaning is at
+         least legible; it is still not wired to anything. -->
+    <span class="btn sos inert" aria-disabled="true" title="Belum aktif">
+      <svg viewBox="0 0 24 24"><use href="#i-alert"/></svg>SOS</span>
+    <span class="btn inert" aria-disabled="true" title="Belum aktif">
+      <svg viewBox="0 0 24 24"><use href="#i-receipt"/></svg></span>
+  </header>
+
+  <!-- D-004: the screen has to be able to say its data is stale. Hidden until
+       it is true, and when it is true it is the loudest thing on the glass,
+       because a plausible old number is worse than no number. -->
+  <p class="stale" id="stale" hidden role="status">
+    <b>Data berhenti</b> Angka di layar ini terakhir diperbarui <i id="stale-age">0</i> detik lalu.
+    Jangan dipakai.
+  </p>
+
+  <div class="main">
+
+    <!-- WHO IS DRIVING. A taxi screen faces the public: the passenger behind it
+         is the one who needs these facts, and they are the first thing anyone
+         asks for when something goes wrong. -->
+    <section class="card who">
+      <div class="face-wrap">
+        <!-- A DRAWN stand-in, not a photograph and not initials.
+
+             A photograph was asked for, and the two ways to get one are both
+             refused here: a stranger's face off the web would put a real person
+             on a fake ID beside a fake name, a fake NIP and a fake plate, and
+             the image generator on this account has no credits, whose free
+             allowance is the operator's to spend and not mine.
+
+             So the slot is built instead. Drop any portrait at
+             `img/driver.jpg` and it replaces this drawing on the next reload,
+             with no code change: `profile.js` names the path and the script
+             falls back to the drawing if the file is not there. -->
+        <div class="face" id="who-face">
+          <svg viewBox="0 0 100 100" role="img" aria-label="Foto pengemudi, contoh">
+            <rect width="100" height="100" fill="#DCEAF7"/>
+            <circle cx="50" cy="104" r="42" fill="#2F73D0"/>
+            <path d="M31 96c0-9 8.5-14 19-14s19 5 19 14v14H31z" fill="#EAF2FB"/>
+            <path d="M50 84c-6 0-11-2-11-2l-4 8 15 8 15-8-4-8s-5 2-11 2z" fill="#F4F8FC"/>
+            <rect x="41" y="62" width="18" height="22" rx="9" fill="#C08B66"/>
+            <ellipse cx="50" cy="52" rx="20" ry="23" fill="#CE9770"/>
+            <path d="M30 50c0-14 9-22 20-22s20 8 20 22c0 3-1 6-1 6 0-8-3-12-6-13-4-1-9 1-13 1s-9-1-12 1c-3 2-7 5-7 11 0 0-1-3-1-6z" fill="#2E2621"/>
+            <ellipse cx="42" cy="52" rx="2.4" ry="2.8" fill="#2E2621"/>
+            <ellipse cx="58" cy="52" rx="2.4" ry="2.8" fill="#2E2621"/>
+            <path d="M37.5 45.5c2-1.6 5-1.6 7 0M55.5 45.5c2-1.6 5-1.6 7 0" stroke="#2E2621" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <path d="M44 63.5c2 1.8 10 1.8 12 0" stroke="#8C5A42" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <path d="M50 54v4.5" stroke="#B07C58" stroke-width="2" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <span class="verified" title="Terverifikasi"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></span>
+      </div>
+
+      <p class="who-name" id="who-name">&nbsp;</p>
+
+      <p class="who-rate">
+        <span class="pill"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg><b id="who-star">–</b></span>
+        <i></i>
+        <span class="trips"><b id="who-trips">–</b> Trip</span>
+      </p>
+
+      <dl class="who-list">
+        <div><dt><svg viewBox="0 0 24 24"><use href="#i-phone"/></svg></dt><dd id="who-phone">&nbsp;</dd></div>
+        <div><dt><svg viewBox="0 0 24 24"><use href="#i-bank"/></svg></dt><dd id="who-org">&nbsp;</dd></div>
+        <div><dt><svg viewBox="0 0 24 24"><use href="#i-car"/></svg></dt><dd id="who-plate">&nbsp;</dd></div>
+      </dl>
+
+      <!-- The fleet vehicle itself, supplied by the operator on 26 September.
+           It replaced a drawn illustration, and the reason the illustration
+           existed in the first place is gone: there was no image asset, and now
+           there is one, of the actual car in its actual livery.
+
+           Cropped to the car and re-encoded to 900 px wide, 70 kB, because the
+           source was a 2 MB studio PNG and this strip renders about 450 px
+           across. Decorative: the plate, the operator and the signal profile
+           are all stated in text, so nothing here is only in the picture. -->
+      <img class="who-art" src="/img/car.jpg" alt="" aria-hidden="true">
+    </section>
+
+    <div class="right">
+
+      <!-- THE METER. The Direktur's design gives the fare the whole top of the
+           working column, and the SELARIDE documentation says the same thing
+           about this device: "MDT berfungsi sebagai argometer". -->
+      <section class="card fare" id="c-fare">
+        <p class="f-head">
+          <b>Total tarif</b>
+          <span class="hire-pill" id="hire-pill"><svg viewBox="0 0 24 24"><use href="#i-person"/></svg><i id="hire-text">Kosong</i></span>
+        </p>
+
+        <!-- The figure sits in a box that takes whatever height the card has
+             left over, and sizes itself against THAT box. So the heading keeps
+             its margin, the receipt keeps its size, and the fare is whatever
+             fits between them, at any panel shape and with or without the
+             stale banner. -->
+        <div class="amount-wrap">
+          <p class="amount"><span>Rp</span><b id="fare">0</b></p>
+        </div>
+        <span class="rule"></span>
+
+        <!-- WHAT THE FARE WAS MEASURED FROM: a distance and a time, and no
+             second price anywhere near them.
+
+             It carried five rupiah figures for a day (the total, two rates and
+             two sub-totals) and the Direktur called it: too many prices, easy to
+             confuse. One price on the screen now, and it is the one the
+             passenger pays. This is also how a real argometer works, which is
+             the better argument for it: the meter shows kilometres, waiting time
+             and the fare, and the tariff itself lives on a sticker in the car.
+
+             The quantities are still the BILLED ones, not the travelled ones:
+             the meter ticks every 100 m and every 0,1 minute. -->
+        <dl class="receipt">
+          <div class="r-row" id="r-km">
+            <dt><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg>Argometer</dt>
+            <dd class="qty"><b id="fare-km">0,0</b> km isi</dd>
+          </div>
+          <div class="r-row" id="r-wait">
+            <dt><svg viewBox="0 0 24 24"><use href="#i-clock"/></svg>Waktu tunggu<span class="chip" id="wait-unapproved">belum disahkan</span></dt>
+            <dd class="qty"><b id="fare-wait">0,0</b> menit</dd>
+          </div>
+        </dl>
+
+        <p class="f-state">Argo <b id="m-state-b">&nbsp;</b><span id="m-state-c"></span></p>
+      </section>
+
+      <!-- Three measures, as designed. Every one of them is either proven on
+           the bus or taken from the device's own clock; nothing here is
+           inferred. -->
+      <div class="metrics">
+        <section class="card metric" id="m-km">
+          <span class="ic teal"><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg></span>
+          <h3>Jarak</h3>
+          <p class="v"><b data-v="tripKm">0,0</b><span>km</span></p>
+          <span class="pbar"><i id="bar-km"></i></span>
+        </section>
+
+        <section class="card metric" id="m-dur">
+          <span class="ic blue"><svg viewBox="0 0 24 24"><use href="#i-clock"/></svg></span>
+          <h3>Durasi perjalanan</h3>
+          <p class="v dur"><b id="dur-h">00</b><em>:</em><b id="dur-m">00</b><em>:</em><b id="dur-s">00</b></p>
+          <p class="dur-lab"><span>jam</span><span>menit</span><span>detik</span></p>
+        </section>
+
+        <section class="card metric" id="m-speed">
+          <span class="ic green"><svg viewBox="0 0 24 24"><use href="#i-speed"/></svg></span>
+          <h3>Kecepatan</h3>
+          <p class="v"><b data-v="speed">0</b><span>km/jam</span></p>
+          <span class="pbar"><i id="bar-speed"></i></span>
+        </section>
+      </div>
+
+      <!-- The design's action row. Every one of these is drawn and marked
+           inert: none of them is wired to anything yet, and "Akhiri trip" is
+           the single most expensive button on this screen to fake. -->
+      <div class="actions">
+        <!-- The slot the battery left. "Isi daya" is the action the Direktur's
+             design put here, so it is the one that came back rather than
+             something invented to fill the space. Inert like the rest of the
+             row: nothing is behind it yet, and what it should DO (find a
+             charger? open a map of chargers? log a charging stop?) is a
+             question for the team, not an assumption for the builder. -->
+        <span class="act soft inert" aria-disabled="true" title="Belum aktif">
+          <svg viewBox="0 0 24 24"><use href="#i-leaf"/></svg>Isi daya</span>
+        <span class="act round inert" aria-disabled="true" title="Belum aktif">
+          <svg viewBox="0 0 24 24"><use href="#i-dots"/></svg></span>
+        <button class="act primary" id="btn-argo" type="button">
+          <svg viewBox="0 0 24 24"><use href="#i-flag"/></svg><b id="btn-argo-text">Mulai trip</b></button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="dock" aria-label="Navigasi">
+    <span class="tab inert" aria-disabled="true">
+      <svg viewBox="0 0 24 24"><use href="#i-person"/></svg>Penumpang<i class="badge2">2</i></span>
+    <span class="sep"></span>
+    <span class="tab inert" aria-disabled="true"><svg viewBox="0 0 24 24"><use href="#i-receipt"/></svg>Rekap</span>
+    <span class="sep"></span>
+    <span class="tab add inert" aria-disabled="true"><span class="plus"><svg viewBox="0 0 24 24"><use href="#i-plus"/></svg></span>Tambah</span>
+    <span class="sep"></span>
+    <span class="tab inert" aria-disabled="true"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg>Pengaturan</span>
+  </nav>
+
+  <!-- Every screen that shows numbers owes the reader their provenance. -->
+  <!-- On the device this line has to say something different from the one in
+       the MDT frame, because here the numbers are NOT mock: they come off the
+       bus, and one control on this screen really does something. A provenance
+       line that is out of date is worse than none. -->
+  <p class="prov" id="prov">
+    Alat uji CAN · data <b>langsung dari bus</b> · identitas pengemudi contoh ·
+    hanya tombol trip yang aktif · tarif dari dokumentasi SELARIDE ·
+    profil sinyal <b>DFSK Gelora E</b> (kendaraan uji)
+    <span id="prov-hidden"></span>
+  </p>
+</div>
+
+<script src="app.js"></script>
+</body></html>

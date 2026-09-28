@@ -3,7 +3,10 @@
 //
 //  Routes requests to the modules that own the answers:
 //
-//      page            web/  → tools/embed_web.py → generated/WebAssets.h
+//      pages           web/ and web-argo/ → tools/embed_web.py → WebAssets.h
+//                      /      the engineering dashboard
+//                      /argo  the SELARIDE argo screen, on its own address so
+//                             two gadgets can each hold one (28 Sep 2026)
 //      JSON documents  StateJson
 //      notes           NotesStore
 //      raw trace       FrameRing
@@ -31,6 +34,8 @@
 #include "NotesStore.h"
 #include "RawCanLogger.h"
 #include "StateJson.h"
+#include "SignalDecoder.h"
+#include "ArgoMeter.h"
 #include "generated/WebAssets.h"
 
 namespace {
@@ -63,12 +68,73 @@ void handleIndex() {
                     reinterpret_cast<const char*>(INDEX_HTML_GZ), INDEX_HTML_GZ_LEN);
 }
 
+// The argo screen, on its own address. Same device, same data, different
+// reader: the driver and the passenger hold this one while a technician holds
+// the engineering dashboard.
+void handleArgoPage() {
+    ++s_requests;
+    s_server.sendHeader("Content-Encoding", "gzip");
+    s_server.sendHeader("Cache-Control", "no-store");
+    s_server.send_P(200, "text/html; charset=utf-8",
+                    reinterpret_cast<const char*>(ARGO_HTML_GZ), ARGO_HTML_GZ_LEN);
+}
+
+// Binary assets for the argo screen, served from flash rather than inlined as
+// base64 in the page: base64 costs a third more flash and gzip cannot recover
+// it, because a JPEG is already compressed. These are cacheable, unlike the
+// page itself.
+void sendAsset(const uint8_t* data, size_t len, const char* type) {
+    ++s_requests;
+    s_server.sendHeader("Cache-Control", "public, max-age=604800");
+    s_server.send_P(200, type, reinterpret_cast<const char*>(data), len);
+}
+
 // ---- documents --------------------------------------------------------------
 // GET /api/state[?ids=all|named|tds]
 //
 // Without the parameter the document carries every identifier, so every tool
 // written against this endpoint keeps working. The page asks for the mode the
 // operator picked.
+// GET /api/signals
+//
+// The named values off the bus, plus the meter's two quantities. Both screens
+// poll this: the engineering dashboard to show every mapping at once, the argo
+// screen to run the fare. It is deliberately small so a phone on a moving
+// vehicle can ask for it often without loading the device.
+void handleSignals() {
+    ++s_requests;
+    JsonWriter j(s_json, sizeof(s_json));
+    j.add("{");
+    SignalDecoder::writeJson(j);
+    j.add(",");
+    ArgoMeter::writeJson(j);
+    j.add(",\"uptime_s\":%lu", (unsigned long)(millis() / 1000));
+    j.add("}");
+    sendJson(!j.overflow(), j);
+}
+
+// POST /api/argo?action=start|stop
+//
+// The passenger's button. Nothing on this device can see a passenger, so a
+// person presses it; on the product that flag comes from dispatch, and the
+// question of who sets it is open in project-mdt-tds `08`.
+void handleArgo() {
+    ++s_requests;
+    const String action = s_server.arg("action");
+    bool changed;
+    if (action == "start")     changed = ArgoMeter::start();
+    else if (action == "stop") changed = ArgoMeter::stop();
+    else {
+        s_server.send(400, "text/plain", "action must be start or stop");
+        return;
+    }
+    JsonWriter j(s_json, sizeof(s_json));
+    j.add("{\"changed\":%s,", changed ? "true" : "false");
+    ArgoMeter::writeJson(j);
+    j.add("}");
+    sendJson(!j.overflow(), j);
+}
+
 void handleState() {
     ++s_requests;
     StateJson::IdFilter filter = StateJson::IdFilter::All;
@@ -221,7 +287,8 @@ void handleNotFound() {
     ++s_requests;
     s_server.send(404, "text/plain",
                   "Not found. Routes: /  /api/state  /api/frames  /api/notes  "
-                  "/api/captures  /api/capture?name=  POST /api/mark  POST /api/note");
+                  "/api/captures  /api/capture?name=  /api/signals  "
+                  "POST /api/mark  POST /api/note  POST /api/argo?action=start|stop");
 }
 
 }  // namespace
@@ -232,6 +299,13 @@ void begin() {
     FrameRing::begin();
 
     s_server.on("/",             HTTP_GET,  handleIndex);
+    s_server.on("/argo",         HTTP_GET,  handleArgoPage);
+    s_server.on("/api/signals",  HTTP_GET,  handleSignals);
+    s_server.on("/api/argo",     HTTP_POST, handleArgo);
+    s_server.on("/img/driver.jpg", HTTP_GET, []{ sendAsset(DRIVER_JPG, DRIVER_JPG_LEN, "image/jpeg"); });
+    s_server.on("/img/car.jpg",    HTTP_GET, []{ sendAsset(CAR_JPG,    CAR_JPG_LEN,    "image/jpeg"); });
+    s_server.on("/img/mark.png",   HTTP_GET, []{ sendAsset(MARK_PNG,   MARK_PNG_LEN,   "image/png"); });
+    s_server.on("/font/mono.woff2", HTTP_GET, []{ sendAsset(MONO_WOFF2, MONO_WOFF2_LEN, "font/woff2"); });
     s_server.on("/api/state",    HTTP_GET,  handleState);
     s_server.on("/api/frames",   HTTP_GET,  handleFrames);
     s_server.on("/api/notes",    HTTP_GET,  handleNotes);
@@ -245,8 +319,11 @@ void begin() {
     s_server.begin();
     s_started = true;
 
-    LOG_I(TAG, "Dashboard on port %d (page %u B gzipped)", WEB_PORT,
+    LOG_I(TAG, "Dashboard on port %d  /  (%u B gzipped)", WEB_PORT,
           (unsigned)INDEX_HTML_GZ_LEN);
+    LOG_I(TAG, "Argo screen           /argo  (%u B gzipped + %u B assets)",
+          (unsigned)ARGO_HTML_GZ_LEN,
+          (unsigned)(DRIVER_JPG_LEN + CAR_JPG_LEN + MARK_PNG_LEN + MONO_WOFF2_LEN));
 }
 
 void poll() {

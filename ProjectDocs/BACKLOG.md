@@ -255,7 +255,7 @@ Sesudahnya: 0 berkas di flash, penomoran segmen kembali ke `can-000`, dan
 **delapan catatan identifier tetap utuh**, karena catatan memang disimpan
 terpisah dari rekaman.
 
-### B-25. Dua dashboard sekaligus di ESP32, lokal dulu · **Menunggu keputusan**
+### B-25. Dua dashboard sekaligus di ESP32, lokal dulu · **TERBANGUN 28 Sep 2026, menunggu uji jalan**
 
 **Instruksi Direktur BMT, 28 September 2026:** ESP32 menampilkan dua dashboard sekaligus
 dan secara lokal dulu, yaitu (1) dashboard TDS SELARIDE yang baru dibuat, dan (2) dashboard
@@ -297,6 +297,34 @@ Urutan kerjanya, dan hanya yang pertama yang benar-benar baru:
    `mock.js` dengan umpan dari `/api/signals`. Aset teks ke flash, gambar ke LittleFS.
 4. **Dua-duanya sekaligus.** Dua rute di server web yang sama: satu alat, dua alamat, bisa
    dibuka berbarengan dari dua tab atau dua ponsel.
+
+#### Terjawab 28 Sep 2026, dan sudah dibangun
+
+Ketiga keputusan di bawah dijawab operator pada hari yang sama: tombol mulai dan
+akhiri dipencet manual dengan orangnya berperan sebagai penumpang, uji jalan
+diulang di Gelora E, dan "sekaligus" berarti dua alamat di satu alat yang dibuka
+dua gawai berbeda. Yang sudah ada di firmware sekarang:
+
+| Bagian | Berkas | Catatan |
+|---|---|---|
+| Decoder sinyal | `src/SignalDecoder.{h,cpp}` | delapan pemetaan terbukti, disadap di task pembaca CAN, tidak menyentuh jalur kirim |
+| Argo | `src/ArgoMeter.{h,cpp}` | jarak dari selisih odometer, tunggu dari frame kecepatan, keduanya tidak pernah ditagih bersamaan |
+| Endpoint | `src/WebDashboard.cpp` | `GET /api/signals`, `POST /api/argo?action=start\|stop` |
+| Layar argo | `web-argo/` | salinan halaman SELARIDE, mock diganti umpan alat, tombol trip jadi satu-satunya kontrol hidup |
+| Aset | `tools/embed_web.py` | dua halaman plus empat berkas biner, 219 KB, semuanya di flash |
+
+**Angka build:** flash 1.057.565 dari 2.097.152 byte, yaitu 50,4 persen. Sebelum
+ini ~840 KB, jadi seluruh tambahan 219 KB itu asetnya. LittleFS tidak disentuh
+sama sekali, dan itu disengaja: mengunggah image filesystem akan menghapus
+rekaman CAN yang ada di sana.
+
+Gerbang listen-only tetap lolos setelah semua perubahan ini.
+
+Prosedurnya untuk besok ada di `docs/PROSEDUR-TEST-2-DASHBOARD.md`.
+
+**Yang tersisa sebelum berangkat:** alat belum di-flash (port serial tidak
+terdeteksi saat dibangun), dan catatan identifier harus dipasang lagi dengan
+`tools/apply_notes.py` supaya panel Vehicle di dashboard teknis terisi.
 
 #### Tiga keputusan yang menghalangi, dan semuanya milik Direktur
 
