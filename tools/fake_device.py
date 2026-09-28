@@ -122,6 +122,9 @@ def ticker():
         time.sleep(0.1)
 
 
+KM_STEP = 1.0          # mirrors ArgoMeter.h: distance bills a whole kilometre
+
+
 def floor_step(v, s):
     return math.floor(v / s + 1e-6) * s if v > 0 else 0.0
 
@@ -251,8 +254,8 @@ def argo_json():
     a = state["argo"]
     return {
         "running": a["running"], "waiting": a["waiting"], "anchored": a["anchored"],
-        "km_isi": round(floor_step(a["km"], 0.1), 1),
-        "wait_min": round(floor_step(a["wait_ms"] / 60000.0, 0.1), 1),
+        "km_isi": int(floor_step(a["km"], KM_STEP)),
+        "wait_ms": int(a["wait_ms"]),
         "elapsed_s": int(time.time() - a["started"]) if a["running"] else 0,
         "odometer": round(state["odo"]),
     }

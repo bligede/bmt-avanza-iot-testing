@@ -577,9 +577,54 @@ body{
   .bar i{transition:none}
 }
 
+/* UPRIGHT, BUT WIDE ENOUGH TO KEEP THE COMPOSITION: a ten-inch tablet on end.
+
+   The composition survives the rotation; what does not survive is the way the
+   height is shared out. The frame is built for a box about twice as wide as it
+   is tall, so in a box that is taller than it is wide the fare card inherits
+   several hundred pixels it has nothing to put in, and the figure stays small
+   in the middle of a white field.
+
+   So the slack is redistributed rather than fought: the amount is allowed to
+   grow with the box it is in, the metric row stops being a fixed strip and
+   takes a share of the height, and the numbers inside it grow with it. Nothing
+   moves; everything gets bigger, which is what a bigger box is for. */
+@media (max-aspect-ratio:1/1) and (min-width:600px){
+  .right{grid-template-rows:minmax(0,1.35fr) minmax(0,1fr) auto}
+  .amount b{font-size:min(calc(11*var(--u)),56cqh)}
+  .amount span{font-size:calc(3*var(--u))}
+  .metric .v b{font-size:calc(5*var(--u))}
+  .metric .v.dur b{font-size:calc(4.2*var(--u))}
+  .metric h3{font-size:calc(1.4*var(--u))}
+  .metric .v span{font-size:calc(1.4*var(--u))}
+  .ic{width:calc(4.6*var(--u));height:calc(4.6*var(--u))}
+  .ic svg{width:calc(2.4*var(--u));height:calc(2.4*var(--u))}
+  .r-row dt,.r-row .qty{font-size:calc(1.7*var(--u))}
+  .r-row .qty b{font-size:calc(2.6*var(--u))}
+  .f-head b{font-size:calc(1.8*var(--u))}
+  .f-state{font-size:calc(1.5*var(--u))}
+  .act{font-size:calc(1.8*var(--u))}
+  /* A tall card is not a reason to strand its contents at the top. */
+  .metric{justify-content:center}
+  /* The car is 1,94 wide to 1 tall. Given the whole of a tall column it crops
+     to a wheel, so it is capped and sits at the foot of the card, which is
+     where it sat in the frame this was drawn for. */
+  .who-art{flex:none;height:calc(26*var(--u))}
+  /* And the name gets to wrap rather than lose its own ending. */
+  .who-name{font-size:calc(2.6*var(--u));white-space:normal}
+  .who-list dd{font-size:calc(1.8*var(--u))}
+}
+
 /* A panel narrower than it is tall is not the shipping frame, but a technician
-   will open this on a phone. Stack rather than crush. */
-@media (max-aspect-ratio:1/1){
+   will open this on a phone. Stack rather than crush.
+
+   NARROW, not merely upright. This block used to answer every portrait screen,
+   and on a ten-inch tablet held upright that was wrong twice over. --u is 3,2 %
+   of the width, so at 800 px one unit became 26 px, and the stacked layout is
+   about 170 units tall, so the page grew to 4300 px and the fare card sat two
+   screens below the fold. A tablet has the width to keep the composition it was
+   designed with; only a phone does not. */
+@media (max-aspect-ratio:1/1) and (max-width:599px){
   /* --u comes off the WIDTH here, because width is what constrains a stacked
      card. Taking it off height made every card wider than the phone. */
   :root{--u:3.2vw}

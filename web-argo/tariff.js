@@ -1,13 +1,6 @@
 /* =============================================================================
    Tariff
 
-   SALINAN VERBATIM dari project-mdt-tds/mdt-ui/tariff.js.
-
-   Ini satu-satunya duplikasi angka rupiah di seluruh sistem, dan ia disengaja:
-   alat ini tidak bisa mengambil berkas dari repo lain saat build. Kalau tarif
-   berubah, ubah di repo itu dulu, baru salin ke sini. Jangan pernah mengetik
-   ulang angkanya di sini.
-
    The fare the passenger pays. Kept in its own file, and deliberately small,
    because this is the one part of the screen that is about MONEY and it will be
    edited by somebody who is not reading the rest of the code.
@@ -67,18 +60,23 @@ export const TARIFF = {
      position, not a confirmed one, and it is in the open questions. */
   flagFall: 0,
 
-  /* The distance meter ticks every 100 m rather than billing a continuous
-     distance and then rounding the money.
+  /* The distance meter ticks a WHOLE kilometre at a time.
 
-     Not a detail. Billing raw distance and rounding rupiah made the screen
-     contradict itself: it printed one distance beside a rate, and a passenger
-     doing that multiplication got a different number from the meter. Ticking
-     removes it at the source, and one tick is a whole number of rupiah
-     (0,1 km x Rp 8.200 = Rp 820), so no rounding rule needs inventing.
+     Operator instruction, 28 September 2026: the argometer and the distance are
+     to be shown as whole numbers, without a decimal comma. The tick has to move
+     with the display, not only the display, or the screen contradicts itself:
+     printing "2 km isi" beside Rp 8.200 while charging for 2,4 km gives a
+     passenger who does the multiplication a different number from the meter,
+     and that is the one arithmetic this screen must never get wrong.
 
-     Check this whenever the price changes: a rate that is not a multiple of ten
-     would put fractions of a rupiah back into the total. */
-  kmStep: 0.1,
+     It also matches the source. Distance comes from the vehicle's own odometer,
+     which on the DFSK Gelora E has a resolution of one kilometre, so a tenth of
+     a kilometre was never something the meter could actually see.
+
+     WHAT THIS COSTS: a trip shorter than one kilometre now bills nothing for
+     distance. Whoever signs off the tariff needs to know that, because it is a
+     revenue decision and not a display one. */
+  kmStep: 1,
 
   /* ---- NOT IN THE DOCUMENTATION -------------------------------------------
 
@@ -88,6 +86,9 @@ export const TARIFF = {
        "Waktu tunggu pakai dl 5k permenit"
        "Jika kexepatan di bawah 5 km/h saat argo aktif, waktu tunggu idup"
 
+     REVISED 28 September 2026 by the operator: Rp 1.000 per minute, that is
+     per 60 seconds. The threshold below which it runs is unchanged.
+
      Implemented as given. Three things about it belong in front of whoever
      signs it off, because none of them is visible from the numbers alone:
 
@@ -95,9 +96,11 @@ export const TARIFF = {
         confirmed basis is distance alone. This is a new charge, so it needs the
         Direktur and Direktur Utama approval the tariff rule requires.
 
-     2. Rp 5.000 per minute is Rp 300.000 per hour, and at Rp 8.200 per km that
-        is what the meter earns driving 36,6 km/jam. A vehicle stuck in traffic
-        bills roughly what a vehicle moving at city speed bills.
+     2. Rp 1.000 per minute is Rp 60.000 per hour, which at Rp 8.200 per km is
+        what the meter earns driving 7,3 km/jam. That is a waiting charge that
+        reads as waiting rather than as driving, which the earlier Rp 5.000 did
+        not: at Rp 300.000 per hour a vehicle stuck in traffic billed roughly
+        what a vehicle moving at city speed billed.
 
      3. The meter is subject to TERA, legal metrology sealing. Baswara Finance
         carries a role called "Pengendali Tarif dan Tera", and the permit regime
@@ -105,11 +108,12 @@ export const TARIFF = {
         the sealed instrument computes, which is a question for the metrology
         authority and not only a commercial one.
 
-     Until it is approved, the screen marks this line as awaiting approval
+     Revising the figure is not the approval. It is still a charge that appears
+     nowhere in the SELARIDE documentation, so until the Direktur and Direktur
+     Utama sign it off the screen keeps marking this line as awaiting approval
      rather than presenting it as settled. */
-  perMinute: 5000,
+  perMinute: 1000,
   waitBelowKmh: 5,
-  waitStepMin: 0.1,
   waitApproved: false,
 
   currency: 'Rp'
@@ -158,21 +162,43 @@ export function createMeter() {
     },
 
     read() {
-      const kmStep  = TARIFF.kmStep > 0 ? TARIFF.kmStep : 0.1;
-      const minStep = TARIFF.waitStepMin > 0 ? TARIFF.waitStepMin : 0.1;
-      const km      = Math.floor(billedKm / kmStep + 1e-9) * kmStep;
-      const waitMin = Math.floor((waitSec / 60) / minStep + 1e-9) * minStep;
+      const kmStep = TARIFF.kmStep > 0 ? TARIFF.kmStep : 1;
+      const km     = Math.floor(billedKm / kmStep + 1e-9) * kmStep;
+      /* Waiting is NOT ticked. It is shown as a running stopwatch, so the money
+         has to follow the clock: a passenger reading 01:23,45 off the screen
+         and dividing by sixty lands on the same rupiah the meter charged. */
+      const waitMs = Math.round(waitSec * 1000);
       const kmAmount   = Math.round(km * TARIFF.perKm);
-      const waitAmount = Math.round(waitMin * TARIFF.perMinute);
+      const waitAmount = waitAmountOf(waitMs);
       return {
         onHire, waiting,
-        km, waitMin,
+        km, waitMs,
         kmAmount, waitAmount,
         base: TARIFF.flagFall,
         total: TARIFF.flagFall + kmAmount + waitAmount
       };
     }
   };
+}
+
+/* Waiting time in rupiah, from milliseconds. One place, so the receipt line and
+   the total can never disagree about it. */
+export function waitAmountOf(ms) {
+  return Math.round((ms / 60000) * TARIFF.perMinute);
+}
+
+/* "01:23,45" — minutes, seconds, hundredths. A stopwatch rather than a decimal
+   number of minutes, because "1,3 menit" is a quantity a passenger has to
+   convert before it means anything, and a waiting clock is something they watch
+   run. Hours are not shown: an argo that has been waiting for an hour has a
+   problem no display is going to solve. */
+export function stopwatch(ms) {
+  const t = Math.max(0, Math.round(ms));
+  const m = Math.floor(t / 60000);
+  const s = Math.floor((t % 60000) / 1000);
+  const c = Math.floor((t % 1000) / 10);
+  const p = n => (n < 10 ? '0' : '') + n;
+  return p(m) + ':' + p(s) + ',' + p(c);
 }
 
 /* "Rp 12.700". Indonesian grouping, no decimals: rupiah has no subunit in use.
@@ -197,6 +223,6 @@ export function rateLabel() {
 
 /* The rule that switched the meter, printed beside the charge it produced. */
 export function waitRuleLabel() {
-  return 'waktu tunggu ' + rupiah(TARIFF.perMinute) + ' per menit, di bawah '
+  return 'waktu tunggu ' + rupiah(TARIFF.perMinute) + ' per 60 detik, di bawah '
        + TARIFF.waitBelowKmh + ' km/jam';
 }

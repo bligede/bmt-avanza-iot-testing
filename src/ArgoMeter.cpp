@@ -110,15 +110,17 @@ void writeJson(JsonWriter& j) {
     const float    odo      = s_odo_prev;
     portEXIT_CRITICAL(&s_mux);
 
-    const float km_billed  = floorStep(km, KM_STEP);
-    const float min_billed = floorStep(wait_ms / 60000.0f, MIN_STEP);
+    const float km_billed = floorStep(km, KM_STEP);
 
+    // Waiting goes out raw. The screen is the only consumer and it needs
+    // milliseconds to run a stopwatch; rounding it here would only take
+    // precision away from the one number a passenger watches move.
     j.add("\"argo\":{\"running\":%s,\"waiting\":%s,\"anchored\":%s,"
-          "\"km_isi\":%.1f,\"wait_min\":%.1f,\"elapsed_s\":%lu,\"odometer\":%.0f}",
+          "\"km_isi\":%.0f,\"wait_ms\":%lu,\"elapsed_s\":%lu,\"odometer\":%.0f}",
           running  ? "true" : "false",
           waiting  ? "true" : "false",
           anchored ? "true" : "false",
-          (double)km_billed, (double)min_billed,
+          (double)km_billed, (unsigned long)wait_ms,
           (unsigned long)(running ? (millis() - started) / 1000 : 0),
           (double)odo);
 }

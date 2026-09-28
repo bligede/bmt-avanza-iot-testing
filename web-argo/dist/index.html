@@ -583,9 +583,54 @@ body{
   .bar i{transition:none}
 }
 
+/* UPRIGHT, BUT WIDE ENOUGH TO KEEP THE COMPOSITION: a ten-inch tablet on end.
+
+   The composition survives the rotation; what does not survive is the way the
+   height is shared out. The frame is built for a box about twice as wide as it
+   is tall, so in a box that is taller than it is wide the fare card inherits
+   several hundred pixels it has nothing to put in, and the figure stays small
+   in the middle of a white field.
+
+   So the slack is redistributed rather than fought: the amount is allowed to
+   grow with the box it is in, the metric row stops being a fixed strip and
+   takes a share of the height, and the numbers inside it grow with it. Nothing
+   moves; everything gets bigger, which is what a bigger box is for. */
+@media (max-aspect-ratio:1/1) and (min-width:600px){
+  .right{grid-template-rows:minmax(0,1.35fr) minmax(0,1fr) auto}
+  .amount b{font-size:min(calc(11*var(--u)),56cqh)}
+  .amount span{font-size:calc(3*var(--u))}
+  .metric .v b{font-size:calc(5*var(--u))}
+  .metric .v.dur b{font-size:calc(4.2*var(--u))}
+  .metric h3{font-size:calc(1.4*var(--u))}
+  .metric .v span{font-size:calc(1.4*var(--u))}
+  .ic{width:calc(4.6*var(--u));height:calc(4.6*var(--u))}
+  .ic svg{width:calc(2.4*var(--u));height:calc(2.4*var(--u))}
+  .r-row dt,.r-row .qty{font-size:calc(1.7*var(--u))}
+  .r-row .qty b{font-size:calc(2.6*var(--u))}
+  .f-head b{font-size:calc(1.8*var(--u))}
+  .f-state{font-size:calc(1.5*var(--u))}
+  .act{font-size:calc(1.8*var(--u))}
+  /* A tall card is not a reason to strand its contents at the top. */
+  .metric{justify-content:center}
+  /* The car is 1,94 wide to 1 tall. Given the whole of a tall column it crops
+     to a wheel, so it is capped and sits at the foot of the card, which is
+     where it sat in the frame this was drawn for. */
+  .who-art{flex:none;height:calc(26*var(--u))}
+  /* And the name gets to wrap rather than lose its own ending. */
+  .who-name{font-size:calc(2.6*var(--u));white-space:normal}
+  .who-list dd{font-size:calc(1.8*var(--u))}
+}
+
 /* A panel narrower than it is tall is not the shipping frame, but a technician
-   will open this on a phone. Stack rather than crush. */
-@media (max-aspect-ratio:1/1){
+   will open this on a phone. Stack rather than crush.
+
+   NARROW, not merely upright. This block used to answer every portrait screen,
+   and on a ten-inch tablet held upright that was wrong twice over. --u is 3,2 %
+   of the width, so at 800 px one unit became 26 px, and the stacked layout is
+   about 170 units tall, so the page grew to 4300 px and the fare card sat two
+   screens below the fold. A tablet has the width to keep the composition it was
+   designed with; only a phone does not. */
+@media (max-aspect-ratio:1/1) and (max-width:599px){
   /* --u comes off the WIDTH here, because width is what constrains a stacked
      card. Taking it off height made every card wider than the phone. */
   :root{--u:3.2vw}
@@ -908,11 +953,11 @@ body{
         <dl class="receipt">
           <div class="r-row" id="r-km">
             <dt><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg>Argometer</dt>
-            <dd class="qty"><b id="fare-km">0,0</b> km isi</dd>
+            <dd class="qty"><b id="fare-km">0</b> km isi</dd>
           </div>
           <div class="r-row" id="r-wait">
             <dt><svg viewBox="0 0 24 24"><use href="#i-clock"/></svg>Waktu tunggu<span class="chip" id="wait-unapproved">belum disahkan</span></dt>
-            <dd class="qty"><b id="fare-wait">0,0</b> menit</dd>
+            <dd class="qty"><b id="fare-wait">00:00,00</b> mnt:dtk</dd>
           </div>
         </dl>
 
@@ -926,7 +971,7 @@ body{
         <section class="card metric" id="m-km">
           <span class="ic teal"><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg></span>
           <h3>Jarak</h3>
-          <p class="v"><b data-v="tripKm">0,0</b><span>km</span></p>
+          <p class="v"><b data-v="tripKm">0</b><span>km</span></p>
           <span class="pbar"><i id="bar-km"></i></span>
         </section>
 
@@ -994,13 +1039,6 @@ body{
 /* =============================================================================
    Tariff
 
-   SALINAN VERBATIM dari project-mdt-tds/mdt-ui/tariff.js.
-
-   Ini satu-satunya duplikasi angka rupiah di seluruh sistem, dan ia disengaja:
-   alat ini tidak bisa mengambil berkas dari repo lain saat build. Kalau tarif
-   berubah, ubah di repo itu dulu, baru salin ke sini. Jangan pernah mengetik
-   ulang angkanya di sini.
-
    The fare the passenger pays. Kept in its own file, and deliberately small,
    because this is the one part of the screen that is about MONEY and it will be
    edited by somebody who is not reading the rest of the code.
@@ -1060,18 +1098,23 @@ const TARIFF = {
      position, not a confirmed one, and it is in the open questions. */
   flagFall: 0,
 
-  /* The distance meter ticks every 100 m rather than billing a continuous
-     distance and then rounding the money.
+  /* The distance meter ticks a WHOLE kilometre at a time.
 
-     Not a detail. Billing raw distance and rounding rupiah made the screen
-     contradict itself: it printed one distance beside a rate, and a passenger
-     doing that multiplication got a different number from the meter. Ticking
-     removes it at the source, and one tick is a whole number of rupiah
-     (0,1 km x Rp 8.200 = Rp 820), so no rounding rule needs inventing.
+     Operator instruction, 28 September 2026: the argometer and the distance are
+     to be shown as whole numbers, without a decimal comma. The tick has to move
+     with the display, not only the display, or the screen contradicts itself:
+     printing "2 km isi" beside Rp 8.200 while charging for 2,4 km gives a
+     passenger who does the multiplication a different number from the meter,
+     and that is the one arithmetic this screen must never get wrong.
 
-     Check this whenever the price changes: a rate that is not a multiple of ten
-     would put fractions of a rupiah back into the total. */
-  kmStep: 0.1,
+     It also matches the source. Distance comes from the vehicle's own odometer,
+     which on the DFSK Gelora E has a resolution of one kilometre, so a tenth of
+     a kilometre was never something the meter could actually see.
+
+     WHAT THIS COSTS: a trip shorter than one kilometre now bills nothing for
+     distance. Whoever signs off the tariff needs to know that, because it is a
+     revenue decision and not a display one. */
+  kmStep: 1,
 
   /* ---- NOT IN THE DOCUMENTATION -------------------------------------------
 
@@ -1081,6 +1124,9 @@ const TARIFF = {
        "Waktu tunggu pakai dl 5k permenit"
        "Jika kexepatan di bawah 5 km/h saat argo aktif, waktu tunggu idup"
 
+     REVISED 28 September 2026 by the operator: Rp 1.000 per minute, that is
+     per 60 seconds. The threshold below which it runs is unchanged.
+
      Implemented as given. Three things about it belong in front of whoever
      signs it off, because none of them is visible from the numbers alone:
 
@@ -1088,9 +1134,11 @@ const TARIFF = {
         confirmed basis is distance alone. This is a new charge, so it needs the
         Direktur and Direktur Utama approval the tariff rule requires.
 
-     2. Rp 5.000 per minute is Rp 300.000 per hour, and at Rp 8.200 per km that
-        is what the meter earns driving 36,6 km/jam. A vehicle stuck in traffic
-        bills roughly what a vehicle moving at city speed bills.
+     2. Rp 1.000 per minute is Rp 60.000 per hour, which at Rp 8.200 per km is
+        what the meter earns driving 7,3 km/jam. That is a waiting charge that
+        reads as waiting rather than as driving, which the earlier Rp 5.000 did
+        not: at Rp 300.000 per hour a vehicle stuck in traffic billed roughly
+        what a vehicle moving at city speed billed.
 
      3. The meter is subject to TERA, legal metrology sealing. Baswara Finance
         carries a role called "Pengendali Tarif dan Tera", and the permit regime
@@ -1098,11 +1146,12 @@ const TARIFF = {
         the sealed instrument computes, which is a question for the metrology
         authority and not only a commercial one.
 
-     Until it is approved, the screen marks this line as awaiting approval
+     Revising the figure is not the approval. It is still a charge that appears
+     nowhere in the SELARIDE documentation, so until the Direktur and Direktur
+     Utama sign it off the screen keeps marking this line as awaiting approval
      rather than presenting it as settled. */
-  perMinute: 5000,
+  perMinute: 1000,
   waitBelowKmh: 5,
-  waitStepMin: 0.1,
   waitApproved: false,
 
   currency: 'Rp'
@@ -1151,21 +1200,43 @@ function createMeter() {
     },
 
     read() {
-      const kmStep  = TARIFF.kmStep > 0 ? TARIFF.kmStep : 0.1;
-      const minStep = TARIFF.waitStepMin > 0 ? TARIFF.waitStepMin : 0.1;
-      const km      = Math.floor(billedKm / kmStep + 1e-9) * kmStep;
-      const waitMin = Math.floor((waitSec / 60) / minStep + 1e-9) * minStep;
+      const kmStep = TARIFF.kmStep > 0 ? TARIFF.kmStep : 1;
+      const km     = Math.floor(billedKm / kmStep + 1e-9) * kmStep;
+      /* Waiting is NOT ticked. It is shown as a running stopwatch, so the money
+         has to follow the clock: a passenger reading 01:23,45 off the screen
+         and dividing by sixty lands on the same rupiah the meter charged. */
+      const waitMs = Math.round(waitSec * 1000);
       const kmAmount   = Math.round(km * TARIFF.perKm);
-      const waitAmount = Math.round(waitMin * TARIFF.perMinute);
+      const waitAmount = waitAmountOf(waitMs);
       return {
         onHire, waiting,
-        km, waitMin,
+        km, waitMs,
         kmAmount, waitAmount,
         base: TARIFF.flagFall,
         total: TARIFF.flagFall + kmAmount + waitAmount
       };
     }
   };
+}
+
+/* Waiting time in rupiah, from milliseconds. One place, so the receipt line and
+   the total can never disagree about it. */
+function waitAmountOf(ms) {
+  return Math.round((ms / 60000) * TARIFF.perMinute);
+}
+
+/* "01:23,45" — minutes, seconds, hundredths. A stopwatch rather than a decimal
+   number of minutes, because "1,3 menit" is a quantity a passenger has to
+   convert before it means anything, and a waiting clock is something they watch
+   run. Hours are not shown: an argo that has been waiting for an hour has a
+   problem no display is going to solve. */
+function stopwatch(ms) {
+  const t = Math.max(0, Math.round(ms));
+  const m = Math.floor(t / 60000);
+  const s = Math.floor((t % 60000) / 1000);
+  const c = Math.floor((t % 1000) / 10);
+  const p = n => (n < 10 ? '0' : '') + n;
+  return p(m) + ':' + p(s) + ',' + p(c);
 }
 
 /* "Rp 12.700". Indonesian grouping, no decimals: rupiah has no subunit in use.
@@ -1190,7 +1261,7 @@ function rateLabel() {
 
 /* The rule that switched the meter, printed beside the charge it produced. */
 function waitRuleLabel() {
-  return 'waktu tunggu ' + rupiah(TARIFF.perMinute) + ' per menit, di bawah '
+  return 'waktu tunggu ' + rupiah(TARIFF.perMinute) + ' per 60 detik, di bawah '
        + TARIFF.waitBelowKmh + ' km/jam';
 }
 
@@ -1531,11 +1602,16 @@ function paint(d) {
   }
 
   // ---- the meter, in quantities the device counted
-  const km   = a.km_isi   || 0;
-  const wait = a.wait_min || 0;
-  $('fare-km').textContent   = nf(km, 1);
-  $('fare-wait').textContent = nf(wait, 1);
-  $('m-km').querySelector('b').textContent = nf(km, 1);
+  //
+  // Distance arrives already billed, a whole kilometre at a time. Waiting
+  // arrives raw, in milliseconds, and is run here as a stopwatch: a decimal
+  // number of minutes is something a passenger has to convert before it means
+  // anything, and a waiting clock is something they watch.
+  const km     = a.km_isi  || 0;
+  const waitMs = a.wait_ms || 0;
+  $('fare-km').textContent   = nf(km, 0);
+  $('fare-wait').textContent = stopwatch(waitMs);
+  $('m-km').querySelector('b').textContent = nf(km, 0);
 
   const secs = a.elapsed_s || 0;
   $('dur-h').textContent = id2(secs / 3600);
@@ -1543,9 +1619,14 @@ function paint(d) {
   $('dur-s').textContent = id2(secs % 60);
 
   // ---- and the money, computed here, from the one file that holds a price
+  //
+  // Waiting is charged from the same milliseconds the stopwatch shows, so a
+  // passenger reading 01:23,45 off the glass and dividing by sixty lands on the
+  // rupiah the meter charged. Rounding the clock before charging it would put a
+  // gap between the two numbers on the same card.
   const total = TARIFF.flagFall
               + Math.round(km * TARIFF.perKm)
-              + Math.round(wait * TARIFF.perMinute);
+              + waitAmountOf(waitMs);
   $('fare').textContent = grouped(total);
 
   // ---- states

@@ -37,13 +37,24 @@ namespace ArgoMeter {
 
 // Below this speed the waiting clock runs instead of the distance.
 // Source: Surya Wirasdyartha, WhatsApp 26 Sep 2026. The rate that goes with it
-// is NOT in the SELARIDE documentation and is marked unapproved on the screen.
+// was revised to Rp 1.000 per 60 seconds by the operator on 28 Sep 2026, is
+// still NOT in the SELARIDE documentation, and is still marked unapproved on
+// the screen: revising a figure is not the same as approving it.
 constexpr float WAIT_BELOW_KMH = 5.0f;
 
-// One tick of each quantity, so the screen shows what was actually billed and a
-// passenger multiplying it by the rate lands on the same number.
-constexpr float KM_STEP  = 0.1f;
-constexpr float MIN_STEP = 0.1f;
+// Distance is billed a WHOLE kilometre at a time, so the screen shows what was
+// actually billed and a passenger multiplying it by the rate lands on the same
+// number. Operator instruction, 28 September 2026: the argometer reads as a
+// whole number. It also matches the source, because the DFSK odometer has a
+// resolution of one kilometre and a tenth was never something this could see.
+//
+// What it costs, and it is a revenue decision rather than a display one: a trip
+// shorter than one kilometre now bills nothing for distance.
+constexpr float KM_STEP = 1.0f;
+
+// Waiting has no tick at all. It is reported in milliseconds and the screen
+// runs it as a stopwatch, so the money follows the clock the passenger is
+// watching instead of jumping a tenth of a minute at a time.
 
 // A gap longer than this is reception stopping, not the vehicle waiting. Time
 // that nobody observed is not billed.

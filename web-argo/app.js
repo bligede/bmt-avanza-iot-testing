@@ -122,11 +122,16 @@ function paint(d) {
   }
 
   // ---- the meter, in quantities the device counted
-  const km   = a.km_isi   || 0;
-  const wait = a.wait_min || 0;
-  $('fare-km').textContent   = nf(km, 1);
-  $('fare-wait').textContent = nf(wait, 1);
-  $('m-km').querySelector('b').textContent = nf(km, 1);
+  //
+  // Distance arrives already billed, a whole kilometre at a time. Waiting
+  // arrives raw, in milliseconds, and is run here as a stopwatch: a decimal
+  // number of minutes is something a passenger has to convert before it means
+  // anything, and a waiting clock is something they watch.
+  const km     = a.km_isi  || 0;
+  const waitMs = a.wait_ms || 0;
+  $('fare-km').textContent   = nf(km, 0);
+  $('fare-wait').textContent = stopwatch(waitMs);
+  $('m-km').querySelector('b').textContent = nf(km, 0);
 
   const secs = a.elapsed_s || 0;
   $('dur-h').textContent = id2(secs / 3600);
@@ -134,9 +139,14 @@ function paint(d) {
   $('dur-s').textContent = id2(secs % 60);
 
   // ---- and the money, computed here, from the one file that holds a price
+  //
+  // Waiting is charged from the same milliseconds the stopwatch shows, so a
+  // passenger reading 01:23,45 off the glass and dividing by sixty lands on the
+  // rupiah the meter charged. Rounding the clock before charging it would put a
+  // gap between the two numbers on the same card.
   const total = TARIFF.flagFall
               + Math.round(km * TARIFF.perKm)
-              + Math.round(wait * TARIFF.perMinute);
+              + waitAmountOf(waitMs);
   $('fare').textContent = grouped(total);
 
   // ---- states
