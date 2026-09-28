@@ -145,21 +145,24 @@ const num = v => !isFinite(v) ? '?'
   : Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v))
   : String(Math.round(v * 1000) / 1000);
 
-/* Returns {text, raw} or null when the note carries no formula.
+/* Returns {text, raw, nums} or null when the note carries no formula. `nums` is
+   one entry per formula in note order, so a caller that wants to plot a value
+   does not have to re-run the expression or parse it back out of the text.
    `fmt` lets a caller format numbers its own way; the table wants every digit,
    the vehicle panel wants a number readable at a glance. */
 function renderNote(txt, bytes, fmt) {
   const shownum = fmt || num;
   const parts = parseNote(txt);
   if (!parts) return null;
-  const seen = [];
+  const seen = [], nums = [];
   let out = '';
   for (const part of parts) {
     if (part.lit !== undefined) { out += part.lit; continue; }
     if (!part.fn) { out += '{' + part.src + '?}'; continue; }
-    try { out += shownum(part.fn(bytes, seen)); } catch (_) { out += '?'; }
+    try { const v = part.fn(bytes, seen); nums.push(v); out += shownum(v); }
+    catch (_) { nums.push(NaN); out += '?'; }
   }
-  return {text: out, raw: seen.join(' ')};
+  return {text: out, raw: seen.join(' '), nums};
 }
 
 /* =============================================================================
@@ -222,13 +225,131 @@ function setFilter(f, remember) {
   MON.layout = '';          // the row set changes, so the table must be rebuilt
 }
 
-/* One card per tagged note that carries a formula: the label is the text before
+/* =============================================================================
+   The vehicle cards
+
+   One card per tagged note that carries a formula: the label is the text before
    the formula, the value is the formula rendered against the bytes that just
    arrived. Nothing here is hard-coded per vehicle. Name an identifier, tag it,
-   and it appears. */
-function vals(list) {
+   and it appears.
+
+   WHY A CARD DRAWS ITS OWN HISTORY. On a bus the question is almost never "what
+   is the number". A technician already knows roughly what a pack voltage reads.
+   The question is whether it is moving, which way, and whether it steps or
+   drifts. A row of digits answers none of that, and the answer is gone before
+   the next poll. Forty seconds of the reading behind each number answers it at
+   a glance and costs the device nothing: the history lives in the page.
+
+   WHAT A CARD IS ALLOWED TO ASSUME. Almost nothing, because the notes are
+   written per vehicle and in whatever words the mapper used. So:
+
+   * The ICON is chosen from the UNIT, never from the label. "Motor",
+     "Kecepatan" and "SOC" are free text somebody typed; rpm, km/jam and % mean
+     the same thing on every vehicle. A unit nobody recognises gets the neutral
+     mark rather than a wrong one.
+   * The GRAPH scales itself to what it has seen, because no range is known and
+     inventing one would be a claim about the vehicle. The scale is relative,
+     and the card says so by carrying no axis at all.
+   * Only a PERCENTAGE gets a fixed 0 to 100 bar, because that is what the unit
+     itself means. Nothing here paints a low reading amber: a threshold is a
+     decision about the vehicle, and this tool does not get to make one.
+   * A note with TWO OR MORE formulas is a sentence, not a quantity. It keeps
+     the text treatment, set smaller so it stops being cut off, which the one
+     size never managed.
+   ============================================================================= */
+const VWIN_MS = 40000;          // how much of the past each graph shows
+const VHIST   = new Map();      // key|note -> [{t, v}] within that window
+let   VCLOCK  = 0;              // last device clock, to notice a restart
+
+/* Keyed on the unit as written after the formula, lowercased. The aliases are
+   here because a mapper writes what is on the dash: km/h in one car, km/jam in
+   the next, and both are a speed. */
+const VKIND = {
+  '%': 'pct',
+  'rpm': 'rpm', 'r/min': 'rpm',
+  'km': 'dist', 'm': 'dist', 'mi': 'dist',
+  'km/jam': 'speed', 'km/h': 'speed', 'kmh': 'speed', 'mph': 'speed', 'm/s': 'speed',
+  'v': 'volt', 'mv': 'volt', 'kv': 'volt',
+  'a': 'amp', 'ma': 'amp',
+  'c': 'temp', '°c': 'temp', 'degc': 'temp', 'f': 'temp', '°f': 'temp',
+  'kpa': 'press', 'bar': 'press', 'psi': 'press'
+};
+
+/* 16x16, stroked in the label colour. Small enough that a wrong one reads as
+   noise rather than as a claim, which is the other reason the neutral trace
+   exists. */
+const VICON = {
+  pct:   'M2.5 5.5h9.5v5H2.5z M13.8 7.2v1.6',
+  rpm:   'M3 12.2a5 5 0 1 1 10 0 M8 12.2 5.2 7.4',
+  speed: 'M3 12.2a5 5 0 1 1 10 0 M8 12.2 11.2 7',
+  dist:  'M2.6 8h10.8 M2.6 5.6v4.8 M13.4 5.6v4.8',
+  volt:  'M9.2 1.8 4.2 8.4h3.3L6.8 14.2l5-6.6H8.5z',
+  amp:   'M2.6 8h10.8 M10.2 4.8 13.4 8l-3.2 3.2',
+  temp:  'M6.4 9.2V3.4a1.6 1.6 0 0 1 3.2 0v5.8a3 3 0 1 1-3.2 0z',
+  press: 'M8 13.4a5.4 5.4 0 1 1 0-10.8 5.4 5.4 0 0 1 0 10.8z M8 8 11 5.6',
+  none:  'M1.8 8h2.4l1.9-4.2 2.4 8.4 1.7-4.2h2'
+};
+const vicon = kind => '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="' +
+  (VICON[kind] || VICON.none) + '"/></svg>';
+
+/* The graph. Time runs left to right across a fixed forty seconds, so a card
+   that has just appeared draws a short trace at the right and grows leftwards,
+   instead of stretching two samples across the full width and pretending to be
+   a history it does not have. */
+function vkGraph(h, now, line, area, dot) {
+  if (h.length < 2) {
+    line.setAttribute('points', '');
+    area.setAttribute('points', '');
+    dot.setAttribute('d', '');
+    return;
+  }
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < h.length; i++) {
+    if (h[i].v < lo) lo = h[i].v;
+    if (h[i].v > hi) hi = h[i].v;
+  }
+  /* It refuses to zoom in past two percent of the reading. Without a floor, a
+     pack voltage sitting at 350.0 and rounding to 350.1 would draw a mountain
+     range, and the flattest signal on the bus would be the most dramatic thing
+     on the screen. */
+  const floor = Math.max(Math.abs(hi), Math.abs(lo)) * 0.02 || 1;
+  const flat = hi - lo < floor;
+  if (flat) { const mid = (hi + lo) / 2; lo = mid - floor / 2; hi = mid + floor / 2; }
+
+  const H = 30, P = 3;
+  let pts = '', first = 100, lx = 0, ly = 0;
+  for (let i = 0; i < h.length; i++) {
+    const x = Math.max(0, 100 - ((now - h[i].t) / VWIN_MS) * 100);
+    const y = H - P - ((h[i].v - lo) / (hi - lo)) * (H - 2 * P);
+    if (i === 0) first = x;
+    lx = x; ly = y;
+    pts += x.toFixed(2) + ',' + y.toFixed(2) + ' ';
+  }
+  pts = pts.trim();
+  line.setAttribute('points', pts);
+
+  /* A flat reading gets no fill. The line still sits where it belongs, but
+     filling under it turns a quantised counter that moved by one step in forty
+     seconds into the loudest block on the panel, which is the opposite of what
+     it is telling you. */
+  area.setAttribute('points', flat ? ''
+    : first.toFixed(2) + ',' + H + ' ' + pts + ' 100,' + H);
+
+  /* A zero-length subpath with a round cap draws a dot, and unlike a circle it
+     is not stretched into an ellipse by the graph being scaled to the card
+     width. It marks which end is now, which a bare trace never says. */
+  dot.setAttribute('d', 'M' + lx.toFixed(2) + ' ' + ly.toFixed(2) + 'l0 0');
+}
+
+const VCARDS = new Map();       // identifier key -> the elements to write into
+
+function vals(list, d) {
   const grid = $('vgrid'), panel = $('vals');
-  const cards = [];
+  const now = d.now_ms;
+  if (now < VCLOCK) VHIST.clear();        // the device restarted: a new series
+  VCLOCK = now;
+
+  const cards = [], live = new Set();
   list.forEach(x => {
     const k = keyOf(x);
     const txt = MON.notes.get(k);
@@ -239,28 +360,109 @@ function vals(list) {
     const parts = parseNote(body);
     const lead = parts && parts[0] && parts[0].lit !== undefined ? parts[0].lit.trim() : '';
     const rest = lead ? out.text.slice(parts[0].lit.length).trim() : out.text.trim();
-    cards.push({k, label: lead || hex(x.id, x.x ? 8 : 3), value: rest || out.text,
-                stale: false});
+
+    const fns  = parts.filter(p => p.fn !== undefined).length;
+    const tail = parts[parts.length - 1];
+    const one  = fns === 1 && isFinite(out.nums[0]);
+    const unit = one && tail.lit !== undefined ? tail.lit.trim() : '';
+    const kind = one ? (VKIND[unit.toLowerCase()] || 'none') : 'txt';
+
+    let hist = null;
+    if (one) {
+      const hk = k + '|' + txt;             // an edited note starts a new series
+      live.add(hk);
+      hist = VHIST.get(hk);
+      if (!hist) { hist = []; VHIST.set(hk, hist); }
+      hist.push({t: now, v: out.nums[0]});
+      while (hist.length > 2 && (now - hist[0].t > VWIN_MS || hist.length > 400)) hist.shift();
+    }
+
+    cards.push({
+      k, kind, hist,
+      label:  lead || hex(x.id, x.x ? 8 : 3),
+      value:  one ? cardnum(out.nums[0]) : (rest || out.text),
+      unit:   unit,
+      pct:    kind === 'pct' ? Math.max(0, Math.min(100, out.nums[0])) : null,
+      silent: now - x.t > STALE_MS
+    });
   });
+
+  // Notes get edited and identifiers come and go. Nothing should keep a series
+  // for a card that no longer exists.
+  if (VHIST.size > live.size) VHIST.forEach((_, hk) => { if (!live.has(hk)) VHIST.delete(hk); });
 
   if (!cards.length) { panel.hidden = true; return; }
   panel.hidden = false;
-  $('vn').textContent = cards.length + (cards.length === 1 ? ' signal' : ' signals');
+  const graphed = cards.some(c => c.hist);
+  $('vn').textContent = (graphed ? (VWIN_MS / 1000) + ' s history · ' : '') +
+    cards.length + (cards.length === 1 ? ' signal' : ' signals');
 
-  const sig = cards.map(c => c.k).join(',');
+  // The label and the unit both come from the note, so the arrangement has to
+  // be rebuilt when a note changes, not only when an identifier appears.
+  const sig = cards.map(c => c.k + '|' + c.kind + '|' + c.label + '|' + c.unit).join(',');
   if (grid.dataset.sig !== sig) {
     grid.dataset.sig = sig;
     grid.textContent = '';
+    VCARDS.clear();
     cards.forEach(c => {
-      const d = document.createElement('div');
-      d.className = 'vc';
-      const b = document.createElement('b'); b.id = 'vc-' + c.k;
-      const l = document.createElement('span'); l.textContent = c.label;
-      d.append(b, l);
-      grid.appendChild(d);
+      const box = document.createElement('div');
+      box.className = 'vc' + (c.kind === 'txt' ? ' txt' : '');
+
+      const head = document.createElement('div');
+      head.className = 'vk-h';
+      head.innerHTML = vicon(c.kind);             // a fixed table, never input
+      const em = document.createElement('em');
+      em.textContent = c.label;
+      const sil = document.createElement('i');
+      sil.className = 'vk-s';
+      sil.textContent = 'silent';
+      head.append(em, sil);
+
+      const b  = document.createElement('b');
+      const vv = document.createElement('span');
+      const uu = document.createElement('u');
+      uu.textContent = c.unit;
+      b.append(vv, uu);
+      box.append(head, b);
+
+      const rec = {box: box, vv: vv};
+      if (c.kind === 'pct') {
+        const bar = document.createElement('div');
+        bar.className = 'vk-b';
+        rec.fill = document.createElement('i');
+        bar.appendChild(rec.fill);
+        box.appendChild(bar);
+      } else if (c.hist) {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        g.setAttribute('class', 'vk-g');
+        g.setAttribute('viewBox', '0 0 100 30');
+        g.setAttribute('preserveAspectRatio', 'none');
+        g.setAttribute('aria-hidden', 'true');
+        g.innerHTML = '<polygon class="vk-a"/>' +
+          '<polyline class="vk-l" vector-effect="non-scaling-stroke"/>' +
+          '<path class="vk-d" vector-effect="non-scaling-stroke"/>';
+        rec.area = g.childNodes[0];
+        rec.line = g.childNodes[1];
+        rec.dot  = g.childNodes[2];
+        box.appendChild(g);
+      } else {
+        const pad = document.createElement('div');
+        pad.className = 'vk-p';                   // keeps the row of cards level
+        box.appendChild(pad);
+      }
+      VCARDS.set(c.k, rec);
+      grid.appendChild(box);
     });
   }
-  cards.forEach(c => { const el = $('vc-' + c.k); if (el) el.textContent = c.value; });
+
+  cards.forEach(c => {
+    const r = VCARDS.get(c.k);
+    if (!r) return;
+    r.vv.textContent = c.value;
+    r.box.classList.toggle('silent', c.silent);
+    if (r.fill) r.fill.style.width = c.pct.toFixed(1) + '%';
+    if (r.line) vkGraph(c.hist, now, r.line, r.area, r.dot);
+  });
 }
 
 const MON = {
@@ -385,7 +587,7 @@ SPLIT_MQ.addEventListener('change', () => { MON.layout = ''; });
 function monPaint(d) {
   const now = Date.now();
   const list = d.ids.slice().sort((a, b) => (a.x - b.x) || (a.id - b.id));
-  vals(list);
+  vals(list, d);
 
   // The device already dropped what the filter excludes, but say so: a filter
   // that hides silently is how somebody concludes an ECU went quiet.

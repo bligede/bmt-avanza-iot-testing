@@ -33,6 +33,16 @@
      carry a formula and are tagged for the dispatch system, so it needs no
      firmware change when a new signal is mapped: name it in the table, tag it,
      and it appears here. Absent until at least one such note exists. -->
+<!-- One gradient for every vehicle graph. Defined once here rather than inside
+     each card, because a card is rebuilt whenever a note changes and a def that
+     is rebuilt with it is a def that flickers. -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <linearGradient id="vkg" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#04FB2D" stop-opacity=".16"/>
+    <stop offset="1" stop-color="#04FB2D" stop-opacity="0"/>
+  </linearGradient>
+</svg>
+
 <section class="vals" id="vals" hidden>
   <div class="sh"><h2>Vehicle</h2><span class="n" id="vn"></span></div>
   <div class="vgrid" id="vgrid"></div>

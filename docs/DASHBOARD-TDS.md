@@ -61,9 +61,38 @@ Di tabel, tanda itu tampil sebagai lencana kecil dan tidak diulang sebagai teks.
 ## Panel Vehicle
 
 Setiap catatan bertanda `#tds` **yang memuat rumus** menjadi satu kartu di panel
-paling atas: angkanya besar, namanya kecil di bawahnya. Tidak ada satu pun
+paling atas: nama dan ikon kecil di atas, angkanya besar di bawahnya, lalu
+empat puluh detik terakhir dari angka itu sebagai grafik. Tidak ada satu pun
 identifier yang ditulis di dalam kode halaman, jadi memetakan sinyal baru cukup
 dengan menamainya di tabel dan menandainya. Panel itu ikut muncul sendiri.
+
+Grafik itu ada karena di atas bus pertanyaannya hampir tidak pernah "berapa
+angkanya". Teknisi sudah tahu kira-kira berapa tegangan pack. Yang ditanyakan
+adalah apakah angkanya bergerak, ke arah mana, dan apakah ia melompat atau
+merayap. Sederet digit tidak menjawab itu, dan jawabannya sudah hilang sebelum
+polling berikutnya. Riwayatnya disimpan di halaman, bukan di alat, jadi alatnya
+tidak menanggung apa pun.
+
+**Apa yang boleh diandaikan sebuah kartu, dan kenapa hampir tidak ada:**
+
+| Bagian | Dasarnya |
+|---|---|
+| Ikon | diambil dari **satuan**, tidak pernah dari nama. "Motor", "Kecepatan" dan "SOC" adalah teks bebas yang diketik seseorang; `rpm`, `km/jam` dan `%` berarti sama di setiap kendaraan. Satuan yang tidak dikenali dapat ikon netral, bukan ikon yang salah |
+| Skala grafik | menyesuaikan diri terhadap apa yang sudah terlihat, karena tidak ada rentang yang diketahui dan mengarangnya berarti mengaku tahu sesuatu tentang kendaraan itu. Karena skalanya nisbi, grafiknya sengaja tidak bersumbu |
+| Bar 0-100 | hanya untuk satuan `%`, karena satuan itu sendiri yang menyatakan rentangnya. Tidak ada angka rendah yang diwarnai kuning: ambang adalah keputusan tentang kendaraan, dan alat ini tidak berhak mengambilnya |
+| Kartu teks | catatan dengan **dua rumus atau lebih** adalah kalimat, bukan besaran, jadi tidak digrafikkan. Ia diset lebih kecil supaya berhenti terpotong |
+
+Grafik menolak memperbesar skalanya melewati dua persen dari angka yang dibaca.
+Tanpa batas itu, tegangan pack yang diam di 350,0 dan membulat ke 350,1 akan
+menggambar pegunungan, dan sinyal paling datar di bus jadi hal paling dramatis
+di layar. Sinyal yang memang datar digambar datar dan **tanpa isian**, karena
+mengisi bawah garisnya membuat pencacah yang bergerak satu langkah dalam empat
+puluh detik jadi blok paling keras di panel.
+
+Identifier yang berhenti bicara lebih dari dua detik membuat kartunya meredup
+dan memunculkan kata `SILENT`. Angkanya tetap terbaca, karena angka terakhir
+yang sempat diterima adalah informasi; yang tidak boleh adalah angka itu terlihat
+seolah baru.
 
 Catatan bertanda tetapi tanpa rumus tetap lolos penyaring dan tampil di tabel,
 hanya tidak jadi kartu, karena tidak ada angka yang bisa ditampilkan.
