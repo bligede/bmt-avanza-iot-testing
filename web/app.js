@@ -393,18 +393,30 @@ function vals(list, d) {
 
   if (!cards.length) { panel.hidden = true; return; }
   panel.hidden = false;
-  const graphed = cards.some(c => c.hist);
+
+  /* The cluster claims the three readings it has a place for, and only appears
+     when there is a percentage or a speed: with neither of those the drawing is
+     two hairlines around an empty middle. Whatever it does not claim keeps the
+     card it had. */
+  const pctc  = cards.find(c => c.kind === 'pct');
+  const speed = cards.find(c => c.kind === 'speed');
+  const dists = (pctc || speed) ? cards.filter(c => c.kind === 'dist') : [];
+  const hero  = (pctc || speed) ? [pctc, speed].concat(dists).filter(Boolean) : [];
+  if (hero.length) cluPaint(pctc, speed, dists); else $('clu').hidden = true;
+  const rest = cards.filter(c => hero.indexOf(c) < 0);
+
+  const graphed = rest.some(c => c.hist);
   $('vn').textContent = (graphed ? (VWIN_MS / 1000) + ' s history · ' : '') +
     cards.length + (cards.length === 1 ? ' signal' : ' signals');
 
   // The label and the unit both come from the note, so the arrangement has to
   // be rebuilt when a note changes, not only when an identifier appears.
-  const sig = cards.map(c => c.k + '|' + c.kind + '|' + c.label + '|' + c.unit).join(',');
+  const sig = rest.map(c => c.k + '|' + c.kind + '|' + c.label + '|' + c.unit).join(',');
   if (grid.dataset.sig !== sig) {
     grid.dataset.sig = sig;
     grid.textContent = '';
     VCARDS.clear();
-    cards.forEach(c => {
+    rest.forEach(c => {
       const box = document.createElement('div');
       box.className = 'vc' + (c.kind === 'txt' ? ' txt' : '');
 
@@ -455,7 +467,7 @@ function vals(list, d) {
     });
   }
 
-  cards.forEach(c => {
+  rest.forEach(c => {
     const r = VCARDS.get(c.k);
     if (!r) return;
     r.vv.textContent = c.value;
@@ -463,6 +475,202 @@ function vals(list, d) {
     if (r.fill) r.fill.style.width = c.pct.toFixed(1) + '%';
     if (r.line) vkGraph(c.hist, now, r.line, r.area, r.dot);
   });
+}
+
+/* =============================================================================
+   The cluster
+
+   The arrangement is the one in the reference the Direktur supplied: a ring in
+   the middle carrying the charge, the odometer on the left, the speed large on
+   the right, and two hairlines running the full width with the ring punched
+   through them.
+
+   WHICH SIGNAL GOES WHERE IS DECIDED BY ITS UNIT, not by its identifier. The
+   panel still hard-codes nothing per vehicle: a note whose unit is a percentage
+   takes the ring, one in km/jam takes the right, one in km takes the left, and
+   everything else keeps the card it had. Map a new vehicle and it arranges
+   itself. If a vehicle has neither a percentage nor a speed there is no cluster
+   to draw, and the panel falls back to the plain grid it was before.
+
+   The digits are drawn, not set in a font. A seven-segment face would be
+   another file in flash on a device that serves its pages from flash, and the
+   whole of one is ten lines: a table of which bars are lit, and two hexagons.
+   ============================================================================= */
+
+/* a b c d e f g, in the usual order. */
+const S7 = {
+  '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg',
+  '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg',
+  '-': 'g'
+};
+
+/* One digit lives in a 100 by 180 box. The bevelled ends are what make it read
+   as an instrument rather than as a calculator. */
+const S7P = (function () {
+  const T = 18, h = T / 2, m = 3.5, xL = 9, xR = 91, yT = 9, yM = 90, yB = 171;
+  const bar = (y, x0, x1) => 'M' + x0 + ' ' + y + 'L' + (x0 + h) + ' ' + (y - h) +
+    'L' + (x1 - h) + ' ' + (y - h) + 'L' + x1 + ' ' + y +
+    'L' + (x1 - h) + ' ' + (y + h) + 'L' + (x0 + h) + ' ' + (y + h) + 'Z';
+  const col = (x, y0, y1) => 'M' + x + ' ' + y0 + 'L' + (x + h) + ' ' + (y0 + h) +
+    'L' + (x + h) + ' ' + (y1 - h) + 'L' + x + ' ' + y1 +
+    'L' + (x - h) + ' ' + (y1 - h) + 'L' + (x - h) + ' ' + (y0 + h) + 'Z';
+  return {
+    a: bar(yT, xL + m, xR - m), d: bar(yB, xL + m, xR - m), g: bar(yM, xL + m, xR - m),
+    b: col(xR, yT + m, yM - m), c: col(xR, yM + m, yB - m),
+    e: col(xL, yM + m, yB - m), f: col(xL, yT + m, yM - m)
+  };
+})();
+
+function s7(text) {
+  let x = 0, out = '';
+  const str = String(text);
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (ch === '.' || ch === ',') {
+      out += '<path transform="translate(' + x + ' 0)" d="M6 152h27v27H6Z"/>';
+      x += 47;
+    } else if (ch === '%') {
+      out += '<g transform="translate(' + x + ' 0)">' +
+        '<path fill-rule="evenodd" d="M2 52h40v40H2Zm11 11h18v18H13Z"/>' +
+        '<path fill-rule="evenodd" d="M56 124h40v40H56Zm11 11h18v18H67Z"/>' +
+        '<path d="M74 44 94 54 24 172 4 162Z"/></g>';
+      x += 118;
+    } else if (S7[ch]) {
+      let d = '';
+      for (let j = 0; j < S7[ch].length; j++) d += S7P[S7[ch][j]];
+      /* A one lights only the two right-hand bars, so in a full-width cell it
+         leaves eighty points of blank to its left and 30461 reads as 3046 1.
+         Every digital cluster gives the one a narrow cell; so does this. */
+      const one = ch === '1';
+      out += '<path transform="translate(' + (one ? x - 82 : x) + ' 0)" d="' + d + '"/>';
+      x += one ? 40 : 122;
+    } else {
+      x += 60;                                   // anything else: its own blank
+    }
+  }
+  return {markup: out, w: Math.max(1, x - 22)};
+}
+
+/* Writes a drawn number into an <svg>, and only when it changed: the digits are
+   a dozen paths and there is no reason to rebuild them twice a second. */
+function s7write(el, text) {
+  if (el.dataset.t === text) return;
+  el.dataset.t = text;
+  const g = s7(text);
+  el.setAttribute('viewBox', '0 0 ' + g.w + ' 180');
+  el.innerHTML = g.markup;
+}
+
+const RING_N = 48;                               // ticks around the ring
+
+function ringMarkup() {
+  const C = 100;
+  const pt = (r, a) => [
+    C + r * Math.cos((a - 90) * Math.PI / 180),
+    C + r * Math.sin((a - 90) * Math.PI / 180)
+  ];
+  const arc = (r, a0, a1) => {
+    const p0 = pt(r, a0), p1 = pt(r, a1);
+    return 'M' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + 'A' + r + ' ' + r +
+      ' 0 ' + (a1 - a0 > 180 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2);
+  };
+  let out = '';
+  // The outermost pair of thin brackets, then the broken heavy arcs. Both are
+  // ornament, carried over from the reference because that is the drawing that
+  // was approved; neither one moves or means anything.
+  out += '<path class="rg-br" d="' + arc(96, 32, 148) + '"/>' +
+         '<path class="rg-br" d="' + arc(96, 212, 328) + '"/>';
+  [[14, 68], [104, 152], [194, 248], [286, 338]].forEach(a => {
+    out += '<path class="rg-or" d="' + arc(88, a[0], a[1]) + '"/>';
+  });
+  for (let i = 0; i < RING_N; i++) {
+    const a = (i / RING_N) * 360, i0 = pt(66, a), i1 = pt(78, a);
+    out += '<line class="rg-t" x1="' + i0[0].toFixed(2) + '" y1="' + i0[1].toFixed(2) +
+           '" x2="' + i1[0].toFixed(2) + '" y2="' + i1[1].toFixed(2) + '"/>';
+  }
+  out += '<circle class="rg-in" cx="100" cy="100" r="59"/>';
+  return out;
+}
+
+/* Built once. The cluster is three zones and they are the same three zones for
+   every vehicle, so only their contents are rewritten. */
+let CLU = null;
+
+function cluBuild() {
+  const box = $('clu');
+  box.innerHTML =
+    '<div class="clu-l"><div class="clu-lb">' +
+      '<span class="clu-k" id="clu-dk"></span>' +
+      '<div class="clu-dv"><svg class="s7 s7-m" id="clu-d"></svg>' +
+        '<u id="clu-du"></u></div>' +
+      '<div class="clu-x" id="clu-x"></div></div></div>' +
+    '<div class="clu-c"><div class="clu-ring">' +
+      '<svg viewBox="0 0 200 200" aria-hidden="true">' + ringMarkup() + '</svg>' +
+      '<div class="clu-hub">' +
+        '<svg class="clu-ic" id="clu-pi" viewBox="0 0 16 16" aria-hidden="true">' +
+          '<path/></svg>' +
+        '<div class="clu-pv"><svg class="s7 s7-b" id="clu-p"></svg></div>' +
+        '<span class="clu-k" id="clu-pk"></span>' +
+      '</div></div></div>' +
+    '<div class="clu-r"><div class="clu-rb">' +
+      '<svg class="s7 s7-b" id="clu-s"></svg>' +
+      '<span class="clu-u" id="clu-su"></span></div></div>';
+  CLU = {
+    ticks: box.querySelectorAll('.rg-t'),
+    ring:  box.querySelector('.clu-ring'),
+    pi:    $('clu-pi').firstChild, p: $('clu-p'), pk: $('clu-pk'),
+    d:     $('clu-d'), du: $('clu-du'), dk: $('clu-dk'), x: $('clu-x'),
+    s:     $('clu-s'), su: $('clu-su'),
+    zl:    box.querySelector('.clu-l'), zr: box.querySelector('.clu-r')
+  };
+}
+
+/* A drawn number can only carry digits, a point and a minus. Anything else, and
+   the reading is written out instead of being mangled into blanks. */
+const S7OK = /^[-0-9.,]+$/;
+
+function cluPaint(pctc, speed, dists) {
+  const box = $('clu');
+  if (!CLU) cluBuild();
+  box.hidden = false;
+
+  CLU.ring.hidden = !pctc;
+  if (pctc) {
+    const on = Math.round((pctc.pct / 100) * RING_N);
+    for (let i = 0; i < CLU.ticks.length; i++) {
+      CLU.ticks[i].classList.toggle('on', i < on);
+    }
+    CLU.pi.setAttribute('d', VICON[pctc.kind] || VICON.none);
+    s7write(CLU.p, S7OK.test(pctc.value) ? pctc.value + '%' : '');
+    CLU.pk.textContent = pctc.label;
+    CLU.ring.classList.toggle('silent', pctc.silent);
+  }
+
+  CLU.zl.hidden = !dists.length;
+  if (dists.length) {
+    const d = dists[0];
+    CLU.dk.textContent = d.label;
+    s7write(CLU.d, S7OK.test(d.value) ? d.value : '');
+    CLU.du.textContent = d.unit;
+    CLU.x.textContent = '';
+    dists.slice(1, 3).forEach((o, i) => {
+      const r = document.createElement('div');
+      const b = document.createElement('i');
+      b.textContent = i ? 'B' : 'A';
+      const v = document.createElement('span');
+      v.textContent = o.value + (o.unit ? ' ' + o.unit : '');
+      r.append(b, v);
+      CLU.x.appendChild(r);
+    });
+    CLU.zl.classList.toggle('silent', d.silent);
+  }
+
+  CLU.zr.hidden = !speed;
+  if (speed) {
+    s7write(CLU.s, S7OK.test(speed.value) ? speed.value : '');
+    CLU.su.textContent = speed.unit;
+    CLU.zr.classList.toggle('silent', speed.silent);
+  }
 }
 
 const MON = {

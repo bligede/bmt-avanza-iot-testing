@@ -60,11 +60,47 @@ Di tabel, tanda itu tampil sebagai lencana kecil dan tidak diulang sebagai teks.
 
 ## Panel Vehicle
 
-Setiap catatan bertanda `#tds` **yang memuat rumus** menjadi satu kartu di panel
-paling atas: nama dan ikon kecil di atas, angkanya besar di bawahnya, lalu
-empat puluh detik terakhir dari angka itu sebagai grafik. Tidak ada satu pun
-identifier yang ditulis di dalam kode halaman, jadi memetakan sinyal baru cukup
-dengan menamainya di tabel dan menandainya. Panel itu ikut muncul sendiri.
+Setiap catatan bertanda `#tds` **yang memuat rumus** masuk ke panel paling atas.
+Tidak ada satu pun identifier yang ditulis di dalam kode halaman, jadi memetakan
+sinyal baru cukup dengan menamainya di tabel dan menandainya. Panel itu ikut
+muncul sendiri.
+
+### Cluster
+
+Susunannya mengikuti gambar acuan dari Direktur (28 September 2026): cincin daya
+besar di tengah, odometer di kiri, kecepatan besar di kanan, dan dua garis tipis
+melintang selebar halaman yang ditembus cincin itu.
+
+**Yang menentukan sebuah sinyal masuk zona mana adalah satuannya, bukan
+identifier-nya.** Halaman tetap tidak memuat apa pun yang khusus satu kendaraan:
+
+| Satuan | Zona |
+|---|---|
+| `%` | cincin di tengah, plus angka besar dan nama sinyalnya di bawahnya |
+| `km/jam`, `km/h`, `mph`, `m/s` | angka besar di kanan |
+| `km`, `m`, `mi` | blok kiri; kalau ada lebih dari satu, sisanya jadi baris A dan B |
+| lainnya | tetap jadi kartu seperti sebelumnya, di bawah cluster |
+
+Cluster hanya muncul kalau ada persen **atau** kecepatan. Tanpa keduanya
+gambarnya cuma dua garis mengelilingi ruang kosong, jadi panelnya kembali ke
+kisi kartu biasa. Kendaraan yang belum dipetakan tidak pernah melihat cluster.
+
+Angkanya **digambar, bukan diketik dengan font**. Font tujuh segmen berarti satu
+berkas lagi di flash pada alat yang menyajikan halamannya dari flash, sedangkan
+seluruh isinya cuma tabel bar mana yang menyala plus dua heksagon. Angka `1`
+dapat sel yang lebih sempit, seperti pada setiap cluster digital, supaya `30461`
+tidak terbaca `3046 1`.
+
+Busur teal di lingkaran luar adalah ornamen, dibawa dari gambar acuan karena
+itulah gambar yang disetujui. Ia tidak bergerak dan tidak berarti apa-apa, dan
+warnanya tidak dipakai di tempat lain: seluruh bagian halaman yang membawa makna
+tetap hijau di atas arang.
+
+### Kartu
+
+Sinyal yang tidak diambil cluster tetap jadi kartu: nama dan ikon kecil di atas,
+angkanya besar di bawahnya, lalu empat puluh detik terakhir dari angka itu
+sebagai grafik.
 
 Grafik itu ada karena di atas bus pertanyaannya hampir tidak pernah "berapa
 angkanya". Teknisi sudah tahu kira-kira berapa tegangan pack. Yang ditanyakan
