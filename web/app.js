@@ -226,44 +226,43 @@ function setFilter(f, remember) {
 }
 
 /* =============================================================================
-   The vehicle cards
+   The vehicle panel
 
-   One card per tagged note that carries a formula: the label is the text before
-   the formula, the value is the formula rendered against the bytes that just
-   arrived. Nothing here is hard-coded per vehicle. Name an identifier, tag it,
-   and it appears.
+   The arrangement is the one in the reference the Direktur supplied: the speed
+   on a large dial in the middle, the odometer and the motor on the left, and
+   the battery readings stacked on the right.
 
-   WHY A CARD DRAWS ITS OWN HISTORY. On a bus the question is almost never "what
-   is the number". A technician already knows roughly what a pack voltage reads.
-   The question is whether it is moving, which way, and whether it steps or
-   drifts. A row of digits answers none of that, and the answer is gone before
-   the next poll. Forty seconds of the reading behind each number answers it at
-   a glance and costs the device nothing: the history lives in the page.
+   WHICH READING GOES WHERE IS DECIDED BY ITS UNIT, not by its identifier. The
+   panel still hard-codes nothing per vehicle: km/jam takes the middle dial, rpm
+   takes a dial on the left, km sits under it, a percentage gets a bar, and
+   everything else becomes a tile on the right. Map a new vehicle and the panel
+   arranges itself. With no speed and no percentage there is nothing to build a
+   dial out of, and the panel falls back to a plain row of tiles.
 
-   WHAT A CARD IS ALLOWED TO ASSUME. Almost nothing, because the notes are
-   written per vehicle and in whatever words the mapper used. So:
+   ONE NOTE CAN CARRY SEVERAL READINGS. The pack identifier sends voltage,
+   current and a temperature, and the device keeps ONE note per identifier, so
+   they arrive written as one sentence. Each formula in that sentence is its own
+   reading with its own tile, which is also how the reference draws them. The
+   literal between two formulas belongs to both: its first word is the unit that
+   closes the reading before it, and the rest names the reading after it.
 
-   * The ICON is chosen from the UNIT, never from the label. "Motor",
-     "Kecepatan" and "SOC" are free text somebody typed; rpm, km/jam and % mean
-     the same thing on every vehicle. A unit nobody recognises gets the neutral
-     mark rather than a wrong one.
-   * The GRAPH scales itself to what it has seen, because no range is known and
-     inventing one would be a claim about the vehicle. The scale is relative,
-     and the card says so by carrying no axis at all.
-   * Only a PERCENTAGE gets a fixed 0 to 100 bar, because that is what the unit
-     itself means. Nothing here paints a low reading amber: a threshold is a
-     decision about the vehicle, and this tool does not get to make one.
-   * A note with TWO OR MORE formulas is a sentence, not a quantity. It keeps
-     the text treatment, set smaller so it stops being cut off, which the one
-     size never managed.
+   WHAT A TILE IS ALLOWED TO ASSUME. Almost nothing, because the notes are
+   written per vehicle and in whatever words the mapper used.
+
+   * The ICON comes from the UNIT, never from the label. "Motor", "Kecepatan"
+     and "SOC" are free text somebody typed; rpm, km/jam and % mean the same on
+     every vehicle. An unrecognised unit gets the neutral mark, not a wrong one.
+   * A DIAL'S SCALE is the highest value seen this session, rounded up, and it
+     only ever grows. No vehicle here has a proven maximum, so the dial prints
+     its own end number instead of implying one it was told.
+   * ONLY A PERCENTAGE gets a fixed 0 to 100, because the unit says so. Nothing
+     is painted amber for being low: a threshold is a decision about the
+     vehicle, and this tool does not get to make one.
    ============================================================================= */
-const VWIN_MS = 40000;          // how much of the past each graph shows
-const VHIST   = new Map();      // key|note -> [{t, v}] within that window
+const VWIN_MS = 40000;          // how much of the past each trace shows
+const VHIST   = new Map();      // key -> [{t, v}] within that window
 let   VCLOCK  = 0;              // last device clock, to notice a restart
 
-/* Keyed on the unit as written after the formula, lowercased. The aliases are
-   here because a mapper writes what is on the dash: km/h in one car, km/jam in
-   the next, and both are a speed. */
 const VKIND = {
   '%': 'pct',
   'rpm': 'rpm', 'r/min': 'rpm',
@@ -276,8 +275,7 @@ const VKIND = {
 };
 
 /* 16x16, stroked in the label colour. Small enough that a wrong one reads as
-   noise rather than as a claim, which is the other reason the neutral trace
-   exists. */
+   noise rather than as a claim, which is the other reason a neutral one exists. */
 const VICON = {
   pct:   'M2.5 5.5h9.5v5H2.5z M13.8 7.2v1.6',
   rpm:   'M3 12.2a5 5 0 1 1 10 0 M8 12.2 5.2 7.4',
@@ -292,11 +290,11 @@ const VICON = {
 const vicon = kind => '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="' +
   (VICON[kind] || VICON.none) + '"/></svg>';
 
-/* The graph. Time runs left to right across a fixed forty seconds, so a card
-   that has just appeared draws a short trace at the right and grows leftwards,
-   instead of stretching two samples across the full width and pretending to be
-   a history it does not have. */
-function vkGraph(h, now, line, area, dot) {
+/* The trace under a tile. Time runs left to right across a fixed forty seconds,
+   so a tile that has just appeared draws a short trace at the right and grows
+   leftwards, instead of stretching two samples across the full width and
+   pretending to be a history it does not have. */
+function vkGraph(h, now, line, area, dot, H) {
   if (h.length < 2) {
     line.setAttribute('points', '');
     area.setAttribute('points', '');
@@ -316,7 +314,7 @@ function vkGraph(h, now, line, area, dot) {
   const flat = hi - lo < floor;
   if (flat) { const mid = (hi + lo) / 2; lo = mid - floor / 2; hi = mid + floor / 2; }
 
-  const H = 30, P = 3;
+  const P = 2.5;
   let pts = '', first = 100, lx = 0, ly = 0;
   for (let i = 0; i < h.length; i++) {
     const x = Math.max(0, 100 - ((now - h[i].t) / VWIN_MS) * 100);
@@ -327,185 +325,29 @@ function vkGraph(h, now, line, area, dot) {
   }
   pts = pts.trim();
   line.setAttribute('points', pts);
-
-  /* A flat reading gets no fill. The line still sits where it belongs, but
-     filling under it turns a quantised counter that moved by one step in forty
-     seconds into the loudest block on the panel, which is the opposite of what
-     it is telling you. */
-  area.setAttribute('points', flat ? ''
-    : first.toFixed(2) + ',' + H + ' ' + pts + ' 100,' + H);
-
+  /* A flat reading gets no fill. Filling under it turns a quantised counter
+     that moved one step in forty seconds into the loudest block on the panel,
+     which is the opposite of what it is telling you. */
+  area.setAttribute('points', flat ? '' : first.toFixed(2) + ',' + H + ' ' + pts + ' 100,' + H);
   /* A zero-length subpath with a round cap draws a dot, and unlike a circle it
-     is not stretched into an ellipse by the graph being scaled to the card
+     is not stretched into an ellipse by the trace being scaled to the tile
      width. It marks which end is now, which a bare trace never says. */
   dot.setAttribute('d', 'M' + lx.toFixed(2) + ' ' + ly.toFixed(2) + 'l0 0');
 }
 
-const VCARDS = new Map();       // identifier key -> the elements to write into
+/* -----------------------------------------------------------------------------
+   Drawn digits
 
-function vals(list, d) {
-  const grid = $('vgrid'), panel = $('vals');
-  const now = d.now_ms;
-  if (now < VCLOCK) VHIST.clear();        // the device restarted: a new series
-  VCLOCK = now;
-
-  const cards = [], live = new Set();
-  list.forEach(x => {
-    const k = keyOf(x);
-    const txt = MON.notes.get(k);
-    if (!isTds(txt)) return;
-    const body = stripTag(txt);
-    const out = renderNote(body, bytesOf(x.d), cardnum);
-    if (!out) return;                       // tagged but no formula: table only
-    const parts = parseNote(body);
-    const lead = parts && parts[0] && parts[0].lit !== undefined ? parts[0].lit.trim() : '';
-    const rest = lead ? out.text.slice(parts[0].lit.length).trim() : out.text.trim();
-
-    const fns  = parts.filter(p => p.fn !== undefined).length;
-    const tail = parts[parts.length - 1];
-    const one  = fns === 1 && isFinite(out.nums[0]);
-    const unit = one && tail.lit !== undefined ? tail.lit.trim() : '';
-    const kind = one ? (VKIND[unit.toLowerCase()] || 'none') : 'txt';
-
-    let hist = null;
-    if (one) {
-      const hk = k + '|' + txt;             // an edited note starts a new series
-      live.add(hk);
-      hist = VHIST.get(hk);
-      if (!hist) { hist = []; VHIST.set(hk, hist); }
-      hist.push({t: now, v: out.nums[0]});
-      while (hist.length > 2 && (now - hist[0].t > VWIN_MS || hist.length > 400)) hist.shift();
-    }
-
-    cards.push({
-      k, kind, hist,
-      label:  lead || hex(x.id, x.x ? 8 : 3),
-      value:  one ? cardnum(out.nums[0]) : (rest || out.text),
-      unit:   unit,
-      pct:    kind === 'pct' ? Math.max(0, Math.min(100, out.nums[0])) : null,
-      silent: now - x.t > STALE_MS
-    });
-  });
-
-  // Notes get edited and identifiers come and go. Nothing should keep a series
-  // for a card that no longer exists.
-  if (VHIST.size > live.size) VHIST.forEach((_, hk) => { if (!live.has(hk)) VHIST.delete(hk); });
-
-  if (!cards.length) { panel.hidden = true; return; }
-  panel.hidden = false;
-
-  /* The cluster claims the three readings it has a place for, and only appears
-     when there is a percentage or a speed: with neither of those the drawing is
-     two hairlines around an empty middle. Whatever it does not claim keeps the
-     card it had. */
-  const pctc  = cards.find(c => c.kind === 'pct');
-  const speed = cards.find(c => c.kind === 'speed');
-  const dists = (pctc || speed) ? cards.filter(c => c.kind === 'dist') : [];
-  const hero  = (pctc || speed) ? [pctc, speed].concat(dists).filter(Boolean) : [];
-  if (hero.length) cluPaint(pctc, speed, dists); else $('clu').hidden = true;
-  const rest = cards.filter(c => hero.indexOf(c) < 0);
-
-  const graphed = rest.some(c => c.hist);
-  $('vn').textContent = (graphed ? (VWIN_MS / 1000) + ' s history · ' : '') +
-    cards.length + (cards.length === 1 ? ' signal' : ' signals');
-
-  // The label and the unit both come from the note, so the arrangement has to
-  // be rebuilt when a note changes, not only when an identifier appears.
-  const sig = rest.map(c => c.k + '|' + c.kind + '|' + c.label + '|' + c.unit).join(',');
-  if (grid.dataset.sig !== sig) {
-    grid.dataset.sig = sig;
-    grid.textContent = '';
-    VCARDS.clear();
-    rest.forEach(c => {
-      const box = document.createElement('div');
-      box.className = 'vc' + (c.kind === 'txt' ? ' txt' : '');
-
-      const head = document.createElement('div');
-      head.className = 'vk-h';
-      head.innerHTML = vicon(c.kind);             // a fixed table, never input
-      const em = document.createElement('em');
-      em.textContent = c.label;
-      const sil = document.createElement('i');
-      sil.className = 'vk-s';
-      sil.textContent = 'silent';
-      head.append(em, sil);
-
-      const b  = document.createElement('b');
-      const vv = document.createElement('span');
-      const uu = document.createElement('u');
-      uu.textContent = c.unit;
-      b.append(vv, uu);
-      box.append(head, b);
-
-      const rec = {box: box, vv: vv};
-      if (c.kind === 'pct') {
-        const bar = document.createElement('div');
-        bar.className = 'vk-b';
-        rec.fill = document.createElement('i');
-        bar.appendChild(rec.fill);
-        box.appendChild(bar);
-      } else if (c.hist) {
-        const g = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        g.setAttribute('class', 'vk-g');
-        g.setAttribute('viewBox', '0 0 100 30');
-        g.setAttribute('preserveAspectRatio', 'none');
-        g.setAttribute('aria-hidden', 'true');
-        g.innerHTML = '<polygon class="vk-a"/>' +
-          '<polyline class="vk-l" vector-effect="non-scaling-stroke"/>' +
-          '<path class="vk-d" vector-effect="non-scaling-stroke"/>';
-        rec.area = g.childNodes[0];
-        rec.line = g.childNodes[1];
-        rec.dot  = g.childNodes[2];
-        box.appendChild(g);
-      } else {
-        const pad = document.createElement('div');
-        pad.className = 'vk-p';                   // keeps the row of cards level
-        box.appendChild(pad);
-      }
-      VCARDS.set(c.k, rec);
-      grid.appendChild(box);
-    });
-  }
-
-  rest.forEach(c => {
-    const r = VCARDS.get(c.k);
-    if (!r) return;
-    r.vv.textContent = c.value;
-    r.box.classList.toggle('silent', c.silent);
-    if (r.fill) r.fill.style.width = c.pct.toFixed(1) + '%';
-    if (r.line) vkGraph(c.hist, now, r.line, r.area, r.dot);
-  });
-}
-
-/* =============================================================================
-   The cluster
-
-   The arrangement is the one in the reference the Direktur supplied: a ring in
-   the middle carrying the charge, the odometer on the left, the speed large on
-   the right, and two hairlines running the full width with the ring punched
-   through them.
-
-   WHICH SIGNAL GOES WHERE IS DECIDED BY ITS UNIT, not by its identifier. The
-   panel still hard-codes nothing per vehicle: a note whose unit is a percentage
-   takes the ring, one in km/jam takes the right, one in km takes the left, and
-   everything else keeps the card it had. Map a new vehicle and it arranges
-   itself. If a vehicle has neither a percentage nor a speed there is no cluster
-   to draw, and the panel falls back to the plain grid it was before.
-
-   The digits are drawn, not set in a font. A seven-segment face would be
-   another file in flash on a device that serves its pages from flash, and the
-   whole of one is ten lines: a table of which bars are lit, and two hexagons.
-   ============================================================================= */
-
-/* a b c d e f g, in the usual order. */
+   Seven segments, as SVG. A segment face would be another file in flash on a
+   device that serves its pages from flash, and the whole of one is a table of
+   which bars are lit plus two hexagons.
+   -------------------------------------------------------------------------- */
 const S7 = {
   '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg',
   '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg',
   '-': 'g'
 };
 
-/* One digit lives in a 100 by 180 box. The bevelled ends are what make it read
-   as an instrument rather than as a calculator. */
 const S7P = (function () {
   const T = 18, h = T / 2, m = 3.5, xL = 9, xR = 91, yT = 9, yM = 90, yB = 171;
   const bar = (y, x0, x1) => 'M' + x0 + ' ' + y + 'L' + (x0 + h) + ' ' + (y - h) +
@@ -551,8 +393,8 @@ function s7(text) {
   return {markup: out, w: Math.max(1, x - 22)};
 }
 
-/* Writes a drawn number into an <svg>, and only when it changed: the digits are
-   a dozen paths and there is no reason to rebuild them twice a second. */
+/* Only when it changed: the digits are a dozen paths and there is no reason to
+   rebuild them twice a second. */
 function s7write(el, text) {
   if (el.dataset.t === text) return;
   el.dataset.t = text;
@@ -561,116 +403,315 @@ function s7write(el, text) {
   el.innerHTML = g.markup;
 }
 
-const RING_N = 48;                               // ticks around the ring
+/* Drawn digits can only carry these. Anything else is written out in type
+   rather than mangled into blanks. */
+const S7OK = /^[-0-9.,]+$/;
 
-function ringMarkup() {
-  const C = 100;
-  const pt = (r, a) => [
-    C + r * Math.cos((a - 90) * Math.PI / 180),
-    C + r * Math.sin((a - 90) * Math.PI / 180)
-  ];
-  const arc = (r, a0, a1) => {
-    const p0 = pt(r, a0), p1 = pt(r, a1);
-    return 'M' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + 'A' + r + ' ' + r +
-      ' 0 ' + (a1 - a0 > 180 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2);
-  };
-  let out = '';
-  // The outermost pair of thin brackets, then the broken heavy arcs. Both are
-  // ornament, carried over from the reference because that is the drawing that
-  // was approved; neither one moves or means anything.
-  out += '<path class="rg-br" d="' + arc(96, 32, 148) + '"/>' +
-         '<path class="rg-br" d="' + arc(96, 212, 328) + '"/>';
-  [[14, 68], [104, 152], [194, 248], [286, 338]].forEach(a => {
-    out += '<path class="rg-or" d="' + arc(88, a[0], a[1]) + '"/>';
-  });
-  for (let i = 0; i < RING_N; i++) {
-    const a = (i / RING_N) * 360, i0 = pt(66, a), i1 = pt(78, a);
-    out += '<line class="rg-t" x1="' + i0[0].toFixed(2) + '" y1="' + i0[1].toFixed(2) +
-           '" x2="' + i1[0].toFixed(2) + '" y2="' + i1[1].toFixed(2) + '"/>';
+/* -----------------------------------------------------------------------------
+   Dials
+   -------------------------------------------------------------------------- */
+const GZ_A0 = -120, GZ_A1 = 120;        // degrees clockwise from twelve o'clock
+const GZ_TICKS = 40;                    // 41 marks, every fifth one long
+
+const gzPt = (r, a) => [
+  100 + r * Math.cos((a - 90) * Math.PI / 180),
+  100 + r * Math.sin((a - 90) * Math.PI / 180)
+];
+function gzArc(r, a0, a1) {
+  const p0 = gzPt(r, a0), p1 = gzPt(r, a1);
+  return 'M' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + 'A' + r + ' ' + r +
+    ' 0 ' + (a1 - a0 > 180 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2);
+}
+
+/* A scale that only ever grows. No vehicle here has a proven maximum, so the
+   dial takes the highest reading of the session, rounds it up to a number a
+   person would choose, and prints it. It never shrinks back, because a needle
+   that means one thing now and another thing in a minute is worse than a needle
+   that is generous. */
+const GZ_NICE = [10, 20, 30, 40, 50, 60, 80, 100, 120, 150, 200, 250, 300, 400,
+                 500, 600, 800, 1000, 1500, 2000, 3000, 4000, 5000, 6000, 8000,
+                 10000, 12000, 15000, 20000];
+const GZ_FLOOR = {speed: 60, rpm: 1000};
+const GZMAX = new Map();
+
+function gzMax(key, kind, v) {
+  if (kind === 'pct') return 100;
+  let m = GZMAX.get(key) || GZ_FLOOR[kind] || 10;
+  if (v > m) {
+    // Fifteen percent of headroom, so a reading that has just set the record
+    // does not pin the dial at its own end and leave nowhere left to go.
+    const want = v * 1.15;
+    for (let i = 0; i < GZ_NICE.length; i++) {
+      if (GZ_NICE[i] >= want) { m = GZ_NICE[i]; break; }
+    }
+    if (v > m) m = Math.ceil(want / 1000) * 1000;
+    GZMAX.set(key, m);
   }
-  out += '<circle class="rg-in" cx="100" cy="100" r="59"/>';
+  return m;
+}
+
+function gzMarkup(kind, labels) {
+  const sweep = GZ_A1 - GZ_A0;
+  let out = '<path class="gz-tr" d="' + gzArc(80, GZ_A0, GZ_A1) + '"/>';
+  for (let i = 0; i <= GZ_TICKS; i++) {
+    const a = GZ_A0 + (i / GZ_TICKS) * sweep, big = i % 5 === 0;
+    const p0 = gzPt(62, a), p1 = gzPt(big ? 71 : 68, a);
+    out += '<line class="gz-k' + (big ? ' big' : '') + '" x1="' + p0[0].toFixed(2) +
+      '" y1="' + p0[1].toFixed(2) + '" x2="' + p1[0].toFixed(2) +
+      '" y2="' + p1[1].toFixed(2) + '"/>';
+  }
+  out += '<path class="gz-v k-' + kind + '" d=""/>';
+  for (let i = 0; i < labels; i++) {
+    const p = gzPt(50, GZ_A0 + (i / (labels - 1)) * sweep);
+    out += '<text class="gz-n" x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) +
+      '">-</text>';
+  }
   return out;
 }
 
-/* Built once. The cluster is three zones and they are the same three zones for
-   every vehicle, so only their contents are rewritten. */
-let CLU = null;
-
-function cluBuild() {
-  const box = $('clu');
-  box.innerHTML =
-    '<div class="clu-l"><div class="clu-lb">' +
-      '<span class="clu-k" id="clu-dk"></span>' +
-      '<div class="clu-dv"><svg class="s7 s7-m" id="clu-d"></svg>' +
-        '<u id="clu-du"></u></div>' +
-      '<div class="clu-x" id="clu-x"></div></div></div>' +
-    '<div class="clu-c"><div class="clu-ring">' +
-      '<svg viewBox="0 0 200 200" aria-hidden="true">' + ringMarkup() + '</svg>' +
-      '<div class="clu-hub">' +
-        '<svg class="clu-ic" id="clu-pi" viewBox="0 0 16 16" aria-hidden="true">' +
-          '<path/></svg>' +
-        '<div class="clu-pv"><svg class="s7 s7-b" id="clu-p"></svg></div>' +
-        '<span class="clu-k" id="clu-pk"></span>' +
-      '</div></div></div>' +
-    '<div class="clu-r"><div class="clu-rb">' +
-      '<svg class="s7 s7-b" id="clu-s"></svg>' +
-      '<span class="clu-u" id="clu-su"></span></div></div>';
-  CLU = {
-    ticks: box.querySelectorAll('.rg-t'),
-    ring:  box.querySelector('.clu-ring'),
-    pi:    $('clu-pi').firstChild, p: $('clu-p'), pk: $('clu-pk'),
-    d:     $('clu-d'), du: $('clu-du'), dk: $('clu-dk'), x: $('clu-x'),
-    s:     $('clu-s'), su: $('clu-su'),
-    zl:    box.querySelector('.clu-l'), zr: box.querySelector('.clu-r')
-  };
+function gzPaint(refs, v, max) {
+  const f = Math.max(0, Math.min(1, max > 0 ? v / max : 0));
+  refs.val.setAttribute('d', gzArc(80, GZ_A0, GZ_A0 + f * (GZ_A1 - GZ_A0)));
+  const n = refs.nums.length;
+  if (refs.max !== max) {
+    refs.max = max;
+    for (let i = 0; i < n; i++) {
+      refs.nums[i].textContent = String(Math.round((i / (n - 1)) * max));
+    }
+  }
 }
 
-/* A drawn number can only carry digits, a point and a minus. Anything else, and
-   the reading is written out instead of being mangled into blanks. */
-const S7OK = /^[-0-9.,]+$/;
+/* A dial is read from across a cab, so it drops digits a tile keeps. Three
+   decimals are the point on a cell voltage and noise on a speedometer: nobody
+   has ever needed to know they were doing 2.676 km/jam. */
+const dialnum = v => !isFinite(v) ? '?'
+  : Math.abs(v) >= 100 ? String(Math.round(v))
+  : String(Math.round(v * 10) / 10);
 
-function cluPaint(pctc, speed, dists) {
-  const box = $('clu');
-  if (!CLU) cluBuild();
-  box.hidden = false;
+/* -----------------------------------------------------------------------------
+   Reading out a note
+   -------------------------------------------------------------------------- */
 
-  CLU.ring.hidden = !pctc;
-  if (pctc) {
-    const on = Math.round((pctc.pct / 100) * RING_N);
-    for (let i = 0; i < CLU.ticks.length; i++) {
-      CLU.ticks[i].classList.toggle('on', i < on);
-    }
-    CLU.pi.setAttribute('d', VICON[pctc.kind] || VICON.none);
-    s7write(CLU.p, S7OK.test(pctc.value) ? pctc.value + '%' : '');
-    CLU.pk.textContent = pctc.label;
-    CLU.ring.classList.toggle('silent', pctc.silent);
-  }
-
-  CLU.zl.hidden = !dists.length;
-  if (dists.length) {
-    const d = dists[0];
-    CLU.dk.textContent = d.label;
-    s7write(CLU.d, S7OK.test(d.value) ? d.value : '');
-    CLU.du.textContent = d.unit;
-    CLU.x.textContent = '';
-    dists.slice(1, 3).forEach((o, i) => {
-      const r = document.createElement('div');
-      const b = document.createElement('i');
-      b.textContent = i ? 'B' : 'A';
-      const v = document.createElement('span');
-      v.textContent = o.value + (o.unit ? ' ' + o.unit : '');
-      r.append(b, v);
-      CLU.x.appendChild(r);
+/* Every formula in a note is a reading. The words before the first one name it;
+   the literal after each one starts with its unit and continues with the name
+   of whatever comes next. */
+function readNote(body, bytes, fallback) {
+  const parts = parseNote(body);
+  if (!parts) return [];
+  const out = renderNote(body, bytes, cardnum);
+  if (!out) return [];
+  const reads = [];
+  let label = parts[0] && parts[0].lit !== undefined ? parts[0].lit.trim() : '';
+  let fi = 0;
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].fn === undefined) continue;
+    const after = parts[i + 1] && parts[i + 1].lit !== undefined
+      ? parts[i + 1].lit.trim() : '';
+    const sp = after.indexOf(' ');
+    const unit = sp < 0 ? after : after.slice(0, sp);
+    const v = out.nums[fi];
+    reads.push({
+      label: label || fallback,
+      unit: unit,
+      kind: VKIND[unit.toLowerCase()] || 'none',
+      v: isFinite(v) ? v : null,
+      text: isFinite(v) ? cardnum(v) : '?'
     });
-    CLU.zl.classList.toggle('silent', d.silent);
+    label = sp < 0 ? '' : after.slice(sp + 1).trim();
+    fi++;
   }
+  return reads;
+}
 
-  CLU.zr.hidden = !speed;
-  if (speed) {
-    s7write(CLU.s, S7OK.test(speed.value) ? speed.value : '');
-    CLU.su.textContent = speed.unit;
-    CLU.zr.classList.toggle('silent', speed.silent);
+/* -----------------------------------------------------------------------------
+   Tiles
+   -------------------------------------------------------------------------- */
+const TILES = new Map();        // key -> the elements to write into
+
+function tileBuild(r) {
+  const box = document.createElement('div');
+  box.className = 'tl tl-' + r.form + ' k-' + r.kind + (r.big ? ' big' : '');
+  const refs = {box: box, max: -1};
+
+  const head = document.createElement('div');
+  head.className = 'tl-h';
+  head.innerHTML = vicon(r.kind);
+  const em = document.createElement('em');
+  em.textContent = r.label;
+  const sil = document.createElement('i');
+  sil.className = 'tl-s';
+  sil.textContent = 'silent';
+  head.append(em, sil);
+  box.appendChild(head);
+
+  if (r.form === 'dial') {
+    const wrap = document.createElement('div');
+    wrap.className = 'tl-d';
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    /* Cropped to what the dial actually draws. A 240 degree sweep leaves the
+       bottom third of a square box empty, and an empty third under the needle
+       is what made the tile look unfinished. The hub is nudged back down to the
+       dial's true centre in CSS, which is why the two numbers have to agree. */
+    g.setAttribute('viewBox', '12 10 176 142');
+    g.setAttribute('aria-hidden', 'true');
+    g.innerHTML = gzMarkup(r.kind, r.big ? 5 : 2);
+    refs.val = g.querySelector('.gz-v');
+    refs.nums = g.querySelectorAll('.gz-n');
+    const hub = document.createElement('div');
+    hub.className = 'tl-hub';
+    const num = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    num.setAttribute('class', 's7');
+    refs.s7 = num;
+    const u = document.createElement('span');
+    u.className = 'tl-u';
+    u.textContent = r.unit;
+    hub.append(num, u);
+    wrap.append(g, hub);
+    box.appendChild(wrap);
+  } else {
+    const v = document.createElement('div');
+    v.className = 'tl-v';
+    if (r.form === 'seg') {
+      const num = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      num.setAttribute('class', 's7');
+      refs.s7 = num;
+      v.appendChild(num);
+    } else {
+      refs.b = document.createElement('b');
+      v.appendChild(refs.b);
+    }
+    const u = document.createElement('u');
+    u.textContent = r.unit;
+    v.appendChild(u);
+    box.appendChild(v);
+
+    if (r.form === 'bar') {
+      const bar = document.createElement('div');
+      bar.className = 'tl-b';
+      refs.fill = document.createElement('i');
+      bar.appendChild(refs.fill);
+      box.appendChild(bar);
+    } else {
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      g.setAttribute('class', 'tl-g');
+      g.setAttribute('viewBox', '0 0 100 22');
+      g.setAttribute('preserveAspectRatio', 'none');
+      g.setAttribute('aria-hidden', 'true');
+      g.innerHTML = '<polygon class="vk-a"/>' +
+        '<polyline class="vk-l" vector-effect="non-scaling-stroke"/>' +
+        '<path class="vk-d" vector-effect="non-scaling-stroke"/>';
+      refs.area = g.childNodes[0];
+      refs.line = g.childNodes[1];
+      refs.dot  = g.childNodes[2];
+      box.appendChild(g);
+    }
   }
+  return refs;
+}
+
+function tilePaint(refs, r, now) {
+  refs.box.classList.toggle('silent', r.silent);
+  if (refs.s7) s7write(refs.s7, S7OK.test(r.text) ? r.text : '');
+  if (refs.b) refs.b.textContent = r.text;
+  if (refs.val) gzPaint(refs, r.v, gzMax(r.key, r.kind, r.v));
+  if (refs.fill) refs.fill.style.width = Math.max(0, Math.min(100, r.v)).toFixed(1) + '%';
+  if (refs.line) vkGraph(r.hist, now, refs.line, refs.area, refs.dot, 22);
+}
+
+/* -----------------------------------------------------------------------------
+   The panel
+   -------------------------------------------------------------------------- */
+function vals(list, d) {
+  const panel = $('vals'), clu = $('clu');
+  const now = d.now_ms;
+  if (now < VCLOCK) { VHIST.clear(); GZMAX.clear(); }
+  VCLOCK = now;
+
+  const reads = [], live = new Set();
+  list.forEach(x => {
+    const k = keyOf(x);
+    const txt = MON.notes.get(k);
+    if (!isTds(txt)) return;
+    const body = stripTag(txt);
+    const got = readNote(body, bytesOf(x.d), hex(x.id, x.x ? 8 : 3));
+    const silent = now - x.t > STALE_MS;
+    got.forEach((r, i) => {
+      r.key = k + '#' + i;
+      r.silent = silent;
+      if (r.v !== null) {
+        const hk = r.key + '|' + txt;          // an edited note starts a series
+        live.add(hk);
+        let h = VHIST.get(hk);
+        if (!h) { h = []; VHIST.set(hk, h); }
+        h.push({t: now, v: r.v});
+        while (h.length > 2 && (now - h[0].t > VWIN_MS || h.length > 400)) h.shift();
+        r.hist = h;
+      }
+      reads.push(r);
+    });
+  });
+
+  // Notes get edited and identifiers come and go. Nothing keeps a series for a
+  // reading that no longer exists.
+  if (VHIST.size > live.size) VHIST.forEach((_, hk) => { if (!live.has(hk)) VHIST.delete(hk); });
+
+  if (!reads.length) { panel.hidden = true; return; }
+  panel.hidden = false;
+  $('vn').textContent = reads.length + (reads.length === 1 ? ' reading' : ' readings');
+
+  /* The zones. A reading that carries no number cannot be drawn on a dial or in
+     a bar, so it falls through to a plain tile wherever its kind belongs. */
+  const num = reads.filter(r => r.v !== null);
+  const hero = num.find(r => r.kind === 'speed') || num.find(r => r.kind === 'pct');
+  const left = [], right = [], plain = [];
+  reads.forEach(r => {
+    if (!hero) {
+      // Nothing to build a dial out of, so the panel is a plain row of tiles,
+      // which is what it was before the reference arrived.
+      r.form = (r.kind === 'pct' && r.v !== null) ? 'bar' : 'plain';
+      plain.push(r);
+    } else if (r === hero) {
+      r.form = 'dial'; r.big = true; r.text = dialnum(r.v);
+    } else if (r.kind === 'rpm' && r.v !== null) {
+      r.form = 'dial'; r.text = dialnum(r.v); left.push(r);
+    } else if (r.kind === 'dist') {
+      r.form = 'seg'; left.push(r);
+    } else {
+      r.form = (r.kind === 'pct' && r.v !== null) ? 'bar' : 'plain';
+      right.push(r);
+    }
+  });
+
+  /* Reading order inside a column, following the reference: the plain number
+     above the dial on the left, the percentage at the top of the stack on the
+     right. Identifier order decides nothing here, because the order identifiers
+     happen to have on the bus is not an order anybody reads in. */
+  left.sort((a, b) => (a.form === 'dial' ? 1 : 0) - (b.form === 'dial' ? 1 : 0));
+  right.sort((a, b) => (a.form === 'bar' ? 0 : 1) - (b.form === 'bar' ? 0 : 1));
+
+  clu.hidden = !hero;
+  $('vgrid').hidden = !plain.length;
+  const zones = [[$('clu-l'), left], [$('clu-c'), hero ? [hero] : []],
+                 [$('clu-r'), right], [$('vgrid'), plain]];
+  const sig = zones.map(z => z[1].map(r =>
+    r.key + '|' + r.form + '|' + r.kind + '|' + r.label + '|' + r.unit).join(',')).join('||');
+
+  if (panel.dataset.sig !== sig) {
+    panel.dataset.sig = sig;
+    TILES.clear();
+    zones.forEach(z => {
+      z[0].textContent = '';
+      z[1].forEach(r => {
+        const refs = tileBuild(r);
+        TILES.set(r.key, refs);
+        z[0].appendChild(refs.box);
+      });
+    });
+  }
+  reads.forEach(r => {
+    const refs = TILES.get(r.key);
+    if (refs) tilePaint(refs, r, now);
+  });
 }
 
 const MON = {

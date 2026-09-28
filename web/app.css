@@ -16,12 +16,12 @@
   --warn:#F2B233; --warn-bg:#2A1F0C; --warn-line:#4A3714;
   --bad:#FF7566;  --bad-bg:#2C1614; --bad-line:#4E2320;
   --g-soft:#10301A;          /* a changed byte: green, dark enough to read over */
-  /* The cluster. The teals are sampled from the reference drawing the Direktur
-     supplied, not invented: they are ornament on the ring and appear nowhere
-     else, so the page is still green on charcoal everywhere it carries meaning. */
-  --teal:#0F6E79; --teal-lt:#2FB6C6;
-  --rule:#4A4547;            /* the hairlines that run the width of the cluster */
-  --tick:#2A2628;            /* a ring segment that is not yet filled */
+  /* The dials. Blue for speed and amber for the motor are the reference's own
+     scale colours, and they stay on the scales: a value is never coloured by
+     what it reads, because on an instrument a red number is an alarm and this
+     tool has no thresholds to raise one with. */
+  --tick:#2E2A2C;            /* a dial track that is not yet filled */
+  --tick-2:#3A3537;          /* a minor mark on a dial */
   --r:10px;
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
@@ -69,180 +69,124 @@ header{background:var(--hdr);color:var(--ink);padding:14px 18px;
 .rec button.busy{opacity:.55;pointer-events:none}
 .rec button.fail{border-color:var(--bad-line);color:var(--bad)}
 
-/* ---- vehicle values ------------------------------------------------------
-   The one panel a person reads instead of decoding. It sits above the tool's
-   own status because the vehicle is what they came for, and it is sized to be
-   read at arm's length in a moving car: the number large, the label small and
-   quiet, green spent on the number and its trace and nowhere else.
+/* ---- the vehicle panel ---------------------------------------------------
+   The one panel a person reads instead of decoding, in the arrangement from the
+   reference the Direktur supplied: the speed on a large dial in the middle, the
+   odometer and the motor on the left, the battery readings stacked right.
 
-   The label moved ABOVE the number when the graph arrived. Something had to
-   give up the bottom of the card, and between a name a person reads once and a
-   trace they read every poll, the trace earns the position.
+   Which reading lands in which zone is decided by its unit, in app.js, so
+   nothing here is per vehicle. What this file decides is only how a tile looks
+   once it knows which of four shapes it is: a dial, a bar, drawn digits, or a
+   number with its recent history under it.
 
-   It lays itself out from however many signals are tagged, so a vehicle with
-   three reads as well as one with nine. */
+   Numbers are near-white and the accent is spent on the dial, the bar and the
+   trace. A page of green numerals on black is a novelty; an instrument reads
+   its values in white and colours the scales. */
 .vals{margin:0;border:0;border-bottom:1px solid var(--line);border-radius:0;
   background:var(--hdr)}
 .vals .sh{border-bottom:1px solid var(--line-2)}
-/* Whatever the cluster did not claim. Capped rather than stretched: two cards
-   sharing a wide screen between them used to become two half-page slabs, which
-   made the leftovers look more important than the cluster above. */
-.vgrid{display:grid;gap:0;justify-content:start;
-  grid-template-columns:repeat(auto-fit,minmax(158px,236px));
-  border-top:1px solid var(--line-2)}
-.vc{background:var(--hdr);padding:12px 15px 11px;min-width:0;
-  border-right:1px solid var(--line-2);
-  display:flex;flex-direction:column}
 
-/* Icon, name, and the word that appears when the identifier stops talking. */
-.vk-h{display:flex;align-items:center;gap:6px;min-width:0;color:var(--ink-3);
-  font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase}
-.vk-h svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;
+.clu{display:grid;gap:13px;padding:15px 18px 18px;background:var(--hdr);
+  grid-template-columns:minmax(190px,1fr) minmax(300px,1.6fr) minmax(190px,1fr);
+  grid-template-areas:"l c r"}
+.clu-l{grid-area:l}
+.clu-c{grid-area:c;display:flex}
+/* The dial floats in the middle of its tile, but the label stays where every
+   other label on the panel is. */
+.clu-c > .tl > .tl-d{margin-block:auto}
+.clu-r{grid-area:r}
+.clu-l,.clu-r{display:flex;flex-direction:column;gap:13px}
+.clu-c > .tl{flex:1}
+
+.vgrid{display:grid;gap:13px;padding:15px 18px 18px;
+  grid-template-columns:repeat(auto-fit,minmax(178px,1fr))}
+
+/* ---- a tile ---- */
+.tl{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:12px 14px 11px;min-width:0;display:flex;flex-direction:column}
+.tl-h{display:flex;align-items:center;gap:7px;min-width:0;color:var(--ink-3);
+  font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase}
+.tl-h svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;
   stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.vk-h em{font-style:normal;min-width:0;overflow:hidden;text-overflow:ellipsis;
+.tl-h em{font-style:normal;min-width:0;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap}
-.vk-s{display:none;font-style:normal;margin-left:auto;flex:none;
-  font-size:9.5px;letter-spacing:.08em;color:var(--warn)}
+.tl-s{display:none;font-style:normal;margin-left:auto;flex:none;font-size:9.5px;
+  letter-spacing:.08em;color:var(--warn)}
 
-.vc b{display:flex;align-items:baseline;gap:4px;margin-top:8px;min-width:0;
-  color:var(--g);font-family:var(--mono);font-weight:600;font-size:27px;
-  line-height:1.05;letter-spacing:-.015em}
-.vc b span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vc b u{flex:none;text-decoration:none;font-size:12px;font-weight:500;
-  letter-spacing:.01em;color:var(--ink-3)}
+.tl-v{display:flex;align-items:baseline;gap:6px;margin-top:9px;min-width:0}
+.tl-v b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-family:var(--mono);font-weight:600;font-size:27px;line-height:1.05;
+  letter-spacing:-.015em;color:var(--ink)}
+.tl-v u{flex:none;text-decoration:none;font-family:var(--mono);font-size:12px;
+  font-weight:500;color:var(--ink-3)}
+.s7{display:block;fill:var(--ink);max-width:100%}
+.tl-v .s7{height:31px}
 
-/* Two or more formulas in one note is a sentence, not a quantity. Set smaller
-   and allowed to wrap, because at the one size it was simply cut off. */
-.vc.txt b{display:block;font-size:15.5px;line-height:1.35;letter-spacing:0}
-.vc.txt b span{white-space:normal;overflow:visible;text-overflow:clip;
-  overflow-wrap:anywhere}
-
-/* The trace. No axis and no gridlines: the scale is relative to the last forty
-   seconds and drawing an axis would imply it is not. */
-/* margin-top:auto on all three, so a card that draws a bar, a card that draws a
-   trace and a card that draws nothing still line up along one baseline however
-   long their labels wrapped. */
-.vk-g{display:block;width:100%;height:30px;margin-top:auto;overflow:visible}
+/* The trace, and the one fixed scale on the panel: a percentage carries its own
+   range, so it gets a bar instead. Nothing is painted amber for being low. */
+.tl-g{display:block;width:100%;height:22px;margin-top:auto;overflow:visible}
 .vk-l{fill:none;stroke:var(--g);stroke-width:1.7;stroke-linejoin:round;
   stroke-linecap:round}
 .vk-a{fill:url(#vkg);stroke:none}
 .vk-d{fill:none;stroke:var(--g);stroke-width:4.5;stroke-linecap:round}
-
-/* The one fixed scale on the panel, because a percentage carries its own. */
-.vk-b{height:5px;margin-top:auto;margin-bottom:10px;border-radius:3px;
+.tl-b{height:8px;margin-top:auto;margin-bottom:7px;border-radius:4px;
   background:var(--line);overflow:hidden}
-.vk-b i{display:block;height:100%;border-radius:3px;background:var(--g);
+.tl-b i{display:block;height:100%;border-radius:4px;background:var(--g);
   transition:width .35s ease}
-.vk-p{height:30px;margin-top:auto}         /* a card with nothing to draw */
 
-.vc.silent b{color:var(--ink-3)}
-.vc.silent .vk-s{display:block}
-.vc.silent .vk-g{opacity:.3}
-.vc.silent .vk-d{stroke:var(--ink-3)}
-.vc.silent .vk-b i{background:var(--ink-3)}
+/* ---- a dial ---- */
+.tl-dial{padding-bottom:14px}
+.tl-d{position:relative;width:100%;margin-top:6px;margin-inline:auto}
+.tl-d > svg{display:block;width:100%;height:auto;overflow:visible}
+.tl.big .tl-d{max-width:410px}
+.tl:not(.big) .tl-d{max-width:215px}
 
-@media (prefers-reduced-motion:reduce){
-  .vk-b i{transition:none}
+.gz-tr{fill:none;stroke:var(--tick);stroke-width:11;stroke-linecap:round}
+.gz-v{fill:none;stroke-width:11;stroke-linecap:round}
+.gz-v.k-speed{stroke:url(#gzs);filter:drop-shadow(0 0 4px rgba(47,182,255,.5))}
+.gz-v.k-rpm{stroke:url(#gzr);filter:drop-shadow(0 0 4px rgba(242,163,60,.45))}
+.gz-v.k-pct{stroke:var(--g);filter:drop-shadow(0 0 4px rgba(4,251,45,.35))}
+.gz-k{stroke:var(--tick-2);stroke-width:1.5}
+.gz-k.big{stroke:var(--ink-3);stroke-width:2.4}
+.gz-n{fill:var(--ink-3);font:600 9.5px var(--mono);text-anchor:middle;
+  dominant-baseline:central}
+
+/* The padding keeps the reading inside the dial rather than inside the ring, so
+   a long value scales itself down instead of crossing the ticks. The nudge puts
+   it back on the dial's centre after the viewBox in app.js cropped the empty
+   third off the bottom; change one and the other has to move with it. */
+.tl-hub{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:0 26%;
+  transform:translateY(13%)}
+.tl.big .tl-hub .s7{height:62px}
+.tl:not(.big) .tl-hub .s7{height:34px}
+.tl-u{margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--ink-3);
+  letter-spacing:.04em}
+.tl:not(.big) .tl-u{margin-top:5px;font-size:10.5px}
+
+.tl.silent .tl-s{display:block}
+.tl.silent .tl-v b,.tl.silent .s7{color:var(--ink-3);fill:var(--ink-3)}
+.tl.silent .tl-g{opacity:.3}
+.tl.silent .vk-d{stroke:var(--ink-3)}
+.tl.silent .tl-b i{background:var(--ink-3)}
+.tl.silent .gz-v{stroke:var(--ink-3);filter:none}
+
+@media (prefers-reduced-motion:reduce){ .tl-b i{transition:none} }
+
+/* Two rows before three columns get too narrow to read: the dial keeps the full
+   width and the two stacks share the row under it. */
+@media (max-width:1000px){
+  .clu{grid-template-columns:1fr 1fr;grid-template-areas:"c c" "l r"}
+  .tl.big .tl-d{max-width:330px}
 }
-@media (max-width:420px){
-  .vgrid{grid-template-columns:repeat(auto-fit,minmax(136px,1fr));
-    justify-content:stretch}
-  .vc{padding:10px 12px 9px}
-  .vc b{font-size:22px}
-  .vc.txt b{font-size:14px}
-  .vk-g,.vk-p{height:25px}
-  .vk-b{margin-bottom:8px}
-}
-
-/* ---- the cluster ---------------------------------------------------------
-   The arrangement from the reference the Direktur supplied. Three zones on one
-   row: the odometer left, the charge ring in the middle, the speed large right,
-   with two hairlines running the full width and the ring standing through them.
-
-   The ring is taller than the band it sits in, which is the whole shape of the
-   drawing, so the band is a fixed height and the ring is allowed to overflow
-   it. Nothing here is per vehicle: which reading lands in which zone is decided
-   by its unit, in app.js. */
-.clu{display:grid;align-items:center;
-  grid-template-columns:1fr minmax(232px,344px) 1fr;
-  padding:30px 18px;background:var(--hdr)}
-.clu > div{min-width:0}
-
-.clu-l,.clu-r{display:flex;align-items:center;min-height:126px;
-  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
-.clu-l{justify-content:flex-end;padding:12px 30px 12px 8px}
-.clu-r{justify-content:flex-start;padding:12px 8px 12px 30px}
-.clu-lb{min-width:0}
-.clu-rb{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
-
-/* Drawn digits. The height is set here and the width follows the viewBox, so a
-   reading that grows a digit gets wider instead of shorter. */
-.s7{display:block;fill:var(--ink);max-width:100%}
-.s7-b{height:74px}
-.s7-m{height:38px}
-
-.clu-k{display:block;font-size:11px;font-weight:600;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--ink-3)}
-.clu-dv{display:flex;align-items:flex-end;gap:7px;margin-top:7px}
-.clu-dv u{flex:none;text-decoration:none;font-family:var(--mono);font-size:12px;
-  color:var(--ink-3);padding-bottom:3px}
-.clu-x{margin-top:9px;display:flex;flex-direction:column;gap:4px}
-.clu-x > div{display:flex;align-items:center;gap:7px;font-family:var(--mono);
-  font-size:13px;color:var(--ink-2)}
-.clu-x i{flex:none;font-style:normal;font-family:var(--sans);font-weight:700;
-  font-size:9px;letter-spacing:.04em;color:var(--hdr);background:var(--ink-2);
-  border-radius:3px;padding:2px 4px;line-height:1}
-.clu-u{margin-top:7px;font-family:var(--mono);font-size:12px;color:var(--ink-3);
-  letter-spacing:.04em;align-self:flex-end}
-
-/* The ring. It is wider than its column on purpose: the hairlines have to stop
-   at it, not at some box around it. */
-.clu-ring{position:relative;width:100%;aspect-ratio:1}
-.clu-ring > svg{display:block;width:100%;height:100%;overflow:visible}
-.rg-t{stroke:var(--tick);stroke-width:4.4;stroke-linecap:round}
-.rg-t.on{stroke:var(--g)}
-.rg-or{fill:none;stroke:var(--teal);stroke-width:7;stroke-linecap:butt}
-.rg-br{fill:none;stroke:var(--ink-2);stroke-width:1.3;opacity:.75}
-.rg-in{fill:none;stroke:var(--teal-lt);stroke-width:1.4;
-  filter:drop-shadow(0 0 5px var(--teal-lt))}
-
-/* The padding keeps the reading inside the glowing circle rather than inside
-   the ring: a long value scales itself down to fit instead of crossing it. */
-.clu-hub{position:absolute;inset:0;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:0;padding:0 28%}
-.clu-ic{width:26px;height:26px;flex:none;fill:none;stroke:var(--ink);
-  stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round;margin-bottom:10px}
-.clu-pv{display:flex;justify-content:center;width:100%;min-width:0}
-.clu-hub .clu-k{margin-top:12px;font-size:12px;letter-spacing:.2em;text-align:center}
-
-.clu-l.silent,.clu-r.silent,.clu-ring.silent{opacity:.42}
-
-@media (max-width:900px){
-  .clu{grid-template-columns:1fr minmax(180px,250px) 1fr;padding:22px 14px}
-  .s7-b{height:54px}
-  .s7-m{height:30px}
-  .clu-l,.clu-r{min-height:96px}
-  .clu-l{padding-right:18px}
-  .clu-r{padding-left:18px}
-}
-/* Below this the three zones stop being a row: the ring would be the width of a
-   thumbnail and the digits would be unreadable, which defeats the point of
-   drawing them large. */
 @media (max-width:620px){
-  .clu{grid-template-columns:1fr;justify-items:center;padding:8px 14px 18px}
-  .clu-l,.clu-r{width:100%;min-height:0;justify-content:center;
-    border-top:0;border-bottom:1px solid var(--rule);padding:14px 0}
-  /* Stacked, the ring leads: it is the reading the screen is built around, and
-     putting the speed above it made the page open on a subtitle. */
-  .clu-c{order:-2}
-  .clu-r{order:-1;border-bottom:0;border-top:0;padding:4px 0 10px}
-  .clu-rb{align-items:center}
-  .clu-u{align-self:center}
-  .clu-c{width:min(280px,82vw);margin:4px 0 2px}
-  .clu-lb{text-align:center}
-  .clu-dv{justify-content:center}
-  .clu-x{align-items:center}
-  .s7-b{height:62px}
+  .clu{grid-template-columns:1fr;grid-template-areas:"c" "l" "r";
+    padding:12px 12px 14px;gap:11px}
+  .vgrid{padding:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .tl-v b{font-size:23px}
+  .tl-v .s7{height:27px}
+  .tl.big .tl-d{max-width:270px}
+  .tl.big .tl-hub .s7{height:52px}
 }
 
 /* ---- identifier filter ---------------------------------------------------
