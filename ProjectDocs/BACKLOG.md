@@ -255,6 +255,78 @@ Sesudahnya: 0 berkas di flash, penomoran segmen kembali ke `can-000`, dan
 **delapan catatan identifier tetap utuh**, karena catatan memang disimpan
 terpisah dari rekaman.
 
+### B-25. Dua dashboard sekaligus di ESP32, lokal dulu · **Menunggu keputusan**
+
+**Instruksi Direktur BMT, 28 September 2026:** ESP32 menampilkan dua dashboard sekaligus
+dan secara lokal dulu, yaitu (1) dashboard TDS SELARIDE yang baru dibuat, dan (2) dashboard
+berisi semua data yang berhasil dipetakan pada pengujian DFSK Gelora E. Setelah itu berhasil,
+baru ESP32 dicoba mengirim data ke server BMT.
+
+Semua angka di bawah ini diukur di repo ini, bukan diperkirakan.
+
+#### Ruang yang tersedia: cukup, dan bukan penghalang
+
+| | Ukuran | Terpakai | Sisa |
+|---|---|---|---|
+| Partisi `app0` | 2.048 KB | ~800 KB firmware | **~1.200 KB** |
+| LittleFS (`spiffs`) | 14.272 KB | rekaman CAN | belasan MB |
+
+Halaman dashboard yang ada sekarang di-gzip ke flash saat build (`web/dist/index.html`,
+77 KB mentah). Aset SELARIDE: teks (HTML, CSS, JS, font 31 KB) yang gzip-nya kecil, plus
+**tiga gambar 136 KB** (foto mobil 70 KB, foto pengemudi 23 KB, logo 44 KB) yang tidak bisa
+digzip lagi. Gambar-gambar itu masuk **LittleFS**, bukan partisi aplikasi: 136 KB dari
+belasan MB, dan tidak menyentuh sisa ruang firmware sama sekali.
+
+#### Yang belum ada, dan ini inti pekerjaannya
+
+**Firmware ini belum punya decoder sinyal.** Ia perekam: menampilkan ID, frame mentah,
+catatan per ID, GNSS, suhu. Kata "speed" di `src/` itu kecepatan GPS dari NMEA, bukan
+kecepatan dari CAN. Jadi dua dashboard yang diminta sama-sama menunggu satu komponen baru
+yang sama.
+
+Urutan kerjanya, dan hanya yang pertama yang benar-benar baru:
+
+1. **Decoder sinyal.** Tabel delapan pemetaan DFSK yang sudah terbukti (kecepatan,
+   odometer, SOC, arus, tegangan pack, dua suhu baterai, putaran motor), sumbernya
+   `docs/evidence/dfsk-gelora-e/gelora-004.md` dan `notes.tsv`. Menempel di jalur terima
+   yang sudah ada, menyimpan nilai terakhir per sinyal, dan menyajikannya di `/api/signals`.
+   Tidak menyentuh jalur kirim: alat ini tetap listen-only, dan aturan itu tidak dinegosiasikan.
+2. **Dashboard 2, data terpetakan.** Sebagian besar sudah ada; yang ditambahkan panel nilai
+   ter-decode di halaman yang sekarang. Murah begitu langkah 1 jadi.
+3. **Dashboard 1, TDS SELARIDE.** Pindahkan `mdt-ui/` dari repo `project-mdt-tds`, ganti
+   `mock.js` dengan umpan dari `/api/signals`. Aset teks ke flash, gambar ke LittleFS.
+4. **Dua-duanya sekaligus.** Dua rute di server web yang sama: satu alat, dua alamat, bisa
+   dibuka berbarengan dari dua tab atau dua ponsel.
+
+#### Tiga keputusan yang menghalangi, dan semuanya milik Direktur
+
+1. **Argo lokal butuh tombol mulai dan akhiri.** Tarif hanya menagih kilometer isi (D-011 di
+   `project-mdt-tds`), dan alat ini tidak tahu ada penumpang atau tidak. Untuk demo lokal,
+   satu tombol "Mulai argo / Akhiri" di halaman ESP32 membuat tarifnya nyata. Tanpa itu,
+   tarifnya tetap data tiruan dan dashboard TDS-nya cuma tampilan.
+
+   Kabar baiknya: begitu argo bisa dimulai, jarak isinya diambil dari **selisih odometer**
+   yang sudah terbukti, bukan dari integral kecepatan. Itu lebih teliti daripada yang
+   dipakai rangka MDT sekarang.
+2. **Angka yang tampil adalah angka DFSK Gelora E, kendaraan uji.** Armada memakai Wuling
+   dan belum pernah dipetakan. Konfirmasi bahwa demo lokal ini memang di kendaraan uji, dan
+   bahwa tidak ada satu pun identifier di sini yang boleh disalin ke profil armada.
+3. **"Sekaligus" itu dua alamat di satu alat, atau dua layar fisik?** Yang pertama sudah
+   tercakup rencana ini. Yang kedua pekerjaan perangkat keras yang berbeda.
+
+#### Yang perlu diukur setelah jadi, bukan diasumsikan
+
+Status "Overworked" sebelumnya disebabkan perekaman yang menyala lagi sesudah boot, bukan
+oleh halaman web. Tetap harus diukur ulang setelah dua dashboard hidup: `rx_overrun`,
+`rx_missed`, dan beban CPU saat dua klien menarik `/api/state` dan `/api/signals` bersamaan.
+Kalau naik, yang diturunkan dulu adalah laju polling, bukan isi layarnya.
+
+#### Setelah ini baru kirim ke server
+
+Kirim ke server BMT adalah fase berikutnya dan sudah punya tempatnya: arsitektur dua aliran
+(D-008) dan pemilihan transport (T-13 di `project-mdt-tds`). Urutan yang diminta Direktur,
+lokal dulu baru kirim, memang urutan yang benar: tanpa decoder, tidak ada yang layak dikirim.
+
 ### B-22. Pastikan token GitHub yang bocor sudah dicabut · **Siap**
 
 Token milik akun `wira97-tech` tercetak ke keluaran terminal pada 22 Sep 2026.
