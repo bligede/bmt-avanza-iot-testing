@@ -19,6 +19,34 @@ Keduanya dari satu alat, dan boleh dibuka bersamaan dari dua gawai.
 Endpoint baru: `GET /api/signals` (nilai ter-decode plus keadaan argo) dan
 `POST /api/argo?action=start|stop`.
 
+## Melihat kedua layar tanpa alat
+
+Alat sering ada di mobil, sedangkan layarnya perlu dilihat di meja. `tools/fake_device.py`
+adalah alat tiruan: satu berkas Python yang melayani kedua halaman dan semua endpoint
+yang mereka minta, dengan satu kendaraan tiruan yang menyetir keduanya.
+
+```
+python tools/fake_device.py 8131 --lan
+```
+
+Tanpa `--lan` hanya bisa dibuka dari komputer ini. Dengan `--lan`, dua gawai di WiFi
+yang sama bisa membuka dua alamat itu, persis susunan yang dipakai di jalan besok.
+
+Kendaraan tiruannya menjalani satu rute pendek yang berulang: berangkat, jalan lepas,
+macet, merayap di bawah ambang tunggu, lalu berhenti. Merayapnya sengaja ada, karena
+"di bawah 5 km/jam tapi masih bergerak" adalah kasus yang tidak akan pernah muncul di
+rute yang cuma berhenti mati.
+
+Nilainya **dikodekan kembali menjadi byte CAN** seperti Gelora E mengirimnya, jadi panel
+Vehicle di dashboard teknis benar-benar menjalankan rumus `{le16(4)/256}` dari
+`notes.tsv`, bukan menerima angka jadi. Kalau rumus di catatan dan tabel di
+`src/SignalDecoder.cpp` berbeda, pratinjau ini yang memperlihatkannya lebih dulu.
+
+**Yang tidak bisa dijawab pratinjau ini:** beban CPU alat, `rx_overrun` saat dua gawai
+membuka dua halaman sekaligus, dan bagaimana ponsel berlaku di kendaraan yang bergerak.
+Itu semua hanya bisa diukur di jalan. Pratinjau ini menjawab "layarnya jalan dan
+hitungannya benar", tidak lebih.
+
 ## Sebelum berangkat
 
 1. **Pasang catatan identifier.** Panel Vehicle di dashboard teknis menghitung
