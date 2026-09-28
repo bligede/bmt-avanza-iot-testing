@@ -65,91 +65,78 @@ Tidak ada satu pun identifier yang ditulis di dalam kode halaman, jadi memetakan
 sinyal baru cukup dengan menamainya di tabel dan menandainya. Panel itu ikut
 muncul sendiri.
 
-### Susunan panel
+### Cluster
 
-Susunannya mengikuti gambar acuan dari Direktur (28 September 2026): kecepatan
-pada dial besar di tengah, odometer dan motor di kiri, bacaan baterai bertumpuk
-di kanan.
+Susunannya mengikuti gambar acuan dari Direktur (28 September 2026): cincin daya
+besar di tengah, odometer di kiri, kecepatan besar di kanan, dan dua garis tipis
+melintang selebar halaman yang ditembus cincin itu.
 
-**Yang menentukan sebuah bacaan masuk zona mana adalah satuannya, bukan
+**Yang menentukan sebuah sinyal masuk zona mana adalah satuannya, bukan
 identifier-nya.** Halaman tetap tidak memuat apa pun yang khusus satu kendaraan:
 
-| Satuan | Tempatnya |
+| Satuan | Zona |
 |---|---|
-| `km/jam`, `km/h`, `mph`, `m/s` | dial besar di tengah |
-| `rpm` | dial kecil di kiri |
-| `km`, `m`, `mi` | angka di kiri, di atas dial motor |
-| `%` | bar 0-100 di puncak tumpukan kanan |
-| lainnya | kartu di tumpukan kanan, dengan jejak 40 detik di bawahnya |
+| `%` | cincin di tengah, plus angka besar dan nama sinyalnya di bawahnya |
+| `km/jam`, `km/h`, `mph`, `m/s` | angka besar di kanan |
+| `km`, `m`, `mi` | blok kiri; kalau ada lebih dari satu, sisanya jadi baris A dan B |
+| lainnya | tetap jadi kartu seperti sebelumnya, di bawah cluster |
 
-Tanpa kecepatan **dan** tanpa persen tidak ada yang bisa dijadikan dial, jadi
-panelnya kembali jadi sebaris kartu biasa. Kendaraan yang belum dipetakan tidak
-pernah melihat dial kosong.
+Cluster hanya muncul kalau ada persen **atau** kecepatan. Tanpa keduanya
+gambarnya cuma dua garis mengelilingi ruang kosong, jadi panelnya kembali ke
+kisi kartu biasa. Kendaraan yang belum dipetakan tidak pernah melihat cluster.
 
-### Satu catatan bisa memuat beberapa bacaan
-
-Alat menyimpan **satu catatan per identifier**, sedangkan identifier pack
-mengirim tegangan, arus dan suhu sekaligus. Jadi ketiganya datang tertulis
-sebagai satu kalimat:
-
-```
-#tds Pack {le16(2)} V arus {le16(4)-1000} A suhu {b6-40} C
-```
-
-Setiap rumus di kalimat itu jadi satu bacaan dengan kartunya sendiri. Kata-kata
-sebelum rumus pertama menamainya; **teks di antara dua rumus dimiliki keduanya**,
-kata pertamanya adalah satuan yang menutup bacaan sebelumnya dan sisanya menamai
-bacaan sesudahnya. Jadi catatan di atas menghasilkan Pack 346 V, arus 24 A, dan
-suhu 31 C, masing-masing jadi kartu.
-
-Itu sebabnya spasi di catatan berarti. `{le16(2)}V arus` membuat satuannya
-terbaca `V` dan nama berikutnya `arus`, sama saja, tetapi `{le16(2)} Volt pack`
-akan membuat satuan `Volt` dan nama berikutnya `pack`. Tulis satuan sebagai satu
-kata.
-
-### Skala dial
-
-Tidak ada kendaraan di sini yang batas maksimumnya sudah terbukti, jadi dial
-**tidak pernah diberi tahu** skalanya. Ia memakai bacaan tertinggi sepanjang
-sesi, dibulatkan ke atas dengan kelonggaran 15 persen, lalu **mencetak angka
-ujungnya sendiri** di dial. Skalanya hanya membesar, tidak pernah mengecil
-kembali: jarum yang berarti satu hal sekarang dan hal lain semenit kemudian
-lebih buruk daripada jarum yang kemurahan.
-
-Pengecualian satu-satunya adalah `%`, yang rentangnya dinyatakan oleh satuannya
-sendiri, jadi bar-nya tetap 0 sampai 100.
-
-**Tidak ada angka yang diwarnai karena nilainya.** Biru untuk kecepatan dan
-jingga untuk motor adalah warna skala, diambil dari gambar acuan, dan tetap
-tinggal di skala. Di sebuah instrumen, angka merah berarti alarm, dan alat ini
-tidak punya ambang untuk membunyikannya.
-
-### Angka yang digambar
-
-Angka besar **digambar, bukan diketik dengan font**. Font tujuh segmen berarti
-satu berkas lagi di flash pada alat yang menyajikan halamannya dari flash,
-sedangkan seluruh isinya tabel bar mana yang menyala plus dua heksagon. Angka
-`1` dapat sel lebih sempit, seperti pada setiap cluster digital, supaya `30461`
+Angkanya **digambar, bukan diketik dengan font**. Font tujuh segmen berarti satu
+berkas lagi di flash pada alat yang menyajikan halamannya dari flash, sedangkan
+seluruh isinya cuma tabel bar mana yang menyala plus dua heksagon. Angka `1`
+dapat sel yang lebih sempit, seperti pada setiap cluster digital, supaya `30461`
 tidak terbaca `3046 1`.
 
-Dial membulatkan lebih keras daripada kartu: paling banyak satu desimal, dan
-tanpa desimal di atas 100. Tiga desimal adalah inti persoalan pada tegangan sel
-dan kebisingan pada spidometer.
+Busur teal di lingkaran luar adalah ornamen, dibawa dari gambar acuan karena
+itulah gambar yang disetujui. Ia tidak bergerak dan tidak berarti apa-apa, dan
+warnanya tidak dipakai di tempat lain: seluruh bagian halaman yang membawa makna
+tetap hijau di atas arang.
 
-### Jejak 40 detik
+### Kartu
 
-Setiap kartu biasa membawa empat puluh detik terakhir dari angkanya. Di atas bus
-pertanyaannya hampir tidak pernah "berapa angkanya" melainkan apakah ia bergerak,
-ke arah mana, dan melompat atau merayap. Riwayatnya disimpan di halaman, bukan di
-alat.
+Sinyal yang tidak diambil cluster tetap jadi kartu: nama dan ikon kecil di atas,
+angkanya besar di bawahnya, lalu empat puluh detik terakhir dari angka itu
+sebagai grafik.
 
-Jejak menolak memperbesar skala melewati dua persen dari angka yang dibaca,
-supaya tegangan yang membulat dari 350,0 ke 350,1 tidak menggambar pegunungan.
-Sinyal yang memang datar digambar tanpa isian.
+Grafik itu ada karena di atas bus pertanyaannya hampir tidak pernah "berapa
+angkanya". Teknisi sudah tahu kira-kira berapa tegangan pack. Yang ditanyakan
+adalah apakah angkanya bergerak, ke arah mana, dan apakah ia melompat atau
+merayap. Sederet digit tidak menjawab itu, dan jawabannya sudah hilang sebelum
+polling berikutnya. Riwayatnya disimpan di halaman, bukan di alat, jadi alatnya
+tidak menanggung apa pun.
 
-Identifier yang berhenti bicara lebih dari dua detik membuat kartunya meredup dan
-memunculkan kata `SILENT`. Angka terakhir tetap terbaca, karena itu informasi;
-yang tidak boleh adalah angka itu terlihat seolah baru.
+**Apa yang boleh diandaikan sebuah kartu, dan kenapa hampir tidak ada:**
+
+| Bagian | Dasarnya |
+|---|---|
+| Ikon | diambil dari **satuan**, tidak pernah dari nama. "Motor", "Kecepatan" dan "SOC" adalah teks bebas yang diketik seseorang; `rpm`, `km/jam` dan `%` berarti sama di setiap kendaraan. Satuan yang tidak dikenali dapat ikon netral, bukan ikon yang salah |
+| Skala grafik | menyesuaikan diri terhadap apa yang sudah terlihat, karena tidak ada rentang yang diketahui dan mengarangnya berarti mengaku tahu sesuatu tentang kendaraan itu. Karena skalanya nisbi, grafiknya sengaja tidak bersumbu |
+| Bar 0-100 | hanya untuk satuan `%`, karena satuan itu sendiri yang menyatakan rentangnya. Tidak ada angka rendah yang diwarnai kuning: ambang adalah keputusan tentang kendaraan, dan alat ini tidak berhak mengambilnya |
+| Kartu teks | catatan dengan **dua rumus atau lebih** adalah kalimat, bukan besaran, jadi tidak digrafikkan. Ia diset lebih kecil supaya berhenti terpotong |
+
+Grafik menolak memperbesar skalanya melewati dua persen dari angka yang dibaca.
+Tanpa batas itu, tegangan pack yang diam di 350,0 dan membulat ke 350,1 akan
+menggambar pegunungan, dan sinyal paling datar di bus jadi hal paling dramatis
+di layar. Sinyal yang memang datar digambar datar dan **tanpa isian**, karena
+mengisi bawah garisnya membuat pencacah yang bergerak satu langkah dalam empat
+puluh detik jadi blok paling keras di panel.
+
+Identifier yang berhenti bicara lebih dari dua detik membuat kartunya meredup
+dan memunculkan kata `SILENT`. Angkanya tetap terbaca, karena angka terakhir
+yang sempat diterima adalah informasi; yang tidak boleh adalah angka itu terlihat
+seolah baru.
+
+Catatan bertanda tetapi tanpa rumus tetap lolos penyaring dan tampil di tabel,
+hanya tidak jadi kartu, karena tidak ada angka yang bisa ditampilkan.
+
+Kartu membulatkan angka lebih agresif daripada tabel: nilai di bawah 10 tetap
+tiga desimal, karena 3,979 V adalah tegangan sel yang justru desimal ketiganya
+yang penting; nilai di atasnya cukup satu desimal, karena 47,016 km/jam hanya
+kebisingan di sekitar 47.
 
 ## Memasang catatan sekali jalan
 

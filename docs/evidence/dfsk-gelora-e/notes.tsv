@@ -14,7 +14,7 @@
 0x18FFDC01	#tds Kecepatan {le16(4)/256} km/jam
 0x18FEDCD5	#tds Odometer {le16(1)} km
 0x0CFF7D03	#tds SOC {b1*0.5} %
-0x0CFF7E03	#tds Pack {le16(2)} V arus {le16(4)-1000} A suhu {b6-40} C
+0x0CFF7E03	#tds Pack {le16(2)}V arus {le16(4)-1000}A t{b6-40}C
 0x0CFF7902	#tds Motor {le16(4)-12000} rpm
 
 # ---- terbukti, tidak dipakai TDS ---------------------------------------------

@@ -57,12 +57,6 @@ hitungannya benar", tidak lebih.
    python tools/apply_notes.py --host <ip alat> docs/evidence/dfsk-gelora-e/notes.tsv
    ```
 
-   **Catatan pack berubah 28 September** menjadi `Pack {le16(2)} V arus
-   {le16(4)-1000} A suhu {b6-40} C`. Rumusnya sama persis, hanya spasi dan nama
-   yang dirapikan supaya panel bisa memecahnya jadi tiga kartu. Alat yang masih
-   memegang catatan lama akan menampilkan ketiganya sebagai satu kalimat, bukan
-   salah, hanya tidak terpecah. Jadi langkah ini tetap harus dijalankan.
-
 2. **Buka kedua alamat, satu di tiap gawai.** Pastikan keduanya hidup sebelum
    kendaraan bergerak. Kalau salah satu tidak mau terbuka, periksa WiFi alat
    dulu, bukan halamannya.
