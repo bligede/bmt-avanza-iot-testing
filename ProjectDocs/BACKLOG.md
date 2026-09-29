@@ -1,6 +1,6 @@
 # BACKLOG: Alat Diagnostik CAN BMT
 
-**Last updated:** 28 Sep 2026 WITA
+**Last updated:** 29 Sep 2026 WITA
 
 Semua yang **belum bisa** atau **belum layak** dikerjakan sekarang, beserta apa
 yang membukanya. Satu tempat, supaya tidak ada yang hilang di sela catatan.
@@ -372,17 +372,35 @@ dan itu persis penyakit yang sudah pernah disembuhkan sekali di repo ini.
 **Batas yang sudah pasti:** kunci server milik gerbang pembayaran tidak pernah boleh ada
 di perangkat kendaraan.
 
-### B-27. Flash firmware dua dashboard ke alat · **Menunggu akses**
+### B-27. Flash firmware dua dashboard ke alat · **SELESAI 28 Sep 2026**
 
-Semuanya sudah dibangun dan lolos gate listen-only, tetapi belum pernah menyentuh alat.
-Alat ada di mobil dan port serialnya belum pernah terdeteksi di mesin ini.
+Di-flash lewat USB (COM6) memakai `pio run -t upload`, bukan `uploadfs`. Partisi
+LittleFS tidak disentuh. Hash `firmware.bin` terverifikasi saat upload, kedua
+halaman terbukti menjawab lewat WiFi. Rincian di D-010.
 
-Saat flashing, **jangan pernah mengunggah image LittleFS**. Partisi itu menyimpan rekaman
-CAN, dan mengunggah image filesystem akan menghapusnya. Yang di-flash hanya aplikasi.
+Catatan identifier **tidak perlu dipasang ulang**: delapan catatan bertahan di
+`/notes/GELORAE-TEST-01` melewati proses flash aplikasi, karena catatan tinggal
+di LittleFS dan flashing aplikasi tidak menyentuh partisi itu.
 
-Setelah flash, pasang ulang catatan identifier:
-`python tools/apply_notes.py --host <ip alat> docs/evidence/dfsk-gelora-e/notes.tsv`.
-Tanpa itu panel Vehicle kosong, karena rumusnya tinggal di alat, bukan di firmware.
+### B-28. Tarik 13,3 MB rekaman lama dari flash alat · **Siap**
+
+Ditemukan saat sesi flashing 28 September: 60 berkas di `/capture/`, sisa ruang
+hanya 421 KB dari 14.614.528 B total. Empat berkas terakhir (`can-055` sampai
+`can-058`) 0 byte, artinya sudah ada sesi perekaman yang gagal karena kehabisan
+tempat sebelum ditemukan.
+
+`clearcaptures` **belum dijalankan**. Rekaman yang belum dicadangkan tidak boleh
+dihapus atas inisiatif sendiri, dan repo ini punya aturan yang sama untuk bukti
+lama: raw evidence immutable (D-015, `bmt-can-bus-telemetry`).
+
+Alat sekarang di jaringan (D-010), jadi menariknya lewat `GET /api/captures` atau
+endpoint unduh serupa jauh lebih cepat daripada lewat serial. Setelah ditarik dan
+diverifikasi, `clearcaptures` baru boleh dijalankan.
+
+**Ini bukan penghalang untuk uji jalan hari ini** kalau perekaman dimatikan dulu
+(`capture off`), tetapi **menghalangi total** sesi pemetaan berikutnya begitu
+421 KB yang tersisa habis, karena perekaman menyala otomatis tiap boot dan akan
+langsung gagal menulis.
 
 ### B-22. Pastikan token GitHub yang bocor sudah dicabut · **Siap**
 

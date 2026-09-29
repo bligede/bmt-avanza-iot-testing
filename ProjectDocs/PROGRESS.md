@@ -1,6 +1,6 @@
 # PROGRESS: Alat Diagnostik CAN BMT
 
-**Last updated:** 28 Sep 2026 WITA
+**Last updated:** 29 Sep 2026 WITA
 
 Status yang dipakai: `Belum` · `Jalan` · `Selesai` · `Terhalang` · `Batal`
 
@@ -68,8 +68,10 @@ pengiriman ke server sesudahnya (D-008).
 | Layar SELARIDE di `/argo` | Selesai | 28 Sep 2026 | salinan `mdt-ui`, tombol trip dipencet manual |
 | Panel Vehicle: riwayat dan susunan cluster | Selesai | 28 Sep 2026 | D-009 |
 | Alat tiruan untuk pratinjau tanpa alat | Selesai | 28 Sep 2026 | `tools/fake_device.py` |
-| Flash firmware dua dashboard ke alat | **Terhalang** | - | alat ada di mobil, port serial belum terdeteksi |
-| Pasang ulang catatan identifier ke alat | **Belum** | - | `apply_notes.py`, wajib sebelum uji jalan |
-| Uji jalan dua dashboard, DFSK Gelora E | **Belum** | 29 Sep 2026 | `docs/PROSEDUR-TEST-2-DASHBOARD.md` |
+| Argometer bilangan bulat, tunggu stopwatch | Selesai | 28 Sep 2026 | D-010, mengikuti `project-mdt-tds` D-014 |
+| Flash firmware dua dashboard ke alat | Selesai | 28 Sep 2026 | D-010, `unit=GELORAE-TEST-01`, hash terverifikasi |
+| Pasang ulang catatan identifier ke alat | Tidak perlu | - | 8 catatan tetap tersimpan setelah flash |
+| Tarik 13,3 MB rekaman lama dari alat | **Belum** | - | B-28, flash tersisa 421 KB saat ditemukan |
+| Uji jalan dua dashboard, DFSK Gelora E | **Jalan** | 29 Sep 2026 | `docs/PROSEDUR-TEST-2-DASHBOARD.md` |
 | Kirim data ke server BMT | **Belum** | - | menunggu uji jalan di atas berhasil |
 

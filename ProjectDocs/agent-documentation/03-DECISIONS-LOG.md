@@ -320,3 +320,59 @@ Dikembalikan lewat `git revert` pada commit `9c8296e`, bukan dengan menghapus co
 karena riwayat yang sudah terdorong ke remote tidak ditulis ulang. Yang ikut kembali
 termasuk `notes.tsv`: catatan pack kembali ke bentuk semula, jadi **tidak ada catatan
 yang harus dipasang ulang** karena percobaan ini.
+
+---
+
+## D-010: Firmware dua dashboard flash ke alat, argometer bilangan bulat (28-29 Sep 2026 WITA, sesi Claude Code)
+
+**Source:** operator BMT lewat sesi Claude Code, sesi flashing langsung sebelum uji jalan 29 September
+
+> "siap-siap sebentar lagi akan saya flash firmware yang baru ke alat, nanti akan coba melakukan test jalan lagi"
+
+**Konteks:** Firmware dua dashboard (D-008) dan susunan cluster panel Vehicle (D-009)
+sudah dibangun dan lolos gate sejak 28 September, tetapi belum pernah menyentuh alat.
+Sore harinya operator juga meminta empat perbaikan di layar argo setelah membukanya di
+tablet sepuluh inci: format bilangan bulat untuk argometer dan jarak, stopwatch untuk
+waktu tunggu, tarif tunggu Rp 1.000 per 60 detik, dan tata letak yang utuh di layar
+potret lebar. Keputusan tarifnya sendiri (kenapa bilangan bulat, kenapa Rp 1.000) ada
+di `project-mdt-tds` D-014 dan D-015; catatan ini hanya sisi firmware dan flash.
+
+**Decision:**
+
+1. `ArgoMeter` mengikuti keputusan `mdt-ui`: `KM_STEP` naik dari 0,1 menjadi 1,0, dan
+   `MIN_STEP` untuk waktu tunggu **dihapus**: waktu tunggu tidak lagi ditik, dikirim
+   mentah dalam milidetik (`wait_ms`, mengganti `wait_min`) supaya halaman bisa
+   menjalankannya sebagai stopwatch dan menagihnya dari angka yang sama yang dipajang.
+2. `tools/fake_device.py` diikutkan mengirim bentuk JSON yang sama, karena alat tiruan
+   yang mengirim bentuk lama adalah alat tiruan yang menguji halaman yang salah.
+3. Firmware di-build untuk `gelora-e-250k`, lolos `check_listen_only.sh`, dan **di-flash
+   ke alat sungguhan** via USB (COM6) menggunakan `pio run -t upload`. Bukan
+   `uploadfs`. Partisi LittleFS tidak disentuh, karena berisi rekaman CAN.
+
+**Temuan operasional selama sesi ini, dicatat karena tidak jelas dari kode:**
+
+- **Alat memegang 13,3 MB rekaman (60 berkas) yang belum pernah ditarik**, sisa flash
+  saat ditemukan hanya 421 KB. Empat berkas terakhir 0 byte: sudah ada sesi perekaman
+  yang gagal karena kehabisan tempat. `clearcaptures` **tidak dijalankan**; menghapus
+  rekaman yang belum dicadangkan bukan keputusan yang boleh diambil otomatis. Lihat
+  B-28 di `../BACKLOG.md`.
+- **Perekaman menyala otomatis setiap kali alat boot.** Dimatikan manual dua kali
+  lewat konsol serial selama sesi ini (`capture off`), dan akan menyala lagi begitu
+  alat direstart. Ini perilaku lama, bukan regresi, tetapi belum pernah tertulis
+  sebagai sesuatu yang perlu diingat operator.
+- **Alat tidak punya IP tetap dan hanya mengenal satu SSID**, dikompilasi ke
+  `src/Secrets.h` (`WiFi.begin(WIFI_SSID, WIFI_PASS)`, tanpa daftar cadangan). Saat
+  hotspot berganti nama atau alat reboot, IP lama berhenti menjawab tanpa peringatan.
+  Cara paling pasti mendapat IP baru: colok USB, ketik `wifi` di konsol.
+- **Membuka port serial dengan DTR/RTS default me-reset ESP32.** `pio device monitor`
+  dan pembacaan naif lewat `pyserial` keduanya memicu reboot, yang di tengah sesi
+  flashing berarti kehilangan koneksi WiFi yang baru saja terbentuk. Skrip yang benar
+  membuka port dengan `dtr=False, rts=False` sebelum `open()`.
+
+**Implementasi:** commit `7ec6b09` di repo ini, `d3bfecb` di `project-mdt-tds`. Hash
+`firmware.bin` setelah flash: `fa6d3ec348e56e3e...` (28 byte pertama, lengkap di log
+sesi). Flash 1.067.753 B, 50,9 %. `unit=GELORAE-TEST-01`.
+
+**Yang membatalkan atau mengubahnya:** hasil uji jalan 29 September. Kalau dua
+dashboard yang hidup bersamaan membuat `rx_overrun` naik, D-008 perlu direvisi
+sebelum firmware ini dianggap siap untuk armada.

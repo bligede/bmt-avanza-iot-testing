@@ -3,6 +3,24 @@
 Riwayat versi dokumen dan temuan. Terbaru di atas. Riwayat perubahan **kode** ada di
 `git log`, dan tidak diduplikasi di sini.
 
+## 2026-09-28/29: Firmware di-flash ke alat, argometer bilangan bulat
+
+- **Argometer bilangan bulat, waktu tunggu jadi stopwatch.** `ArgoMeter` kini
+  menagih jarak satu kilometer penuh sekaligus dan mengirim waktu tunggu mentah
+  dalam milidetik (`wait_ms`, mengganti `wait_min`), supaya layar menjalankannya
+  sebagai stopwatch dan menagihnya dari angka yang sama yang dipajang. Keputusan
+  tarifnya ada di `project-mdt-tds` D-014.
+- `tools/fake_device.py` mengikuti bentuk JSON baru.
+- **Firmware dua dashboard di-flash ke alat sungguhan** untuk pertama kali
+  (D-010). `unit=GELORAE-TEST-01`, hash terverifikasi, kedua halaman terbukti
+  menjawab lewat WiFi.
+- Tiga temuan operasional dicatat di D-010: 13,3 MB rekaman lama belum ditarik
+  dari alat, perekaman menyala otomatis tiap boot, dan membuka port serial
+  dengan cara naif memicu reset ESP32.
+- Prosedur uji: `python tools/apply_notes.py --host <ip alat> ...` dijalankan
+  ulang tidak diperlukan kali ini karena catatan identifier tidak berubah sejak
+  sebelumnya, sudah 8 catatan tetap tersimpan di alat setelah flash.
+
 ## 2026-09-28: Dua dashboard di alat, alat tiruan, dan panel Vehicle dirombak
 
 - **Decoder sinyal di firmware.** `src/SignalDecoder.cpp` memuat delapan pemetaan

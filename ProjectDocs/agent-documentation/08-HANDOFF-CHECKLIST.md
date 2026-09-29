@@ -2,37 +2,33 @@
 
 ## Langkah berikutnya, terurut
 
-### 1. Flash firmware yang sudah dibangun tapi belum masuk alat
+### 1. Uji jalan dua dashboard, DFSK Gelora E · SEDANG BERLANGSUNG 29 September
 
-Sejak 28 September yang menunggu di antrean flash bukan lagi satu commit melainkan
-seluruh pekerjaan dua dashboard: decoder sinyal, argometer, layar `/argo`, dan susunan
-baru panel Vehicle (D-008, D-009). Semuanya lolos gate listen-only dan sudah terbukti
-lawan `tools/fake_device.py`, tetapi **belum pernah menyentuh alat**. Alat ada di mobil
-dan port serialnya belum pernah terdeteksi di mesin ini.
+Firmware sudah **di alat**, di-flash 28 September (D-010, commit `7ec6b09`),
+sudah menjawab kedua halaman lewat WiFi dari meja, dan sekarang menunggu bus
+sungguhan. Prosedurnya: `docs/PROSEDUR-TEST-2-DASHBOARD.md`.
 
-Saat flashing, **jangan pernah mengunggah image LittleFS**. Partisi itu menyimpan
-rekaman CAN dan image filesystem akan menghapusnya. Yang di-flash hanya aplikasi.
+Yang belum terbukti sama sekali dan hanya bisa diukur di jalan: beban CPU alat,
+`rx_overrun` saat dua gawai membuka dua halaman serentak, dan bagaimana ponsel
+berlaku di kendaraan bergerak.
 
-Yang di bawah ini berlaku sejak sebelumnya dan masih berlaku. Commit `64cba89` sudah
-lolos gate listen-only dan sudah di-build, tetapi belum pernah masuk perangkat. Sampai itu dilakukan, alat masih membawa firmware yang memutus
-sambungan setiap kali lwIP kehabisan buffer, dan itu yang membuat satu sesi lapangan
-kehilangan sekitar 40 % bus.
+**Sebelum berangkat, dan ini penting kalau alat sempat reboot:**
 
-```
-sh tools/check_listen_only.sh
-pio run -e gelora-e-250k -t upload
-```
+- **Perekaman menyala otomatis tiap boot.** Kalau alat pernah dimatikan lalu
+  dihidupkan lagi sejak sesi flashing terakhir, cek `capture status` di konsol
+  atau dashboard teknis. Flash tersisa hanya 421 KB (B-28), sehingga sesi
+  perekaman baru bisa gagal menulis dalam hitungan menit.
+- **IP alat tidak tetap.** Kalau alamat lama berhenti menjawab, colok USB dan
+  ketik `wifi` di konsol untuk membaca yang baru. Jangan buka port dengan
+  `pyserial` default; DTR/RTS bawaannya me-reset ESP32 di tengah sesi.
+- Catatan identifier **tidak perlu dipasang ulang**. Delapan catatan bertahan
+  di `/notes/GELORAE-TEST-01` melewati flash aplikasi, karena catatan tinggal
+  di LittleFS dan flashing aplikasi tidak menyentuh partisi itu.
 
-Build yang sama juga membawa penyaring identifier tiga mode dan panel Vehicle
-(D-006). Keduanya tidak berguna sampai identifiernya punya nama, jadi begitu
-alat menyala di jaringan, pasang nama itu sekali jalan:
+**Setelah uji jalan, sebelum sesi berikutnya:**
 
-```
-python tools/apply_notes.py --host <ip alat> docs/evidence/dfsk-gelora-e/notes.tsv
-```
-
-Delapan identifier, lima di antaranya bertanda `#tds`. Periksa dulu dengan
-`--dry-run` kalau berkasnya baru disunting.
+Tarik 13,3 MB rekaman lama dari alat (B-28) sebelum ruang yang tersisa habis.
+`clearcaptures` tidak boleh dijalankan sebelum itu.
 
 ### 2. Salin rekaman uji jalan ke luar laptop
 
@@ -106,6 +102,7 @@ difabrikasi, jadi ini bisa masuk sebelum papan pertama dibuat.
 | **Alamat dan protokol server BMT, dan siapa yang memegang kredensialnya?** | Direktur BMT | B-26, langkah berikutnya yang Direktur tetapkan setelah dua dashboard terbukti |
 | **Apa yang terjadi saat jaringan putus di tengah jalan, dan bolehkah pengiriman menunda tugas pembaca CAN?** | operator BMT | B-26. Ini bukan pertanyaan gaya: pembaca CAN yang tertunda adalah frame yang hilang, penyakit yang sudah pernah disembuhkan sekali di repo ini |
 | Tombol `Isi daya` di layar argo seharusnya melakukan apa? | operator BMT | tombolnya ada di layar tetapi mati; layar yang tombolnya tidak berbuat apa-apa mengajari orang bahwa tombol boleh diabaikan |
+| Perjalanan di bawah satu kilometer sengaja tidak menagih jarak, atau itu efek samping yang perlu diperbaiki? | Direktur / Direktur Utama | konsekuensi langsung dari D-010 (`project-mdt-tds` D-014); keputusan pendapatan, belum ada yang menyatakannya disengaja |
 | Apakah alat ini perlu mendukung permintaan diagnostik, bukan hanya mendengar siaran? | operator BMT | nilai seperti resistansi isolasi tidak akan pernah terlihat tanpa itu, dan itu berarti **mengirim**, yang bertabrakan langsung dengan D-001 repo ini |
 
 Pertanyaan terakhir perlu dibaca hati-hati. Menambah permintaan diagnostik berarti
